@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:14
+    restart: always
+    container_name: postgres_db
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: fds
+    ports:
+      - "5432:5432"
+    volumes:
+      - docker_db_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_container
+    restart: always
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - docker_pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  docker_db_data:
+  docker_pgadmin_data:
+

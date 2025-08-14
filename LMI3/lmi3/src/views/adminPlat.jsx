@@ -45,6 +45,7 @@ import {
   Close as CloseIcon,
   Fastfood as FastfoodIcon,
 } from "@mui/icons-material"
+import config from '../config.js';
 
 // Create dark theme with black/orange design
 const darkTheme = createTheme({
@@ -222,7 +223,7 @@ export default function AdminPlat() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Avatar
             variant="rounded"
-            src={params.value && `http://localhost:3001${params.value}`}
+            src={params.value && `${config.API_URL}${params.value}`}
             alt={params.row.name}
             sx={{
               width: 40,
@@ -418,7 +419,7 @@ export default function AdminPlat() {
   // Fetch plats
   const fetchPlats = async () => {
     try {
-      const response = await fetch("http://localhost:3001/plats")
+      const response = await fetch(`${config.API_URL}/plats`)
       if (response.ok) {
         const data = await response.json()
         setPlats(data)
@@ -434,7 +435,7 @@ export default function AdminPlat() {
   // Fetch tags
   const fetchTags = async () => {
     try {
-      const response = await fetch("http://localhost:3001/tags")
+      const response = await fetch(`${config.API_URL}/tags`)
       if (response.ok) {
         const data = await response.json()
         setTags(data)
@@ -450,7 +451,7 @@ export default function AdminPlat() {
   // Fetch ingredients
   const fetchIngredients = async () => {
     try {
-      const response = await fetch("http://localhost:3001/ingredients")
+      const response = await fetch(`${config.API_URL}/ingredients`)
       if (response.ok) {
         const data = await response.json()
         setIngredients(data)
@@ -557,7 +558,7 @@ export default function AdminPlat() {
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3001/plats/${id}`, {
+      const response = await fetch(`${config.API_URL}/plats/${id}`, {
         method: "DELETE",
       })
       if (response.ok) {
@@ -592,7 +593,7 @@ export default function AdminPlat() {
       formData.append("versions", JSON.stringify(plat.versions || []))
       formData.append("keepExistingImage", "true")
 
-      const response = await fetch(`http://localhost:3001/plats/${id}`, {
+      const response = await fetch(`${config.API_URL}/plats/${id}`, {
         method: "PUT",
         body: formData,
       })
@@ -639,7 +640,7 @@ export default function AdminPlat() {
         formData.append("image", newPlat.image)
       }
 
-      const url = editingPlat ? `http://localhost:3001/plats/${editingPlat.id}` : "http://localhost:3001/plats"
+      const url = editingPlat ? `${config.API_URL}/plats/${editingPlat.id}` : `${config.API_URL}/plats`
       const method = editingPlat ? "PUT" : "POST"
 
       const response = await fetch(url, {
@@ -675,13 +676,13 @@ export default function AdminPlat() {
   const updatePlatIngredients = async (platId, selectedIngredients) => {
     try {
       // Get current ingredients for this plat
-      const currentIngredientsResponse = await fetch(`http://localhost:3001/plats/${platId}/ingredients`)
+      const currentIngredientsResponse = await fetch(`${config.API_URL}/plats/${platId}/ingredients`)
       const currentIngredients = currentIngredientsResponse.ok ? await currentIngredientsResponse.json() : []
       
       // Remove ingredients that are no longer selected
       for (const currentIngredient of currentIngredients) {
         if (!selectedIngredients.some(si => si.ingredientId === currentIngredient.ingredientId)) {
-          await fetch(`http://localhost:3001/plats/${platId}/ingredients/${currentIngredient.ingredientId}`, {
+          await fetch(`${config.API_URL}/plats/${platId}/ingredients/${currentIngredient.ingredientId}`, {
             method: 'DELETE'
           })
         }
@@ -691,7 +692,7 @@ export default function AdminPlat() {
       for (const selectedIngredient of selectedIngredients) {
         const exists = currentIngredients.some(ci => ci.ingredientId === selectedIngredient.ingredientId)
         if (!exists) {
-          await fetch(`http://localhost:3001/plats/${platId}/ingredients`, {
+          await fetch(`${config.API_URL}/plats/${platId}/ingredients`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -704,7 +705,7 @@ export default function AdminPlat() {
           })
         } else {
           // Update existing ingredient properties
-          await fetch(`http://localhost:3001/plats/${platId}/ingredients/${selectedIngredient.ingredientId}`, {
+          await fetch(`${config.API_URL}/plats/${platId}/ingredients/${selectedIngredient.ingredientId}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json'
@@ -730,7 +731,7 @@ export default function AdminPlat() {
     }
 
     try {
-      const response = await fetch("http://localhost:3001/ingredients", {
+      const response = await fetch(`${config.API_URL}/ingredients`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -759,7 +760,7 @@ export default function AdminPlat() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/ingredients/${ingredientId}`, {
+      const response = await fetch(`${config.API_URL}/ingredients/${ingredientId}`, {
         method: "DELETE"
       })
 
@@ -797,7 +798,7 @@ export default function AdminPlat() {
         speciality: plat.speciality,
         IncludesSauce: plat.IncludesSauce,
         saucePrice: plat.saucePrice,
-        image: plat.image ? `http://localhost:3001${plat.image}` : null,
+        image: plat.image ? `${config.API_URL}${plat.image}` : null,
         selectedTags: plat.tags ? plat.tags.map(tag => tag.id) : []
       }
     }))
@@ -851,7 +852,7 @@ export default function AdminPlat() {
         formData.append("versions", JSON.stringify(originalPlat.versions))
       }
 
-      const response = await fetch(`http://localhost:3001/plats/${id}`, {
+      const response = await fetch(`${config.API_URL}/plats/${id}`, {
         method: "PUT",
         body: formData,
       })
@@ -893,7 +894,7 @@ export default function AdminPlat() {
         versions: plat.versions && plat.versions.length > 0 ? plat.versions : [{ size: "Standard", extraPrice: 0 }]
       })
       if (plat.image) {
-        setImagePreview(`http://localhost:3001${plat.image}`)
+        setImagePreview(`${config.API_URL}${plat.image}`)
       }
     } else {
       resetForm()

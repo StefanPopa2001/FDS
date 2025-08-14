@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useBasket } from '../contexts/BasketContext';
+import config from '../config';
 
 const OrderConfirmation = ({ open, onClose, onConfirm }) => {
   const theme = useTheme();
@@ -134,7 +135,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
   const fetchAddressData = useCallback(async () => {
     if (orderData.address.street && orderData.address.city && orderData.address.postalCode) {
       try {
-        const response = await fetch('http://localhost:3001/api/geocode', {
+        const response = await fetch(`${config.API_URL}/geocode`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

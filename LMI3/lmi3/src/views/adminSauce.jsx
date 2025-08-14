@@ -39,6 +39,7 @@ import {
   BrokenImage as BrokenImageIcon,
   Restaurant as RestaurantIcon,
 } from "@mui/icons-material"
+import config from "../config"
 
 // Create dark theme with black/orange design
 const darkTheme = createTheme({
@@ -249,7 +250,7 @@ export default function AdminSauce() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Avatar
               variant="rounded"
-              src={params.value && `http://localhost:3001${params.value}`}
+              src={params.value && `${config.API_URL}${params.value}`}
               alt={params.row.name}
               sx={{
                 width: 40,
@@ -557,7 +558,7 @@ export default function AdminSauce() {
   // Fetch sauces
   const fetchSauces = async () => {
     try {
-      const response = await fetch("http://localhost:3001/sauces")
+      const response = await fetch(`${config.API_URL}/sauces`)
       if (response.ok) {
         const data = await response.json()
         // Convert id to number to ensure proper sorting
@@ -575,7 +576,7 @@ export default function AdminSauce() {
   // Fetch tags
   const fetchTags = async () => {
     try {
-      const response = await fetch("http://localhost:3001/tags")
+      const response = await fetch(`${config.API_URL}/tags`)
       if (response.ok) {
         const data = await response.json()
         setTags(data)
@@ -625,7 +626,7 @@ export default function AdminSauce() {
   // Handle delete
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3001/sauces/${id}`, {
+      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
         method: "DELETE",
       })
 
@@ -662,7 +663,7 @@ export default function AdminSauce() {
         formData.append("image", newSauce.image)
       }
 
-      const response = await fetch("http://localhost:3001/sauces", {
+      const response = await fetch(`${config.API_URL}/sauces`, {
         method: "POST",
         body: formData,
         // Don't set Content-Type header, it will be set automatically with the boundary parameter
@@ -721,7 +722,7 @@ export default function AdminSauce() {
       // Tell backend to keep existing image
       formData.append("keepExistingImage", "true")
 
-      const response = await fetch(`http://localhost:3001/sauces/${id}`, {
+      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
         method: "PUT",
         body: formData,
       })
@@ -786,7 +787,7 @@ export default function AdminSauce() {
         formData.append("keepExistingImage", String(editData[id].image !== null))
       }
 
-      const response = await fetch(`http://localhost:3001/sauces/${id}`, {
+      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
         method: "PUT",
         body: formData,
       })

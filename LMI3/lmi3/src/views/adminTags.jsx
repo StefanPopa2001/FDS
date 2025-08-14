@@ -25,6 +25,7 @@ import {
   Cancel as CancelIcon,
   Tag as TagIcon,
 } from "@mui/icons-material"
+import config from '../config';
 
 // Create dark theme with black/orange design
 const darkTheme = createTheme({
@@ -304,7 +305,7 @@ export default function AdminTags() {
   // Fetch tags
   const fetchTags = async () => {
     try {
-      const response = await fetch("http://localhost:3001/tags")
+      const response = await fetch(`${config.API_URL}/tags`)
       const data = await response.json()
       setTags(data)
     } catch (error) {
@@ -325,7 +326,7 @@ export default function AdminTags() {
   const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce tag ?")) {
       try {
-        const response = await fetch(`http://localhost:3001/tags/${id}`, { method: "DELETE" })
+        const response = await fetch(`${config.API_URL}/tags/${id}`, { method: "DELETE" })
         if (response.ok) {
           showAlert("Tag supprimé avec succès")
           fetchTags()
@@ -341,7 +342,7 @@ export default function AdminTags() {
   // Handle new tag submit
   const handleNewTagSubmit = async () => {
     try {
-      const response = await fetch("http://localhost:3001/tags", {
+      const response = await fetch(`${config.API_URL}/tags`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTag),
@@ -375,7 +376,7 @@ export default function AdminTags() {
   // Handle edit save
   const handleEditSave = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3001/tags/${id}`, {
+      const response = await fetch(`${config.API_URL}/tags/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editData[id]),

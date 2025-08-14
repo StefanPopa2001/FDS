@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import config from '../config';
 
 const AuthContext = createContext();
 
@@ -22,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         const storedToken = localStorage.getItem('authToken');
         if (storedToken) {
           // Verify token with backend
-          const response = await fetch('http://localhost:3001/users/profile', {
+          const response = await fetch(`${config.API_URL}/users/profile`, {
             headers: {
               'Authorization': `Bearer ${storedToken}`
             }
@@ -54,7 +55,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('http://localhost:3001/users/login', {
+      const response = await fetch(`${config.API_URL}/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,7 +96,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await fetch('http://localhost:3001/users/createUser', {
+      const response = await fetch(`${config.API_URL}/users/createUser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -25,9 +25,8 @@ const authLimiter = rateLimit({
 });
 
 //Middleware for authentication
-//TODO: SECRET_KEY should be stored in an environment variable
 const jwt = require("jsonwebtoken");
-const SECRET_KEY = "your-secret-key";
+const SECRET_KEY = process.env.SECRET_KEY || "your-secret-key-change-this-in-production";
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -103,7 +102,8 @@ app.post("/users/createUser", async (req, res) => {
     //Return the user data and token
     res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, type: user.type }, token });
   } catch (err) {
-
+    //Log the actual error for debugging
+    console.error("Error creating user:", err);
     //Generic error handling
     res.status(500).json({ error: "Internal server error" });
   }
@@ -2081,4 +2081,4 @@ app.delete('/plats/:platId/ingredients/:ingredientId', async (req, res) => {
   }
 });
 
-app.listen(3001, () => console.log("Server running on 3001"));
+app.listen(3001, '0.0.0.0', () => console.log("Server running on 0.0.0.0:3001"));

@@ -52,6 +52,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from "@mui/icons-material"
 import { useBasket } from '../contexts/BasketContext'
+import config from '../config'
 
 const darkTheme = createTheme({
   palette: {
@@ -176,7 +177,7 @@ const Menu = () => {
     const fetchSauces = async () => {
       try {
         // Fetch all sauces without tag filtering (we'll filter client-side)
-        let url = "http://localhost:3001/sauces"
+        let url = `${config.API_URL}/sauces`
         
         const response = await fetch(url)
         if (response.ok) {
@@ -193,23 +194,7 @@ const Menu = () => {
       } catch (error) {
         console.error("Failed to fetch sauces:", error)
         // Mock data for demo purposes
-        const mockData = [
-          { id: 1, name: "Sauce Tomate Basilic", price: 8.5, available: true, deliveryAvailable: true, speciality: true, image: null },
-          {
-            id: 2,
-            name: "Sauce Carbonara",
-            price: 9.0,
-            available: true,
-            deliveryAvailable: false,
-            speciality: false,
-            image: "https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?auto=format&fit=crop&w=500&q=60",
-          },
-          { id: 3, name: "Sauce Bolognaise", price: 10.5, available: false, deliveryAvailable: false, speciality: true, image: null },
-          { id: 4, name: "Sauce Pesto", price: 7.5, available: true, deliveryAvailable: true, speciality: false, image: null },
-          { id: 5, name: "Sauce Alfredo", price: 9.5, available: true, deliveryAvailable: false, speciality: true, image: null },
-          { id: 6, name: "Sauce Arrabbiata", price: 8.0, available: true, deliveryAvailable: true, speciality: false, image: null },
-        ]
-        setSauces(mockData)
+       
       }
     }
     fetchSauces()
@@ -220,7 +205,7 @@ const Menu = () => {
     const fetchPlats = async () => {
       try {
         // Fetch all plats without tag filtering (we'll filter client-side)
-        let url = "http://localhost:3001/plats"
+        let url = `${config.API_URL}/plats`
         
         const response = await fetch(url)
         if (response.ok) {
@@ -304,7 +289,7 @@ const Menu = () => {
   useEffect(() => {
     const fetchSearchableTags = async () => {
       try {
-        const response = await fetch("http://localhost:3001/tags/searchable")
+        const response = await fetch(`${config.API_URL}/tags/searchable`)
         if (response.ok) {
           const data = await response.json()
           setSearchableTags(data)
@@ -855,7 +840,7 @@ const Menu = () => {
                     {sauce.image && !imageErrors[sauce.id] ? (
                       <CardMedia
                         component="img"
-                        image={sauce.image.startsWith("http") ? sauce.image : `http://localhost:3001${sauce.image}`}
+                        image={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
                         alt={sauce.name}
                         onError={() => handleImageError(sauce.id)}
                         sx={{
@@ -1064,7 +1049,7 @@ const Menu = () => {
                     {plat.image && !imageErrors[plat.id] ? (
                       <CardMedia
                         component="img"
-                        image={plat.image.startsWith("http") ? plat.image : `http://localhost:3001${plat.image}`}
+                        image={plat.image.startsWith("http") ? plat.image : `${config.API_URL}${plat.image}`}
                         alt={plat.name}
                         onError={() => handleImageError(plat.id)}
                         sx={{
@@ -1201,7 +1186,7 @@ const Menu = () => {
                         src={
                           selectedSauce.image.startsWith("http")
                             ? selectedSauce.image
-                            : `http://localhost:3001${selectedSauce.image}`
+                            : `${config.API_URL}${selectedSauce.image}`
                         }
                         alt={selectedSauce.name}
                         onError={() => handleImageError(selectedSauce.id)}
@@ -1330,7 +1315,7 @@ const Menu = () => {
                     <Box sx={{ mb: 3, borderRadius: 2, overflow: "hidden" }}>
                       <CardMedia
                         component="img"
-                        image={selectedPlat.image.startsWith("http") ? selectedPlat.image : `http://localhost:3001${selectedPlat.image}`}
+                        image={selectedPlat.image.startsWith("http") ? selectedPlat.image : `${config.API_URL}${selectedPlat.image}`}
                         alt={selectedPlat.name}
                         sx={{
                           width: "100%",

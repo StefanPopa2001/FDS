@@ -8,108 +8,102 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
   name      String?
-  createdAt DateTime @default(now())
-  phone     String?
+  createdAt DateTime  @default(now())
   password  String
+  phone     String?
   salt      String
-  type      Int      @default(0)
-  
-  orders Order[]
+  type      Int       @default(0)
   addresses Address[]
+  orders    Order[]
 }
 
 model Sauce {
-  id                   Int     @id @default(autoincrement())
+  id                   Int         @id @default(autoincrement())
   description          String
-  name                 String  @unique
+  name                 String      @unique
   price                Float
-  type                 String  @default("sauce")
+  type                 String      @default("sauce")
   image                String?
-  available            Boolean @default(true)
-  availableForDelivery Boolean @default(true)
-  speciality           Boolean @default(false)
-  
-  tags       Tags[]
-  orderItems OrderItem[]
-  platSauces OrderItem[] @relation("PlatSauce")
+  available            Boolean     @default(true)
+  availableForDelivery Boolean     @default(true)
+  speciality           Boolean     @default(false)
+  platSauces           OrderItem[] @relation("PlatSauce")
+  orderItems           OrderItem[]
+  tags                 Tags[]      @relation("SauceToTags")
 
   @@index([name])
   @@index([price])
 }
 
 model Tags {
-  id          Int     @id @default(autoincrement())
-  nom         String
-  description String
-  emoji       String
+  id           Int     @id @default(autoincrement())
+  nom          String
+  description  String
+  emoji        String
   recherchable Boolean @default(false)
-  extras      Extra[]
-  plats       Plat[]
-  sauces      Sauce[]
+  extras       Extra[] @relation("ExtraToTags")
+  plats        Plat[]  @relation("PlatToTags")
+  sauces       Sauce[] @relation("SauceToTags")
 }
 
 model Ingredient {
-  id          Int     @id @default(autoincrement())
-  name        String
-  description String?
-  allergen    Boolean @default(false)
-  
-  plats                      PlatIngredient[]
-  removedFromOrderItems      OrderItemRemovedIngredient[]
-  
+  id                    Int                          @id @default(autoincrement())
+  name                  String
+  description           String?
+  allergen              Boolean                      @default(false)
+  removedFromOrderItems OrderItemRemovedIngredient[]
+  plats                 PlatIngredient[]
+
   @@index([name])
 }
 
 model Extra {
-  id                   Int     @id @default(autoincrement())
+  id                   Int              @id @default(autoincrement())
   nom                  String
   description          String
   price                Float
-  type                 String  @default("extra")
-  available            Boolean @default(true)
-  availableForDelivery Boolean @default(true)
-  speciality           Boolean @default(false)
-  
-  tags       Tags[]
-  orderItems OrderItem[]
-  orderItemExtras OrderItemExtra[] @relation("OrderItemExtras")
+  type                 String           @default("extra")
+  available            Boolean          @default(true)
+  availableForDelivery Boolean          @default(true)
+  speciality           Boolean          @default(false)
+  orderItems           OrderItem[]
+  orderItemExtras      OrderItemExtra[] @relation("OrderItemExtras")
+  tags                 Tags[]           @relation("ExtraToTags")
 }
 
 model PlatIngredient {
-  id           Int     @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   platId       Int
   ingredientId Int
-  removable    Boolean @default(true)
-  essential    Boolean @default(false)
-  
-  plat       Plat       @relation(fields: [platId], references: [id], onDelete: Cascade)
-  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  
+  removable    Boolean    @default(true)
+  essential    Boolean    @default(false)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  plat         Plat       @relation(fields: [platId], references: [id], onDelete: Cascade)
+
   @@unique([platId, ingredientId])
   @@index([platId])
   @@index([ingredientId])
 }
 
 model Plat {
-  id                   Int     @id @default(autoincrement())
+  id                   Int              @id @default(autoincrement())
   description          String
-  name                 String  @unique
+  name                 String           @unique
   price                Float
-  type                 String  @default("snack")
+  type                 String           @default("snack")
   image                String?
-  available            Boolean @default(true)
-  availableForDelivery Boolean @default(true)
-  speciality           Boolean @default(false)
-  IncludesSauce        Boolean @default(true)
+  available            Boolean          @default(true)
+  availableForDelivery Boolean          @default(true)
+  speciality           Boolean          @default(false)
+  IncludesSauce        Boolean          @default(true)
   saucePrice           Float
-
-  versions    PlatVersion[]
-  tags        Tags[]
-  ingredients PlatIngredient[]
-  orderItems  OrderItem[]
+  orderItems           OrderItem[]
+  ingredients          PlatIngredient[]
+  versions             PlatVersion[]
+  tags                 Tags[]           @relation("PlatToTags")
 
   @@index([name])
   @@index([price])
@@ -122,9 +116,8 @@ model PlatVersion {
   available            Boolean @default(true)
   availableForDelivery Boolean @default(true)
   speciality           Boolean @default(false)
-
-  platId Int
-  plat   Plat @relation(fields: [platId], references: [id], onDelete: Cascade)
+  platId               Int
+  plat                 Plat    @relation(fields: [platId], references: [id], onDelete: Cascade)
 
   @@unique([platId, size])
   @@index([size])
@@ -132,47 +125,40 @@ model PlatVersion {
 }
 
 model Order {
-  id                      Int      @id @default(autoincrement())
+  id                      Int                  @id @default(autoincrement())
   userId                  Int?
-  status                  Int   @default(0)
+  status                  Int                  @default(0)
   totalPrice              Float
-  deliveryFee             Float    @default(0)
-  distanceExtra           Float    @default(0)
-  tipAmount               Float    @default(0)
+  deliveryFee             Float                @default(0)
+  distanceExtra           Float                @default(0)
+  tipAmount               Float                @default(0)
   finalTotal              Float
   message                 String?
   paymentMethod           String
   paymentDetails          Json?
-  estimatedCompletionTime Int?     // in minutes
-  distance                Float?   // in kilometers
-  deliveryType            Int   @default(0)
-  
-  // Address information
+  estimatedCompletionTime Int?
+  distance                Float?
+  deliveryType            Int                  @default(0)
   deliveryAddressId       Int?
-  deliveryAddress         Address? @relation(fields: [deliveryAddressId], references: [id])
-  
-  // Coordinates
   clientLatitude          Float?
   clientLongitude         Float?
   deliveryBoyLatitude     Float?
   deliveryBoyLongitude    Float?
-  restaurantLatitude      Float?   
+  restaurantLatitude      Float?
   restaurantLongitude     Float?
-  
-  // Status timestamps
-  createdAt               DateTime @default(now())
+  createdAt               DateTime             @default(now())
   confirmedAt             DateTime?
   canceledAt              DateTime?
   preparationStartedAt    DateTime?
   inDeliveryAt            DateTime?
   deliveredAt             DateTime?
   completedAt             DateTime?
-  updatedAt               DateTime @updatedAt
-  
-  user  User? @relation(fields: [userId], references: [id])
-  items OrderItem[]
-  statusHistory OrderStatusHistory[]
-  
+  updatedAt               DateTime             @updatedAt
+  deliveryAddress         Address?             @relation(fields: [deliveryAddressId], references: [id])
+  user                    User?                @relation(fields: [userId], references: [id])
+  items                   OrderItem[]
+  statusHistory           OrderStatusHistory[]
+
   @@index([userId])
   @@index([status])
   @@index([createdAt])
@@ -185,57 +171,52 @@ model OrderStatusHistory {
   status    String
   timestamp DateTime @default(now())
   notes     String?
-  
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
   @@index([orderId])
   @@index([timestamp])
 }
 
 model Address {
-  id           Int    @id @default(autoincrement())
+  id           Int     @id @default(autoincrement())
   userId       Int
-  name         String @default("Home")
+  name         String  @default("Home")
   street       String
   city         String
   postalCode   String
-  country      String @default("France")
+  country      String  @default("France")
   latitude     Float?
   longitude    Float?
   instructions String?
   isDefault    Boolean @default(false)
-  
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders Order[]
-  
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders       Order[]
+
   @@index([userId])
 }
 
 model OrderItem {
-  id          Int   @id @default(autoincrement())
-  orderId     Int
-  type        String // "plat", "sauce", "extra"
-  platId      Int?
-  sauceId     Int?
-  extraId     Int?
-  versionSize String?
-  versionExtraPrice Float @default(0)
-  quantity    Int   @default(1)
-  unitPrice   Float
-  totalPrice  Float
-  
-  // Sauce details for plats
-  platSauceId    Int?
-  platSaucePrice Float @default(0)
-  
-  order               Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  plat                Plat? @relation(fields: [platId], references: [id])
-  sauce               Sauce? @relation(fields: [sauceId], references: [id])
-  extra               Extra? @relation(fields: [extraId], references: [id])
-  platSauce           Sauce? @relation("PlatSauce", fields: [platSauceId], references: [id])
-  removedIngredients  OrderItemRemovedIngredient[]
-  addedExtras         OrderItemExtra[]
-  
+  id                 Int                          @id @default(autoincrement())
+  orderId            Int
+  type               String
+  platId             Int?
+  sauceId            Int?
+  extraId            Int?
+  versionSize        String?
+  versionExtraPrice  Float                        @default(0)
+  quantity           Int                          @default(1)
+  unitPrice          Float
+  totalPrice         Float
+  platSauceId        Int?
+  platSaucePrice     Float                        @default(0)
+  extra              Extra?                       @relation(fields: [extraId], references: [id])
+  order              Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  plat               Plat?                        @relation(fields: [platId], references: [id])
+  platSauce          Sauce?                       @relation("PlatSauce", fields: [platSauceId], references: [id])
+  sauce              Sauce?                       @relation(fields: [sauceId], references: [id])
+  addedExtras        OrderItemExtra[]
+  removedIngredients OrderItemRemovedIngredient[]
+
   @@index([orderId])
   @@index([platId])
   @@index([sauceId])
@@ -243,28 +224,26 @@ model OrderItem {
 }
 
 model OrderItemExtra {
-  id          Int   @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   orderItemId Int
   extraId     Int
-  quantity    Int   @default(1)
+  quantity    Int       @default(1)
   price       Float
-  
-  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  extra     Extra     @relation("OrderItemExtras", fields: [extraId], references: [id])
-  
+  extra       Extra     @relation("OrderItemExtras", fields: [extraId], references: [id])
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
   @@unique([orderItemId, extraId])
   @@index([orderItemId])
   @@index([extraId])
 }
 
 model OrderItemRemovedIngredient {
-  id           Int @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   orderItemId  Int
   ingredientId Int
-  
-  orderItem  OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
   @@unique([orderItemId, ingredientId])
   @@index([orderItemId])
   @@index([ingredientId])

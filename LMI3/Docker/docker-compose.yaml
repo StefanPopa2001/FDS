@@ -1,4 +1,37 @@
 services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: always
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Let's Encrypt configuration
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=admin@rudyetfanny.be"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+      # Global TLS options
+      - "--global.sendAnonymousUsage=false"
+      # TLS options
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certResolver=myresolver"
+      - "--entrypoints.websecure.http.tls.domains[0].main=rudyetfanny.be"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - app-network
+
   db:
     image: postgres:14
     restart: always
@@ -8,24 +41,155 @@ services:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: fds
-    ports:
-      - "5432:5432"
     volumes:
       - docker_db_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ../backend-lmi3
+      dockerfile: Dockerfile
+    container_name: backend_container
+    restart: always
+    env_file:
+      - ../.env
+    depends_on:
+      - db
+    volumes:
+      - backend_uploads:/app/public/uploads
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      # HTTPS redirect for domain only
+      - "traefik.http.routers.domain-redirect.rule=Host(`rudyetfanny.be`)"
+      - "traefik.http.routers.domain-redirect.entrypoints=web"
+      - "traefik.http.routers.domain-redirect.middlewares=redirect-to-https"
+      - "traefik.http.routers.domain-redirect.priority=5"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      # API routes with /api prefix for domain (HTTPS)
+      - "traefik.http.routers.backend-api-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-api-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-api-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend-api-secure.service=backend"
+      - "traefik.http.routers.backend-api-secure.middlewares=api-stripprefix,cors"
+      - "traefik.http.routers.backend-api-secure.priority=3"
+      # API routes for IP (HTTP) - no redirect
+      - "traefik.http.routers.backend-api-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-api-ip.entrypoints=web"
+      - "traefik.http.routers.backend-api-ip.service=backend"
+      - "traefik.http.routers.backend-api-ip.middlewares=api-stripprefix,cors"
+      - "traefik.http.routers.backend-api-ip.priority=3"
+      # Service configuration
+      - "traefik.http.services.backend.loadbalancer.server.port=3001"
+      # Fix stripprefix middleware
+      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
+      # Direct routes for uploads (HTTPS)
+      - "traefik.http.routers.backend-uploads-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/uploads`)"
+      - "traefik.http.routers.backend-uploads-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-uploads-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend-uploads-secure.service=backend"
+      - "traefik.http.routers.backend-uploads-secure.middlewares=cors"
+      - "traefik.http.routers.backend-uploads-secure.priority=4"
+      # Direct routes for uploads (HTTP for IP)
+      - "traefik.http.routers.backend-uploads-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/uploads`)"
+      - "traefik.http.routers.backend-uploads-ip.entrypoints=web"
+      - "traefik.http.routers.backend-uploads-ip.service=backend"
+      - "traefik.http.routers.backend-uploads-ip.middlewares=cors"
+      - "traefik.http.routers.backend-uploads-ip.priority=4"
+      # Enhanced CORS headers
+      - "traefik.http.middlewares.cors.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE,PATCH"
+      - "traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*"
+      - "traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=https://rudyetfanny.be,http://168.231.81.212,http://localhost:3000"
+      - "traefik.http.middlewares.cors.headers.accesscontrolallowcredentials=true"
+      - "traefik.http.middlewares.cors.headers.accesscontrolmaxage=86400"
+      - "traefik.http.middlewares.cors.headers.addvaryheader=true"
+      - "traefik.http.middlewares.cors.headers.accesscontrolexposeheaders=*"
+
+  frontend:
+    build:
+      context: ../lmi3
+      dockerfile: Dockerfile
+    container_name: frontend_container
+    restart: always
+    env_file:
+      - ../.env
+    environment:
+      - NODE_OPTIONS=--openssl-legacy-provider
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      # Frontend for domain (HTTPS)
+      - "traefik.http.routers.frontend-secure.rule=Host(`rudyetfanny.be`)"
+      - "traefik.http.routers.frontend-secure.entrypoints=websecure"
+      - "traefik.http.routers.frontend-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.frontend-secure.service=frontend"
+      - "traefik.http.routers.frontend-secure.priority=1"
+      # Add security headers
+      - "traefik.http.routers.frontend-secure.middlewares=security-headers"
+      - "traefik.http.middlewares.security-headers.headers.stsSeconds=315360000"
+      - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.security-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.security-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.security-headers.headers.customResponseHeaders.Content-Security-Policy=upgrade-insecure-requests"
+      # Frontend for IP (HTTP with redirect)
+      - "traefik.http.routers.frontend-ip.rule=Host(`168.231.81.212`)"
+      - "traefik.http.routers.frontend-ip.entrypoints=web"
+      - "traefik.http.routers.frontend-ip.service=frontend"
+      - "traefik.http.routers.frontend-ip.priority=1"
+      # Service configuration
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: pgadmin4_container
+    container_name: pgadmin
     restart: always
-    ports:
-      - "8888:80"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
-    volumes:
-      - docker_pgadmin_data:/var/lib/pgadmin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    networks:
+      - app-network
+    depends_on:
+      - db
+    labels:
+      - "traefik.enable=true"
+      # PgAdmin for domain (HTTPS)
+      - "traefik.http.routers.pgadmin-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/pgadmin`)"
+      - "traefik.http.routers.pgadmin-secure.entrypoints=websecure"
+      - "traefik.http.routers.pgadmin-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.pgadmin-secure.service=pgadmin"
+      - "traefik.http.routers.pgadmin-secure.middlewares=pgadmin-stripprefix"
+      - "traefik.http.routers.pgadmin-secure.priority=2"
+      # PgAdmin for IP (HTTP)
+      - "traefik.http.routers.pgadmin-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/pgadmin`)"
+      - "traefik.http.routers.pgadmin-ip.entrypoints=web"
+      - "traefik.http.routers.pgadmin-ip.service=pgadmin"
+      - "traefik.http.routers.pgadmin-ip.middlewares=pgadmin-stripprefix"
+      - "traefik.http.routers.pgadmin-ip.priority=2"
+      # PgAdmin for localhost (HTTP)
+      - "traefik.http.routers.pgadmin-local.rule=Host(`localhost`) && PathPrefix(`/pgadmin`)"
+      - "traefik.http.routers.pgadmin-local.entrypoints=web"
+      - "traefik.http.routers.pgadmin-local.service=pgadmin"
+      - "traefik.http.routers.pgadmin-local.middlewares=pgadmin-stripprefix"
+      - "traefik.http.routers.pgadmin-local.priority=2"
+      # Service and middleware configuration
+      - "traefik.http.middlewares.pgadmin-stripprefix.stripprefix.prefixes=/pgadmin"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   docker_db_data:
   docker_pgadmin_data:
+  backend_uploads:
 

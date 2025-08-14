@@ -27,6 +27,7 @@ import {
   Cancel as CancelIcon,
   LocalOffer as TagIcon,
 } from "@mui/icons-material"
+import config from '../config.js';
 
 // Create dark theme with black/orange design
 const darkTheme = createTheme({
@@ -170,7 +171,7 @@ export default function AdminExtra() {
   // Fetch extras
   const fetchExtras = async () => {
     try {
-      const response = await fetch("http://localhost:3001/api/extras")
+      const response = await fetch(`${config.API_URL}/api/extras`)
       if (response.ok) {
         const data = await response.json()
         // Convert id to number to ensure proper sorting
@@ -188,7 +189,7 @@ export default function AdminExtra() {
   // Fetch all tags for the multi-select
   const fetchTags = async () => {
     try {
-      const response = await fetch('http://localhost:3001/tags')
+      const response = await fetch(`${config.API_URL}/tags`)
       if (!response.ok) throw new Error('Failed to fetch tags')
       const data = await response.json()
       setTags(data)
@@ -214,7 +215,7 @@ export default function AdminExtra() {
       const extra = extras.find(e => e.id === id)
       if (!extra) return
 
-      const response = await fetch(`http://localhost:3001/api/extras/${id}`, {
+      const response = await fetch(`${config.API_URL}/api/extras/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -252,7 +253,7 @@ export default function AdminExtra() {
   // Handle edit save
   const handleEditSave = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/extras/${id}`, {
+      const response = await fetch(`${config.API_URL}/api/extras/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -280,7 +281,7 @@ export default function AdminExtra() {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet extra ?")) return
 
     try {
-      const response = await fetch(`http://localhost:3001/api/extras/${id}`, {
+      const response = await fetch(`${config.API_URL}/api/extras/${id}`, {
         method: "DELETE",
       })
 
@@ -300,7 +301,7 @@ export default function AdminExtra() {
   // Handle new extra submission
   const handleNewExtraSubmit = async () => {
     try {
-      const response = await fetch("http://localhost:3001/api/extras", {
+      const response = await fetch(`${config.API_URL}/api/extras`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

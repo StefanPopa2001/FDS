@@ -24,6 +24,7 @@ import {
   Person as PersonIcon,
 } from "@mui/icons-material"
 import CryptoJS from "crypto-js"
+import config from '../config';
 
 // Create dark theme with black/orange design
 const darkTheme = createTheme({
@@ -319,7 +320,7 @@ export default function AdminUsers() {
   // Fetch users
   const fetchUsers = async () => {
     try {
-      const response = await fetch("http://localhost:3001/users", {
+      const response = await fetch(`${config.API_URL}/users`, {
         headers: {
           ...getAuthHeaders(),
         },
@@ -344,7 +345,7 @@ export default function AdminUsers() {
   const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
       try {
-        const response = await fetch(`http://localhost:3001/users/${id}`, {
+        const response = await fetch(`${config.API_URL}/users/${id}`, {
           method: "DELETE",
           headers: {
             ...getAuthHeaders(),
@@ -373,7 +374,7 @@ export default function AdminUsers() {
   const handleNewUserSubmit = async () => {
     try {
       const salt = generateSalt()
-      const response = await fetch("http://localhost:3001/users/createUser", {
+      const response = await fetch(`${config.API_URL}/users/createUser`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -412,7 +413,7 @@ export default function AdminUsers() {
   // Handle edit save
   const handleEditSave = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3001/users/${id}`, {
+      const response = await fetch(`${config.API_URL}/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(editData[id]),

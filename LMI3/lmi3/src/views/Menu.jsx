@@ -34,6 +34,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Alert,
 } from "@mui/material"
 import {
   Close as CloseIcon,
@@ -165,12 +166,20 @@ const Menu = () => {
   const [searchableTags, setSearchableTags] = useState([])
   const [selectedTagFilter, setSelectedTagFilter] = useState("all") // Single selection: "all" or tag id
 
+  // Settings state
+  const [settings, setSettings] = useState({})
+
   // Basket context
   const { addToBasket } = useBasket()
 
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
   const isTablet = useMediaQuery(theme.breakpoints.between("md", "lg"))
+
+  // Helper function to check if ordering is allowed
+  const isOrderingDisabled = () => {
+    return settings.enableOnlinePickup === "false" && settings.enableOnlineDelivery === "false";
+  };
 
   // Fetch sauces with tag filtering
   useEffect(() => {
@@ -182,12 +191,10 @@ const Menu = () => {
         const response = await fetch(url)
         if (response.ok) {
           let data = await response.json()
-          // Ensure deliveryAvailable is set for each sauce
+          // Set deliveryAvailable to true for all sauces since field is removed
           data = data.map(sauce => ({
             ...sauce,
-            deliveryAvailable: typeof sauce.availableForDelivery === "boolean"
-              ? sauce.availableForDelivery
-              : false,
+            deliveryAvailable: true,
           }))
           setSauces(data)
         }
@@ -310,6 +317,26 @@ const Menu = () => {
     fetchSearchableTags()
   }, [])
 
+  // Fetch settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`${config.API_URL}/settings`);
+        if (response.ok) {
+          const data = await response.json();
+          const settingsMap = {};
+          data.forEach(setting => {
+            settingsMap[setting.key] = setting.value;
+          });
+          setSettings(settingsMap);
+        }
+      } catch (error) {
+        console.error("Failed to fetch settings:", error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   // Set loading to false when all data is loaded
   useEffect(() => {
     // Check if searchableTags has been set (even if empty array)
@@ -339,8 +366,6 @@ const Menu = () => {
       filteredSauceData = filteredSauceData.filter((sauce) => sauce.available)
     } else if (filterType === "delivery") {
       filteredSauceData = filteredSauceData.filter((sauce) => sauce.available && sauce.deliveryAvailable)
-    } else if (filterType === "speciality") {
-      filteredSauceData = filteredSauceData.filter((sauce) => sauce.speciality)
     }
 
     if (searchTerm) {
@@ -364,6 +389,15 @@ const Menu = () => {
       })
     }
 
+    // Apply speciality filter based on settings
+    if (settings.enableSpecialites === "false") {
+      // If specialities are disabled, mark them as unavailable but keep them visible
+      filteredPlatData = filteredPlatData.map((plat) => ({
+        ...plat,
+        available: plat.speciality ? false : plat.available
+      }))
+    }
+
     if (filterType === "available") {
       filteredPlatData = filteredPlatData.filter((plat) => plat.available)
     } else if (filterType === "delivery") {
@@ -377,7 +411,7 @@ const Menu = () => {
     }
 
     setFilteredPlats(filteredPlatData)
-  }, [filterType, searchTerm, sauces, plats, selectedTagFilter, searchableTags]) // Update dependencies
+  }, [filterType, searchTerm, sauces, plats, selectedTagFilter, searchableTags, settings]) // Update dependencies
 
   const handleSauceClick = (sauce) => {
     setSelectedSauce(sauce)
@@ -561,10 +595,38 @@ const Menu = () => {
                 sx={{
                   mb: 4,
                   fontSize: { xs: "1.2rem", md: "1.5rem" },
+                  fontStyle: "italic",
+                  background: "linear-gradient(45deg, #ffb74d 30%, #ffffff 70%)",
+                  backgroundClip: "text",
+                  textFillColor: "transparent",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
                 }}
               >
-                Découvrez nos délicieuses spécialités
+                {settings.menuMessage || "Découvrez notre sélection de spécialités"}
               </Typography>
+              
+              {/* Warning messages for disabled services */}
+              {(settings.enableOnlinePickup === "false" || settings.enableOnlineDelivery === "false") && (
+                <Alert 
+                  severity="warning" 
+                  sx={{ 
+                    mb: 3, 
+                    maxWidth: 600, 
+                    mx: "auto",
+                    background: "rgba(255, 152, 0, 0.1)",
+                    border: "1px solid rgba(255, 152, 0, 0.3)",
+                    color: "#ffb74d"
+                  }}
+                >
+                  {settings.enableOnlinePickup === "false" && settings.enableOnlineDelivery === "false" 
+                    ? "🚫 Les commandes en ligne sont temporairement désactivées."
+                    : settings.enableOnlinePickup === "false" 
+                      ? "🚫 Les commandes à emporter en ligne sont temporairement désactivées."
+                      : "🚫 Les commandes en livraison en ligne sont temporairement désactivées."
+                  }
+                </Alert>
+              )}
             </Box>
           </Fade>
 
@@ -584,93 +646,65 @@ const Menu = () => {
               <Box
                 sx={{
                   display: "flex",
-                  flexDirection: isMobile ? "column" : "row",
-                  gap: 2,
-                  alignItems: "center",
+                  flexDirection: "column",
+                  gap: 3,
                 }}
               >
-                <TextField
-                  fullWidth
-                  placeholder="Rechercher une spécialité..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  InputProps={{
-                    startAdornment: <SearchIcon sx={{ mr: 1, color: "primary.main" }} />,
-                  }}
+                {/* Search and Filter Row */}
+                <Box
                   sx={{
-                    flex: 2,
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                      "&:hover fieldset": {
-                        borderColor: "primary.main",
-                      },
-                    },
+                    display: "flex",
+                    flexDirection: isMobile ? "column" : "row",
+                    gap: 2,
+                    alignItems: "stretch",
                   }}
-                />
-                <FormControl sx={{ minWidth: 200, flex: 1 }}>
-                  <InputLabel>Filtrer par</InputLabel>
-                  <Select
-                    value={filterType}
-                    label="Filtrer par"
-                    onChange={(e) => setFilterType(e.target.value)}
-                    sx={{ borderRadius: 2 }}
-                  >
-                    <MenuItem value="all">Tout afficher</MenuItem>
-                    <MenuItem value="available">Disponible</MenuItem>
-                    <MenuItem value="delivery">Disponible en livraison</MenuItem>
-                    <MenuItem value="speciality">Spécialités</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-              
-              {/* Tag Filters */}
-              {searchableTags && searchableTags.length > 0 && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="h6" sx={{ mb: 2, color: "primary.main", textAlign: "center" }}>
-                    Filtrer par catégories
-                  </Typography>
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-                    {/* "Tout" button */}
-                    <Chip
-                      label="Tout"
-                      onClick={() => handleTagFilterSelect("all")}
-                      color={selectedTagFilter === "all" ? "primary" : "default"}
-                      variant={selectedTagFilter === "all" ? "filled" : "outlined"}
-                      sx={{
-                        fontWeight: 600,
+                >
+                  <TextField
+                    fullWidth
+                    placeholder="Rechercher une spécialité..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: <SearchIcon sx={{ mr: 1, color: "primary.main" }} />,
+                    }}
+                    sx={{
+                      flex: 3,
+                      "& .MuiOutlinedInput-root": {
                         borderRadius: 2,
-                        transition: "all 0.3s ease",
-                        minWidth: 120,
-                        height: 40,
-                        "&:hover": {
-                          transform: "scale(1.05)",
+                        "&:hover fieldset": {
+                          borderColor: "primary.main",
                         },
-                      }}
-                    />
-                    {/* Tag buttons */}
-                    {searchableTags.map((tag) => (
+                      },
+                    }}
+                  />
+                  <FormControl sx={{ flex: 1, minWidth: 200 }}>
+                    <InputLabel>Filtrer par</InputLabel>
+                    <Select
+                      value={filterType}
+                      label="Filtrer par"
+                      onChange={(e) => setFilterType(e.target.value)}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      <MenuItem value="all">Tout afficher</MenuItem>
+                      <MenuItem value="available">Disponible</MenuItem>
+                      <MenuItem value="delivery">Disponible en livraison</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+                
+                {/* Tag Filters */}
+                {searchableTags && searchableTags.length > 0 && (
+                  <Box>
+                    <Typography variant="h6" sx={{ mb: 2, color: "primary.main", textAlign: "center" }}>
+                      Filtrer par catégories
+                    </Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
+                      {/* "Tout" button */}
                       <Chip
-                        key={tag.id}
-                        label={
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                            <Typography
-                              component="span"
-                              sx={{
-                                fontSize: "1.1em",
-                                textShadow: "0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)",
-                                filter: "drop-shadow(0 0 4px rgba(255,255,255,0.4)) drop-shadow(0 2px 8px rgba(0,0,0,0.8))",
-                              }}
-                            >
-                              {tag.emoji}
-                            </Typography>
-                            <Typography component="span">
-                              {tag.nom}
-                            </Typography>
-                          </Box>
-                        }
-                        onClick={() => handleTagFilterSelect(tag.id)}
-                        color={selectedTagFilter === tag.id ? "primary" : "default"}
-                        variant={selectedTagFilter === tag.id ? "filled" : "outlined"}
+                        label="Tout"
+                        onClick={() => handleTagFilterSelect("all")}
+                        color={selectedTagFilter === "all" ? "primary" : "default"}
+                        variant={selectedTagFilter === "all" ? "filled" : "outlined"}
                         sx={{
                           fontWeight: 600,
                           borderRadius: 2,
@@ -682,10 +716,46 @@ const Menu = () => {
                           },
                         }}
                       />
-                    ))}
+                      {/* Tag buttons */}
+                      {searchableTags.map((tag) => (
+                        <Chip
+                          key={tag.id}
+                          label={
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                              <Typography
+                                component="span"
+                                sx={{
+                                  fontSize: "1.1em",
+                                  textShadow: "0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)",
+                                  filter: "drop-shadow(0 0 4px rgba(255,255,255,0.4)) drop-shadow(0 2px 8px rgba(0,0,0,0.8))",
+                                }}
+                              >
+                                {tag.emoji}
+                              </Typography>
+                              <Typography component="span">
+                                {tag.nom}
+                              </Typography>
+                            </Box>
+                          }
+                          onClick={() => handleTagFilterSelect(tag.id)}
+                          color={selectedTagFilter === tag.id ? "primary" : "default"}
+                          variant={selectedTagFilter === tag.id ? "filled" : "outlined"}
+                          sx={{
+                            fontWeight: 600,
+                            borderRadius: 2,
+                            transition: "all 0.3s ease",
+                            minWidth: 120,
+                            height: 40,
+                            "&:hover": {
+                              transform: "scale(1.05)",
+                            },
+                          }}
+                        />
+                      ))}
+                    </Box>
                   </Box>
-                </Box>
-              )}
+                )}
+              </Box>
             </Paper>
           </Fade>
 
@@ -730,27 +800,6 @@ const Menu = () => {
                       flexShrink: 0,
                     }}
                   >
-                    {/* Top left: Star for speciality */}
-                    {sauce.speciality && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 8,
-                          left: 8,
-                          zIndex: 2,
-                          bgcolor: "rgba(255, 152, 0, 0.85)",
-                          borderRadius: "50%",
-                          p: 0.5,
-                          boxShadow: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <StarIcon sx={{ color: "#fff700", fontSize: { xs: 18, md: 22 } }} />
-                      </Box>
-                    )}
-
                     {/* Centered chip for unavailable */}
                     {!sauce.available && (
                       <Box
@@ -1213,14 +1262,6 @@ const Menu = () => {
                     €{selectedSauce.price.toFixed(2)}
                   </Typography>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 3 }}>
-                    {selectedSauce.speciality && (
-                      <Chip
-                        icon={<StarIcon />}
-                        label="Spécialité de la maison"
-                        color="primary"
-                        sx={{ fontWeight: 600 }}
-                      />
-                    )}
                     {!selectedSauce.available && (
                       <Chip label="Temporairement Indisponible" color="error" sx={{ fontWeight: 600 }} />
                     )}
@@ -1244,8 +1285,9 @@ const Menu = () => {
                   <Button
                     color="primary"
                     variant="contained"
-                    disabled={!selectedSauce.available}
+                    disabled={!selectedSauce.available || isOrderingDisabled()}
                     onClick={() => {
+                      if (isOrderingDisabled()) return;
                       // Add sauce to basket
                       addToBasket({
                         type: 'sauce',
@@ -1361,7 +1403,6 @@ const Menu = () => {
                           {sauces.filter(s => s.available).map((sauce) => (
                             <MenuItem key={sauce.id} value={sauce.id}>
                               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                {sauce.speciality && <StarIcon sx={{ color: "#ff9800", fontSize: 16 }} />}
                                 <Typography>{sauce.name}</Typography>
                               </Box>
                             </MenuItem>
@@ -1469,7 +1510,6 @@ const Menu = () => {
                               const ingredient = platIngredient.ingredient;
                               const isRemoved = selectedIngredients.includes(ingredient.id);
                               const isRemovable = platIngredient.removable;
-                              const isEssential = platIngredient.essential;
                               
                               return (
                                 <Box
@@ -1492,9 +1532,6 @@ const Menu = () => {
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                       {ingredient.allergen && (
                                         <WarningIcon sx={{ color: "orange", fontSize: 20 }} />
-                                      )}
-                                      {isEssential && (
-                                        <StarIcon sx={{ color: "#ff9800", fontSize: 16 }} />
                                       )}
                                     </Box>
                                     
@@ -1525,16 +1562,11 @@ const Menu = () => {
                                           Allergène
                                         </Typography>
                                       )}
-                                      {isEssential && (
-                                        <Typography variant="caption" sx={{ color: "#ff9800", fontWeight: 600, display: "block" }}>
-                                          Ingrédient essentiel
-                                        </Typography>
-                                      )}
                                     </Box>
                                   </Box>
 
                                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                    {isRemovable && !isEssential ? (
+                                    {isRemovable ? (
                                       <FormControlLabel
                                         control={
                                           <Checkbox
@@ -1555,7 +1587,7 @@ const Menu = () => {
                                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                         <CheckCircleIcon sx={{ color: "#4caf50", fontSize: 24 }} />
                                         <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                          {isEssential ? "Essentiel" : "Inclus"}
+                                          Inclus
                                         </Typography>
                                       </Box>
                                     )}
@@ -1703,6 +1735,7 @@ const Menu = () => {
                   </Button>
                   <Button
                     onClick={() => {
+                      if (isOrderingDisabled()) return;
                       // Handle order logic here
                       const allExtras = selectedPlat.tags?.flatMap(tag => tag.extras || []) || [];
                       const selectedExtrasDetails = selectedExtras.map(extraId => 
@@ -1727,7 +1760,7 @@ const Menu = () => {
                       setPlatVersionModalOpen(false);
                     }}
                     variant="contained"
-                    disabled={!selectedVersion}
+                    disabled={!selectedVersion || isOrderingDisabled()}
                     sx={{
                       background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
                       "&:hover": {

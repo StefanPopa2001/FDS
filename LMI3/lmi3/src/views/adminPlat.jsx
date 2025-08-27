@@ -6,8 +6,6 @@ import {
   Button,
   Snackbar,
   Alert,
-  ThemeProvider,
-  createTheme,
   Avatar,
   Checkbox,
   TextField,
@@ -20,7 +18,6 @@ import {
   Typography,
   Paper,
   Fade,
-  CssBaseline,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -47,129 +44,6 @@ import {
 } from "@mui/icons-material"
 import config from '../config.js';
 
-// Create dark theme with black/orange design
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: {
-      main: "#ff9800",
-      light: "#ffb74d",
-      dark: "#f57c00",
-    },
-    secondary: {
-      main: "#f44336",
-    },
-    background: {
-      default: "#0a0a0a",
-      paper: "#1a1a1a",
-    },
-    text: {
-      primary: "#ffffff",
-      secondary: "#b0b0b0",
-    },
-    success: {
-      main: "#4caf50",
-    },
-    error: {
-      main: "#f44336",
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 800,
-      letterSpacing: "-0.02em",
-    },
-    h6: {
-      fontWeight: 600,
-      letterSpacing: "-0.01em",
-    },
-  },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: "none",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          textTransform: "none",
-          fontWeight: 600,
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          "&:hover": {
-            transform: "translateY(-2px)",
-          },
-        },
-        contained: {
-          background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-          "&:hover": {
-            background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
-          },
-        },
-        outlined: {
-          borderColor: "rgba(255, 152, 0, 0.5)",
-          "&:hover": {
-            borderColor: "#ff9800",
-            backgroundColor: "rgba(255, 152, 0, 0.1)",
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 12,
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            "&:hover fieldset": {
-              borderColor: "#ff9800",
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#ff9800",
-            },
-          },
-        },
-      },
-    },
-    MuiDataGrid: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          "& .MuiDataGrid-cell": {
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "rgba(255, 152, 0, 0.1)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaderTitle": {
-            fontWeight: 700,
-            color: "#ff9800",
-          },
-        },
-      },
-    },
-    MuiCheckbox: {
-      styleOverrides: {
-        root: {
-          color: "rgba(255, 152, 0, 0.7)",
-          "&.Mui-checked": {
-            color: "#ff9800",
-          },
-        },
-      },
-    },
-  },
-})
-
 export default function AdminPlat() {
   const [plats, setPlats] = useState([])
   const [tags, setTags] = useState([]) // Add tags state
@@ -183,7 +57,7 @@ export default function AdminPlat() {
     name: "",
     price: "",
     description: "",
-    type: "snack",
+    ordre: "",
     image: null,
     available: true,
     availableForDelivery: true,
@@ -191,9 +65,7 @@ export default function AdminPlat() {
     IncludesSauce: true,
     saucePrice: "",
     versions: [{ size: "Standard", extraPrice: 0 }],
-    selectedTags: [], // Add selected tags to newPlat state
-    selectedIngredients: [] // Add selected ingredients to newPlat state
-  })
+    selectedTags: [],    selectedIngredients: []  })
 
   const [imagePreview, setImagePreview] = useState(null)
   const [editMode, setEditMode] = useState({})
@@ -214,13 +86,17 @@ export default function AdminPlat() {
       width: 70,
       type: "number",
       filterable: true,
+      align: 'center',
+      headerAlign: 'center',
     },
     {
       field: "image",
       headerName: "Aperçu Image",
       width: 200,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, width: '100%', height: '100%' }}>
           <Avatar
             variant="rounded"
             src={params.value && `${config.API_URL}${params.value}`}
@@ -248,13 +124,25 @@ export default function AdminPlat() {
       headerName: "Nom",
       width: 200,
       filterable: true,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => (
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, width: '100%', height: '100%' }}>
+          <div className="status-indicator" style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: params.row.available ? "#4caf50" : "#f44336" }} />
+          <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'center' }}>
+            {params.value}
+          </Typography>
+        </Box>
+      ),
     },
     {
       field: "description",
       headerName: "Description",
       width: 250,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
+        <Typography variant="body2" sx={{ fontSize: "0.875rem", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
           {params.value}
         </Typography>
       ),
@@ -264,78 +152,41 @@ export default function AdminPlat() {
       headerName: "Prix de base (€)",
       width: 140,
       type: "number",
-      renderCell: (params) => `€${params.value.toFixed(2)}`,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
+          {`€${params.value.toFixed(2)}`}
+        </Typography>
+      ),
     },
     {
-      field: "type",
-      headerName: "Type",
+      field: "ordre",
+      headerName: "Ordre",
       width: 120,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Chip label={params.value} size="small" color="primary" variant="outlined" />
+        <Typography variant="body2" sx={{ color: "text.secondary", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
+          {params.value || "-"}
+        </Typography>
       ),
-    },
-    {
-      field: "versions",
-      headerName: "Versions",
-      width: 200,
-      renderCell: (params) => (
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-          {params.value && params.value.length > 0 ? (
-            params.value.map((version, index) => (
-              <Chip
-                key={index}
-                label={`${version.size}: +€${version.extraPrice.toFixed(2)}`}
-                size="small"
-                variant="outlined"
-                sx={{ fontSize: "0.75rem" }}
-              />
-            ))
-          ) : (
-            <Chip label="Aucune version" size="small" variant="outlined" color="default" />
-          )}
-        </Box>
-      ),
-      sortable: false,
-      filterable: false,
-    },
-    {
-      field: "ingredients",
-      headerName: "Ingrédients",
-      width: 250,
-      renderCell: (params) => (
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-          {params.value && params.value.length > 0 ? (
-            params.value.map((platIngredient, index) => (
-              <Chip
-                key={index}
-                label={`${platIngredient.ingredient.name}${platIngredient.essential ? ' (E)' : ''}${!platIngredient.removable ? ' (NR)' : ''}`}
-                size="small"
-                variant="outlined"
-                color={platIngredient.essential ? 'error' : 'default'}
-                sx={{ 
-                  fontSize: "0.75rem",
-                  backgroundColor: platIngredient.essential ? 'rgba(244, 67, 54, 0.1)' : 'transparent'
-                }}
-              />
-            ))
-          ) : (
-            <Chip label="Aucun ingrédient" size="small" variant="outlined" color="default" />
-          )}
-        </Box>
-      ),
-      sortable: false,
-      filterable: false,
     },
     {
       field: "IncludesSauce",
       headerName: "Sauce Incluse",
       width: 120,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Checkbox 
-          checked={params.value} 
-          onChange={(e) => handleCheckboxChange(params.row.id, "IncludesSauce", e.target.checked)}
-          sx={{ padding: 0 }} 
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Checkbox 
+            checked={params.value} 
+            onChange={(e) => handleCheckboxChange(params.row.id, "IncludesSauce", e.target.checked)}
+            sx={{ padding: 0 }} 
+            color={params.value ? "success" : "default"}
+          />
+        </Box>
       ),
     },
     {
@@ -343,72 +194,89 @@ export default function AdminPlat() {
       headerName: "Prix Sauce (€)",
       width: 130,
       type: "number",
-      renderCell: (params) => `€${params.value.toFixed(2)}`,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
+          {`€${params.value.toFixed(2)}`}
+        </Typography>
+      ),
     },
     {
       field: "available",
       headerName: "Disponible",
       width: 100,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Checkbox 
-          checked={params.value} 
-          onChange={(e) => handleCheckboxChange(params.row.id, "available", e.target.checked)}
-          sx={{ padding: 0 }} 
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Checkbox 
+            checked={params.value} 
+            onChange={(e) => handleCheckboxChange(params.row.id, "available", e.target.checked)}
+            sx={{ padding: 0 }} 
+            color={params.value ? "success" : "error"}
+          />
+        </Box>
       ),
     },
     {
       field: "availableForDelivery",
       headerName: "Livraison",
       width: 100,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Checkbox 
-          checked={params.value} 
-          onChange={(e) => handleCheckboxChange(params.row.id, "availableForDelivery", e.target.checked)}
-          sx={{ padding: 0 }} 
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Checkbox 
+            checked={params.value} 
+            onChange={(e) => handleCheckboxChange(params.row.id, "availableForDelivery", e.target.checked)}
+            sx={{ padding: 0 }} 
+            color={params.value ? "success" : "error"}
+          />
+        </Box>
       ),
     },
     {
       field: "speciality",
       headerName: "Spécialité",
       width: 100,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Checkbox 
-          checked={params.value} 
-          onChange={(e) => handleCheckboxChange(params.row.id, "speciality", e.target.checked)}
-          sx={{ padding: 0 }} 
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Checkbox 
+            checked={params.value} 
+            onChange={(e) => handleCheckboxChange(params.row.id, "speciality", e.target.checked)}
+            sx={{ padding: 0 }} 
+            color={params.value ? "success" : "default"}
+          />
+        </Box>
       ),
     },
     {
       field: "actions",
       headerName: "Actions",
-      width: 120,
+      width: 150,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <IconButton
+        <Box sx={{ display: "flex", gap: 1, justifyContent: 'center', width: '100%' }}>
+          <Button
             size="small"
             color="primary"
             onClick={() => openDialog(params.row)}
-            sx={{ 
-              backgroundColor: "rgba(255, 152, 0, 0.1)",
-              "&:hover": { backgroundColor: "rgba(255, 152, 0, 0.2)" }
-            }}
+            sx={{ minWidth: "auto", p: 1 }}
           >
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton
+            <EditIcon />
+          </Button>
+          <Button
             size="small"
             color="error"
             onClick={() => handleDelete(params.row.id)}
-            sx={{ 
-              backgroundColor: "rgba(244, 67, 54, 0.1)",
-              "&:hover": { backgroundColor: "rgba(244, 67, 54, 0.2)" }
-            }}
+            sx={{ minWidth: "auto", p: 1 }}
           >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+            <DeleteIcon />
+          </Button>
         </Box>
       ),
       sortable: false,
@@ -422,7 +290,12 @@ export default function AdminPlat() {
       const response = await fetch(`${config.API_URL}/plats`)
       if (response.ok) {
         const data = await response.json()
-        setPlats(data)
+        // Convert id to number to ensure proper sorting
+        const processedData = data.map((plat) => ({
+          ...plat,
+          id: Number(plat.id),
+        }))
+        setPlats(processedData)
       } else {
         showAlert("Erreur lors du chargement des plats", "error")
       }
@@ -479,7 +352,7 @@ export default function AdminPlat() {
       name: "",
       price: "",
       description: "",
-      type: "snack",
+      ordre: "",
       image: null,
       available: true,
       availableForDelivery: true,
@@ -584,7 +457,7 @@ export default function AdminPlat() {
       formData.append("name", plat.name)
       formData.append("price", plat.price)
       formData.append("description", plat.description)
-      formData.append("type", plat.type)
+      formData.append("ordre", plat.ordre || "")
       formData.append("available", field === "available" ? value : plat.available)
       formData.append("availableForDelivery", field === "availableForDelivery" ? value : plat.availableForDelivery)
       formData.append("speciality", field === "speciality" ? value : plat.speciality)
@@ -627,7 +500,7 @@ export default function AdminPlat() {
       formData.append("name", newPlat.name)
       formData.append("price", newPlat.price)
       formData.append("description", newPlat.description)
-      formData.append("type", newPlat.type)
+      formData.append("ordre", newPlat.ordre || "")
       formData.append("available", newPlat.available)
       formData.append("availableForDelivery", newPlat.availableForDelivery)
       formData.append("speciality", newPlat.speciality)
@@ -638,6 +511,9 @@ export default function AdminPlat() {
 
       if (newPlat.image) {
         formData.append("image", newPlat.image)
+      } else if (editingPlat) {
+        // If we're editing and no new image was selected, keep the existing one
+        formData.append("keepExistingImage", "true")
       }
 
       const url = editingPlat ? `${config.API_URL}/plats/${editingPlat.id}` : `${config.API_URL}/plats`
@@ -700,7 +576,6 @@ export default function AdminPlat() {
             body: JSON.stringify({
               ingredientId: selectedIngredient.ingredientId,
               removable: selectedIngredient.removable !== false,
-              essential: selectedIngredient.essential === true
             })
           })
         } else {
@@ -712,7 +587,6 @@ export default function AdminPlat() {
             },
             body: JSON.stringify({
               removable: selectedIngredient.removable !== false,
-              essential: selectedIngredient.essential === true
             })
           })
         }
@@ -792,7 +666,7 @@ export default function AdminPlat() {
         name: plat.name,
         description: plat.description,
         price: plat.price,
-        type: plat.type,
+        ordre: plat.ordre || "",
         available: plat.available,
         availableForDelivery: plat.availableForDelivery,
         speciality: plat.speciality,
@@ -830,7 +704,7 @@ export default function AdminPlat() {
       formData.append("name", data.name)
       formData.append("price", data.price)
       formData.append("description", data.description)
-      formData.append("type", data.type)
+      formData.append("ordre", data.ordre || "")
       formData.append("available", data.available)
       formData.append("availableForDelivery", data.availableForDelivery)
       formData.append("speciality", data.speciality)
@@ -851,6 +725,14 @@ export default function AdminPlat() {
       if (originalPlat && originalPlat.versions) {
         formData.append("versions", JSON.stringify(originalPlat.versions))
       }
+      
+      // Include tags if present in the original plat
+      if (originalPlat && originalPlat.tags) {
+        const tagIds = data.selectedTags || originalPlat.tags.map(tag => tag.id)
+        formData.append("tags", JSON.stringify(tagIds))
+      }
+
+      console.log("Updating plat with formData:", Object.fromEntries(formData.entries()))
 
       const response = await fetch(`${config.API_URL}/plats/${id}`, {
         method: "PUT",
@@ -878,7 +760,7 @@ export default function AdminPlat() {
         name: plat.name,
         price: plat.price,
         description: plat.description,
-        type: plat.type,
+        ordre: plat.ordre || "",
         image: null,
         available: plat.available,
         availableForDelivery: plat.availableForDelivery,
@@ -889,12 +771,13 @@ export default function AdminPlat() {
         selectedIngredients: plat.ingredients ? plat.ingredients.map(pi => ({
           ingredientId: pi.ingredientId,
           removable: pi.removable,
-          essential: pi.essential
         })) : [],
         versions: plat.versions && plat.versions.length > 0 ? plat.versions : [{ size: "Standard", extraPrice: 0 }]
       })
       if (plat.image) {
         setImagePreview(`${config.API_URL}${plat.image}`)
+      } else {
+        setImagePreview(null)
       }
     } else {
       resetForm()
@@ -903,118 +786,135 @@ export default function AdminPlat() {
   }
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <CssBaseline />
-      <Box
-        sx={{
-          minHeight: "100vh",
-          background: "linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)",
-          padding: 3,
-        }}
-      >
-        <Fade in={true} timeout={800}>
-          <Paper
-            elevation={24}
-            sx={{
-              padding: 4,
-              borderRadius: 3,
-              maxWidth: "100%",
-              margin: "0 auto",
-              background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255, 152, 0, 0.1)",
-            }}
-          >
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
-              <Typography
-                variant="h4"
+    <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 6rem)' }}>
+      <Fade in={true} timeout={800}>
+        <Paper
+          elevation={24}
+          sx={{
+            padding: 4,
+            borderRadius: 3,
+            width: '100%',
+            maxWidth: '95%',
+            margin: "0 auto",
+            background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 152, 0, 0.1)",
+          }}
+        >
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
+            <Typography
+              variant="h4"
+              sx={{
+                background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <FastfoodIcon sx={{ color: "#ff9800", fontSize: "2rem" }} />
+              Administration des Plats
+            </Typography>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setIsIngredientDialogOpen(true)}
                 sx={{
-                  background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
+                  borderRadius: 3,
+                  paddingX: 3,
+                  paddingY: 1.5,
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  borderColor: "rgba(255, 152, 0, 0.5)",
+                  "&:hover": {
+                    borderColor: "#ff9800",
+                    backgroundColor: "rgba(255, 152, 0, 0.1)",
+                  },
                 }}
               >
-                <FastfoodIcon sx={{ color: "#ff9800", fontSize: "2rem" }} />
-                Administration des Plats
-              </Typography>
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => setIsIngredientDialogOpen(true)}
-                  sx={{
-                    borderRadius: 3,
-                    paddingX: 3,
-                    paddingY: 1.5,
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                    borderColor: "rgba(255, 152, 0, 0.5)",
-                    "&:hover": {
-                      borderColor: "#ff9800",
-                      backgroundColor: "rgba(255, 152, 0, 0.1)",
-                    },
-                  }}
-                >
-                  Gérer Ingrédients
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => openDialog()}
-                  sx={{
-                    borderRadius: 3,
-                    paddingX: 3,
-                    paddingY: 1.5,
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    boxShadow: "0 8px 32px rgba(255, 152, 0, 0.3)",
-                    background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-                    "&:hover": {
-                      background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 12px 40px rgba(255, 152, 0, 0.4)",
-                    },
-                  }}
-                >
-                  Nouveau Plat
-                </Button>
-              </Box>
-            </Box>
-
-            <Box sx={{ height: 600, width: "100%" }}>
-              <DataGrid
-                rows={plats}
-                columns={columns}
-                disableRowSelectionOnClick
-                slots={{ toolbar: GridToolbar }}
-                slotProps={{
-                  toolbar: {
-                    showQuickFilter: true,
-                    quickFilterProps: { debounceMs: 500 },
-                  },
-                }}
+                Gérer Ingrédients
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => openDialog()}
                 sx={{
-                  "& .MuiDataGrid-toolbarContainer": {
-                    backgroundColor: "rgba(255, 152, 0, 0.05)",
-                    borderRadius: "12px 12px 0 0",
-                    padding: 2,
-                  },
-                  "& .MuiDataGrid-row": {
-                    "&:hover": {
-                      backgroundColor: "rgba(255, 152, 0, 0.05)",
-                    },
-                  },
-                  "& .MuiDataGrid-cell": {
-                    display: "flex",
-                    alignItems: "center",
+                  borderRadius: 3,
+                  paddingX: 3,
+                  paddingY: 1.5,
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  boxShadow: "0 8px 32px rgba(255, 152, 0, 0.3)",
+                  background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                  "&:hover": {
+                    background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 12px 40px rgba(255, 152, 0, 0.4)",
                   },
                 }}
-              />
+              >
+                Nouveau Plat
+              </Button>
             </Box>
+          </Box>
+
+          <Box sx={{ height: 600, width: "100%" }}>
+            <DataGrid
+              rows={plats}
+              columns={columns}
+              disableRowSelectionOnClick
+              slots={{ toolbar: GridToolbar }}
+              initialState={{
+                sorting: {
+                  sortModel: [{ field: 'id', sort: 'asc' }],
+                },
+              }}
+              slotProps={{
+                toolbar: {
+                  showQuickFilter: true,
+                  quickFilterProps: { debounceMs: 500 },
+                },
+              }}
+              sx={{
+                "& .MuiDataGrid-toolbarContainer": {
+                  backgroundColor: "rgba(255, 152, 0, 0.05)",
+                  borderRadius: "12px 12px 0 0",
+                  padding: 2,
+                },
+                "& .MuiDataGrid-row": {
+                  "&:hover": {
+                    backgroundColor: "rgba(255, 152, 0, 0.05)",
+                  },
+                },
+                "& .MuiDataGrid-cell": {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                },
+                "& .MuiDataGrid-columnHeaders": {
+                  backgroundColor: "rgba(255, 152, 0, 0.1)",
+                  color: "#fff",
+                  fontWeight: 700,
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                },
+                "& .MuiCheckbox-root": {
+                  color: "rgba(255, 152, 0, 0.7)",
+                },
+                border: "1px solid rgba(255, 152, 0, 0.2)",
+                borderRadius: 3,
+                "& .MuiDataGrid-virtualScroller": {
+                  backgroundColor: "rgba(0, 0, 0, 0.1)",
+                },
+              }}
+            />
+          </Box>
           </Paper>
         </Fade>
 
@@ -1064,10 +964,11 @@ export default function AdminPlat() {
                   fullWidth
                 />
                 <TextField
-                  label="Type"
-                  value={newPlat.type}
-                  onChange={(e) => setNewPlat({ ...newPlat, type: e.target.value })}
+                  label="Ordre"
+                  value={newPlat.ordre}
+                  onChange={(e) => setNewPlat({ ...newPlat, ordre: e.target.value })}
                   fullWidth
+                  placeholder="Optionnel"
                 />
               </Box>
               
@@ -1212,7 +1113,7 @@ export default function AdminPlat() {
                           const selectedIds = e.target.value;
                           const newSelectedIngredients = selectedIds.map(id => {
                             const existing = newPlat.selectedIngredients.find(si => si.ingredientId === id);
-                            return existing || { ingredientId: id, removable: true, essential: false };
+                            return existing || { ingredientId: id, removable: true };
                           });
                           setNewPlat({ ...newPlat, selectedIngredients: newSelectedIngredients });
                         }}
@@ -1225,11 +1126,11 @@ export default function AdminPlat() {
                               return ingredient ? (
                                 <Chip
                                   key={ingredientId}
-                                  label={`${ingredient.name}${selectedIngredient?.essential ? ' (Essentiel)' : ''}${selectedIngredient?.removable === false ? ' (Non-retirable)' : ''}`}
+                                  label={`${ingredient.name}${selectedIngredient?.removable === false ? ' (Non-retirable)' : ''}`}
                                   size="small"
-                                  color={selectedIngredient?.essential ? 'error' : 'primary'}
+                                  color="primary"
                                   variant={selectedIngredient?.removable === false ? 'filled' : 'outlined'}
-                                  sx={{ backgroundColor: selectedIngredient?.essential ? 'rgba(244, 67, 54, 0.2)' : 'rgba(255, 152, 0, 0.2)' }}
+                                  sx={{ backgroundColor: 'rgba(255, 152, 0, 0.2)' }}
                                 />
                               ) : null;
                             })}
@@ -1299,23 +1200,6 @@ export default function AdminPlat() {
                                   />
                                 }
                                 label="Retirable"
-                              />
-                              <FormControlLabel
-                                control={
-                                  <Checkbox
-                                    checked={selectedIngredient.essential === true}
-                                    onChange={(e) => {
-                                      const updatedIngredients = newPlat.selectedIngredients.map(si =>
-                                        si.ingredientId === selectedIngredient.ingredientId
-                                          ? { ...si, essential: e.target.checked }
-                                          : si
-                                      );
-                                      setNewPlat({ ...newPlat, selectedIngredients: updatedIngredients });
-                                    }}
-                                    size="small"
-                                  />
-                                }
-                                label="Essentiel"
                               />
                             </Box>
                           ) : null;
@@ -1613,6 +1497,5 @@ export default function AdminPlat() {
           </DialogActions>
         </Dialog>
       </Box>
-    </ThemeProvider>
-  )
+  );
 }

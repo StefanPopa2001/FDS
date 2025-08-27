@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import CryptoJS from 'crypto-js';
 import config from '../config';
 
 const AuthContext = createContext();
@@ -55,12 +56,31 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      // First, get the user's salt (endpoint always returns a salt to prevent timing attacks)
+      const saltResponse = await fetch(`${config.API_URL}/users/getSalt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!saltResponse.ok) {
+        return { success: false, error: 'Network error' };
+      }
+
+      const { salt } = await saltResponse.json();
+
+      // Hash the password with the retrieved salt (same as registration)
+      const hashedPassword = CryptoJS.SHA256(password + salt).toString();
+
+      // Now perform the login with the hashed password
       const response = await fetch(`${config.API_URL}/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password: hashedPassword }),
       });
 
       if (response.ok) {

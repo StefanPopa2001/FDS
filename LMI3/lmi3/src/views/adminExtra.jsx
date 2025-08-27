@@ -6,14 +6,11 @@ import {
   Button,
   Snackbar,
   Alert,
-  ThemeProvider,
-  createTheme,
   TextField,
   FormControlLabel,
   Typography,
   Paper,
   Fade,
-  CssBaseline,
   Checkbox,
   Autocomplete,
   Chip,
@@ -28,129 +25,6 @@ import {
   LocalOffer as TagIcon,
 } from "@mui/icons-material"
 import config from '../config.js';
-
-// Create dark theme with black/orange design
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: {
-      main: "#ff9800",
-      light: "#ffb74d",
-      dark: "#f57c00",
-    },
-    secondary: {
-      main: "#f44336",
-    },
-    background: {
-      default: "#0a0a0a",
-      paper: "#1a1a1a",
-    },
-    text: {
-      primary: "#ffffff",
-      secondary: "#b0b0b0",
-    },
-    success: {
-      main: "#4caf50",
-    },
-    error: {
-      main: "#f44336",
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 800,
-      letterSpacing: "-0.02em",
-    },
-    h6: {
-      fontWeight: 600,
-      letterSpacing: "-0.01em",
-    },
-  },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: "none",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          textTransform: "none",
-          fontWeight: 600,
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          "&:hover": {
-            transform: "translateY(-2px)",
-          },
-        },
-        contained: {
-          background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-          "&:hover": {
-            background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
-          },
-        },
-        outlined: {
-          borderColor: "rgba(255, 152, 0, 0.5)",
-          "&:hover": {
-            borderColor: "#ff9800",
-            backgroundColor: "rgba(255, 152, 0, 0.1)",
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 12,
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            "&:hover fieldset": {
-              borderColor: "#ff9800",
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#ff9800",
-            },
-          },
-        },
-      },
-    },
-    MuiDataGrid: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          "& .MuiDataGrid-cell": {
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "rgba(255, 152, 0, 0.1)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaderTitle": {
-            fontWeight: 700,
-            color: "#ff9800",
-          },
-        },
-      },
-    },
-    MuiCheckbox: {
-      styleOverrides: {
-        root: {
-          color: "rgba(255, 152, 0, 0.7)",
-          "&.Mui-checked": {
-            color: "#ff9800",
-          },
-        },
-      },
-    },
-  },
-});
 
 export default function AdminExtra() {
   const [extras, setExtras] = useState([])
@@ -627,27 +501,29 @@ export default function AdminExtra() {
   ]
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <CssBaseline />
-      <Box sx={{ minHeight: "100vh", backgroundColor: "background.default", p: 3 }}>
-        {/* Header */}
-        <Fade in timeout={800}>
-          <Typography
-            variant="h4"
-            gutterBottom
-            sx={{
-              color: "primary.main",
-              textAlign: "center",
-              mb: 4,
-              fontWeight: 800,
-              textShadow: "0 0 30px rgba(255, 152, 0, 0.3)",
-            }}
-          >
-            Gestion des Extras
-          </Typography>
-        </Fade>
+    <Box sx={{ p: 3 }}>
+      {/* Header */}
+      <Fade in timeout={800}>
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          <AddIcon sx={{ color: "#ff9800", fontSize: "2rem" }} />
+          Gestion des Extras
+        </Typography>
+      </Fade>
 
-        {/* Add New Extra Form */}
+      {/* Add New Extra Form */}
         <Fade in timeout={1000}>
           <Paper
             elevation={0}
@@ -806,6 +682,43 @@ export default function AdminExtra() {
                   backgroundColor: "rgba(255, 152, 0, 0.05)",
                   borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
                 },
+                // Center cell contents vertically and horizontally
+                "& .MuiDataGrid-cell": {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                },
+                // Ensure header container and titles are centered and styled
+                "& .MuiDataGrid-columnHeaders": {
+                  backgroundColor: "rgba(255, 152, 0, 0.1)",
+                  color: "#fff",
+                  fontWeight: 700,
+                },
+                // Make sure each header cell content is centered horizontally and vertically
+                "& .MuiDataGrid-columnHeader": {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                },
+                // Ensure the inner title container is centered (fixes left-stuck header text)
+                "& .MuiDataGrid-columnHeaderTitleContainer": {
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  width: "100%",
+                  padding: 0,
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  width: "100%",
+                  textAlign: "center",
+                },
               }}
               components={{
                 Toolbar: GridToolbar,
@@ -862,7 +775,6 @@ export default function AdminExtra() {
             {alert.message}
           </Alert>
         </Snackbar>
-      </Box>
-    </ThemeProvider>
+    </Box>
   )
 }

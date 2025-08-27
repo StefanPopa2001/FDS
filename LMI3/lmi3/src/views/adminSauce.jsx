@@ -6,8 +6,6 @@ import {
   Button,
   Snackbar,
   Alert,
-  ThemeProvider,
-  createTheme,
   Avatar,
   Checkbox,
   TextField,
@@ -15,7 +13,6 @@ import {
   Typography,
   Paper,
   Fade,
-  CssBaseline,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -41,129 +38,6 @@ import {
 } from "@mui/icons-material"
 import config from "../config"
 
-// Create dark theme with black/orange design
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: {
-      main: "#ff9800",
-      light: "#ffb74d",
-      dark: "#f57c00",
-    },
-    secondary: {
-      main: "#f44336",
-    },
-    background: {
-      default: "#0a0a0a",
-      paper: "#1a1a1a",
-    },
-    text: {
-      primary: "#ffffff",
-      secondary: "#b0b0b0",
-    },
-    success: {
-      main: "#4caf50",
-    },
-    error: {
-      main: "#f44336",
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 800,
-      letterSpacing: "-0.02em",
-    },
-    h6: {
-      fontWeight: 600,
-      letterSpacing: "-0.01em",
-    },
-  },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: "none",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          textTransform: "none",
-          fontWeight: 600,
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          "&:hover": {
-            transform: "translateY(-2px)",
-          },
-        },
-        contained: {
-          background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-          "&:hover": {
-            background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
-          },
-        },
-        outlined: {
-          borderColor: "rgba(255, 152, 0, 0.5)",
-          "&:hover": {
-            borderColor: "#ff9800",
-            backgroundColor: "rgba(255, 152, 0, 0.1)",
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 12,
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            "&:hover fieldset": {
-              borderColor: "#ff9800",
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#ff9800",
-            },
-          },
-        },
-      },
-    },
-    MuiDataGrid: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          "& .MuiDataGrid-cell": {
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "rgba(255, 152, 0, 0.1)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaderTitle": {
-            fontWeight: 700,
-            color: "#ff9800",
-          },
-        },
-      },
-    },
-    MuiCheckbox: {
-      styleOverrides: {
-        root: {
-          color: "rgba(255, 152, 0, 0.7)",
-          "&.Mui-checked": {
-            color: "#ff9800",
-          },
-        },
-      },
-    },
-  },
-})
-
 export default function AdminSauce() {
   const [sauces, setSauces] = useState([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -176,8 +50,7 @@ export default function AdminSauce() {
     description: "",
     image: null,
     available: true,
-    availableForDelivery: true,
-    speciality: false,
+    ordre: "",
     tags: [],
   })
 
@@ -200,54 +73,61 @@ export default function AdminSauce() {
       width: 70,
       type: "number",
       filterable: true,
+      align: 'center',
+      headerAlign: 'center',
     },
     {
       field: "image",
       headerName: "Aperçu Image",
       width: 200,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) =>
         editMode[params.row.id] ? (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Avatar
-              variant="rounded"
-              src={editData[params.row.id]?.image}
-              alt={params.row.name}
-              sx={{
-                width: 40,
-                height: 40,
-                border: "2px solid rgba(255, 152, 0, 0.3)",
-              }}
-            >
-              {!editData[params.row.id]?.image && <RestaurantIcon sx={{ color: "rgba(255, 152, 0, 0.5)" }} />}
-            </Avatar>
-            <Box sx={{ display: "flex", flexDirection: "column" }}>
-              <Button variant="outlined" component="label" size="small" sx={{ mb: 1 }}>
-                {editImageFiles[params.row.id] ? "Changer Image" : "Télécharger Image"}
-                <input
-                  type="file"
-                  hidden
-                  accept="image/*"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleEditImageChange(params.row.id, e.target.files[0])
-                    }
-                  }}
-                />
-              </Button>
-              {editData[params.row.id]?.image && (
-                <Button
-                  variant="text"
-                  color="error"
-                  size="small"
-                  onClick={() => handleEditImageChange(params.row.id, null)}
-                >
-                  Supprimer
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: '100%', height: '100%' }}>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <Avatar
+                variant="rounded"
+                src={editData[params.row.id]?.image}
+                alt={params.row.name}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  border: "2px solid rgba(255, 152, 0, 0.3)",
+                  mb: 1
+                }}
+              >
+                {!editData[params.row.id]?.image && <RestaurantIcon sx={{ color: "rgba(255, 152, 0, 0.5)" }} />}
+              </Avatar>
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <Button variant="outlined" component="label" size="small" sx={{ mb: 1 }}>
+                  {editImageFiles[params.row.id] ? "Changer Image" : "Télécharger Image"}
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleEditImageChange(params.row.id, e.target.files[0])
+                      }
+                    }}
+                  />
                 </Button>
-              )}
+                {editData[params.row.id]?.image && (
+                  <Button
+                    variant="text"
+                    color="error"
+                    size="small"
+                    onClick={() => handleEditImageChange(params.row.id, null)}
+                  >
+                    Supprimer
+                  </Button>
+                )}
+              </Box>
             </Box>
           </Box>
         ) : (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, width: '100%', height: '100%' }}>
             <Avatar
               variant="rounded"
               src={params.value && `${config.API_URL}${params.value}`}
@@ -273,25 +153,33 @@ export default function AdminSauce() {
       headerName: "Nom de la sauce",
       description: "Nom de la sauce",
       flex: 1,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) =>
         editMode[params.row.id] ? (
-          <TextField
-            fullWidth
-            size="small"
-            value={editData[params.row.id]?.name || ""}
-            onChange={(e) =>
-              setEditData({
-                ...editData,
-                [params.row.id]: { ...editData[params.row.id], name: e.target.value },
-              })
-            }
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <TextField
+              fullWidth
+              size="small"
+              value={editData[params.row.id]?.name || ""}
+              onChange={(e) =>
+                setEditData({
+                  ...editData,
+                  [params.row.id]: { ...editData[params.row.id], name: e.target.value },
+                })
+              }
+              sx={{ textAlign: 'center' }}
+            />
+          </Box>
         ) : (
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 1,
+              width: '100%',
+              height: '100%',
               "& .status-indicator": {
                 width: 8,
                 height: 8,
@@ -301,7 +189,7 @@ export default function AdminSauce() {
             }}
           >
             <div className="status-indicator" />
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'center' }}>
               {params.value}
             </Typography>
           </Box>
@@ -311,22 +199,27 @@ export default function AdminSauce() {
       field: "price",
       headerName: "Prix (€)",
       flex: 1,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) =>
         editMode[params.row.id] ? (
-          <TextField
-            type="number"
-            size="small"
-            fullWidth
-            value={editData[params.row.id]?.price || ""}
-            onChange={(e) =>
-              setEditData({
-                ...editData,
-                [params.row.id]: { ...editData[params.row.id], price: Number.parseFloat(e.target.value) },
-              })
-            }
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <TextField
+              type="number"
+              size="small"
+              fullWidth
+              value={editData[params.row.id]?.price || ""}
+              onChange={(e) =>
+                setEditData({
+                  ...editData,
+                  [params.row.id]: { ...editData[params.row.id], price: Number.parseFloat(e.target.value) },
+                })
+              }
+              inputProps={{ style: { textAlign: 'center' } }}
+            />
+          </Box>
         ) : (
-          <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main" }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
             {params.value ? `€${Number(params.value).toFixed(2)}` : ""}
           </Typography>
         ),
@@ -335,21 +228,26 @@ export default function AdminSauce() {
       field: "description",
       headerName: "Description",
       flex: 2,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) =>
         editMode[params.row.id] ? (
-          <TextField
-            fullWidth
-            size="small"
-            value={editData[params.row.id]?.description || ""}
-            onChange={(e) =>
-              setEditData({
-                ...editData,
-                [params.row.id]: { ...editData[params.row.id], description: e.target.value },
-              })
-            }
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <TextField
+              fullWidth
+              size="small"
+              value={editData[params.row.id]?.description || ""}
+              onChange={(e) =>
+                setEditData({
+                  ...editData,
+                  [params.row.id]: { ...editData[params.row.id], description: e.target.value },
+                })
+              }
+              inputProps={{ style: { textAlign: 'center' } }}
+            />
+          </Box>
         ) : (
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
             {params.value}
           </Typography>
         ),
@@ -359,136 +257,105 @@ export default function AdminSauce() {
       headerName: "Disponible",
       width: 120,
       type: "boolean",
-      editable: true,
+      editable: false,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={editMode[params.row.id] ? editData[params.row.id]?.available : params.value}
-              onChange={(e) => {
-                if (editMode[params.row.id]) {
-                  setEditData({
-                    ...editData,
-                    [params.row.id]: { ...editData[params.row.id], available: e.target.checked },
-                  })
-                } else {
-                  handleQuickEdit(params.row.id, { available: e.target.checked })
-                }
-              }}
-              color="primary"
-            />
-          }
-          label="Disponible"
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Checkbox
+            checked={Boolean(params.value)}
+            onChange={() => handleToggleAvailable(params.row.id, !params.value)}
+            color={params.value ? "success" : "error"}
+            sx={{ '& .MuiSvgIcon-root': { fontSize: 24 } }}
+          />
+        </Box>
       ),
     },
     {
-      field: "availableForDelivery",
-      headerName: "Livraison",
+      field: "ordre",
+      headerName: "Ordre",
       width: 120,
-      type: "boolean",
-      renderCell: (params) => (
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={editMode[params.row.id] ? editData[params.row.id]?.availableForDelivery : params.value}
-              onChange={(e) => {
-                if (editMode[params.row.id]) {
-                  setEditData({
-                    ...editData,
-                    [params.row.id]: { ...editData[params.row.id], availableForDelivery: e.target.checked },
-                  })
-                } else {
-                  handleQuickEdit(params.row.id, { availableForDelivery: e.target.checked })
-                }
-              }}
-              color="primary"
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) =>
+        editMode[params.row.id] ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <TextField
+              size="small"
+              fullWidth
+              value={editData[params.row.id]?.ordre || ""}
+              onChange={(e) =>
+                setEditData({
+                  ...editData,
+                  [params.row.id]: { ...editData[params.row.id], ordre: e.target.value },
+                })
+              }
+              inputProps={{ style: { textAlign: 'center' } }}
             />
-          }
-          label="Livraison"
-        />
-      ),
-    },
-    {
-      field: "speciality",
-      headerName: "Spécialité",
-      width: 120,
-      type: "boolean",
-      renderCell: (params) => (
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={editMode[params.row.id] ? editData[params.row.id]?.speciality : params.value}
-              onChange={(e) => {
-                if (editMode[params.row.id]) {
-                  setEditData({
-                    ...editData,
-                    [params.row.id]: { ...editData[params.row.id], speciality: e.target.checked },
-                  })
-                } else {
-                  handleQuickEdit(params.row.id, { speciality: e.target.checked })
-                }
-              }}
-              color="primary"
-            />
-          }
-          label="Spécialité"
-        />
-      ),
+          </Box>
+        ) : (
+          <Typography variant="body2" sx={{ color: "text.secondary", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
+            {params.value || "-"}
+          </Typography>
+        ),
     },
     {
       field: "tags",
       headerName: "Tags",
       width: 200,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) =>
         editMode[params.row.id] ? (
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Tags</InputLabel>
-            <Select
-              multiple
-              value={editData[params.row.id]?.tags?.map((tag) => tag.id) || []}
-              onChange={(e) => {
-                const selectedTagIds = e.target.value
-                const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id))
-                setEditData({
-                  ...editData,
-                  [params.row.id]: { ...editData[params.row.id], tags: selectedTags },
-                })
-              }}
-              input={<OutlinedInput label="Tags" />}
-              renderValue={(selected) => (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {selected.map((tagId) => {
-                    const tag = tags.find((t) => t.id === tagId)
-                    return (
-                      <Chip
-                        key={tagId}
-                        label={tag ? `${tag.emoji} ${tag.nom}` : tagId}
-                        size="small"
-                        sx={{
-                          backgroundColor: "rgba(255, 152, 0, 0.2)",
-                          color: "#ff9800",
-                        }}
-                      />
-                    )
-                  })}
-                </Box>
-              )}
-            >
-              {tags.map((tag) => (
-                <MenuItem key={tag.id} value={tag.id}>
-                  <Checkbox
-                    checked={
-                      (editData[params.row.id]?.tags?.map((tag) => tag.id) || []).indexOf(tag.id) > -1
-                    }
-                  />
-                  <ListItemText primary={`${tag.emoji} ${tag.nom}`} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Tags</InputLabel>
+              <Select
+                multiple
+                value={editData[params.row.id]?.tags?.map((tag) => tag.id) || []}
+                onChange={(e) => {
+                  const selectedTagIds = e.target.value
+                  const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id))
+                  setEditData({
+                    ...editData,
+                    [params.row.id]: { ...editData[params.row.id], tags: selectedTags },
+                  })
+                }}
+                input={<OutlinedInput label="Tags" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                    {selected.map((tagId) => {
+                      const tag = tags.find((t) => t.id === tagId)
+                      return (
+                        <Chip
+                          key={tagId}
+                          label={tag ? `${tag.emoji} ${tag.nom}` : tagId}
+                          size="small"
+                          sx={{
+                            backgroundColor: "rgba(255, 152, 0, 0.2)",
+                            color: "#ff9800",
+                          }}
+                        />
+                      )
+                    })}
+                  </Box>
+                )}
+              >
+                {tags.map((tag) => (
+                  <MenuItem key={tag.id} value={tag.id}>
+                    <Checkbox
+                      checked={
+                        (editData[params.row.id]?.tags?.map((tag) => tag.id) || []).indexOf(tag.id) > -1
+                      }
+                    />
+                    <ListItemText primary={`${tag.emoji} ${tag.nom}`} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
         ) : (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
             {(params.value || []).map((tag) => (
               <Chip
                 key={tag.id}
@@ -509,8 +376,10 @@ export default function AdminSauce() {
       headerName: "Actions",
       width: 150,
       sortable: false,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box sx={{ display: "flex", gap: 1, justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
           {editMode[params.row.id] ? (
             <>
               <Button
@@ -650,8 +519,7 @@ export default function AdminSauce() {
       formData.append("price", newSauce.price)
       formData.append("description", newSauce.description)
       formData.append("available", newSauce.available)
-      formData.append("availableForDelivery", newSauce.availableForDelivery)
-      formData.append("speciality", newSauce.speciality)
+      formData.append("ordre", newSauce.ordre || "")
       
       // Add tags to formData
       if (newSauce.tags && newSauce.tags.length > 0) {
@@ -676,8 +544,7 @@ export default function AdminSauce() {
           description: "",
           image: null,
           available: true,
-          availableForDelivery: true,
-          speciality: false,
+          ordre: "",
           tags: [],
         })
         setImagePreview(null)
@@ -739,6 +606,66 @@ export default function AdminSauce() {
       showAlert("Échec de la mise à jour de la sauce", "error")
     }
   }
+
+  // Handle toggling sauce availability status
+  const handleToggleAvailable = async (id, available) => {
+    try {
+      // Create FormData object for the update
+      const formData = new FormData();
+      
+      // Set the new availability value (convert to string to ensure proper transmission)
+      formData.append("available", String(available));
+      
+      // Keep the existing image
+      formData.append("keepExistingImage", "true");
+      
+      // Get the existing sauce data
+      const sauce = sauces.find(s => s.id === id);
+      if (!sauce) {
+        showAlert("Sauce introuvable", "error");
+        return;
+      }
+      
+      // Add all required fields to avoid validation errors
+      formData.append("name", sauce.name);
+      formData.append("price", sauce.price);
+      formData.append("description", sauce.description);
+      if (sauce.ordre) formData.append("ordre", sauce.ordre);
+      
+      // Add tags if they exist
+      if (sauce.tags && sauce.tags.length > 0) {
+        const tagIds = sauce.tags.map(tag => tag.id);
+        formData.append("tags", JSON.stringify(tagIds));
+      }
+
+      // Update the sauce
+      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
+        method: "PUT",
+        body: formData,
+      });
+
+      if (response.ok) {
+        // Update the UI immediately to avoid flicker
+        setSauces(
+          sauces.map(s => 
+            s.id === id ? { ...s, available: available } : s
+          )
+        );
+        
+        // Show success feedback
+        showAlert(available ? "Sauce rendue disponible" : "Sauce rendue indisponible", "success");
+        
+        // Then fetch the updated data from server
+        fetchSauces();
+      } else {
+        const error = await response.json();
+        showAlert(error.error || "Échec de la mise à jour du statut", "error");
+      }
+    } catch (error) {
+      console.error("Toggle available error:", error);
+      showAlert("Erreur lors de la mise à jour du statut", "error");
+    }
+  };
 
   // State to store uploaded image files for edit mode
   const [editImageFiles, setEditImageFiles] = useState({})
@@ -839,28 +766,26 @@ export default function AdminSauce() {
   }
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <CssBaseline />
-      <Box
-        sx={{
-          minHeight: "100vh",
-          background: "linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)",
-          p: 3,
-        }}
-      >
-        <Fade in timeout={800}>
-          <Typography
-            variant="h6"
-            component="h1"
-            sx={{
-              fontWeight: 600,
-              color: "text.primary",
-              mb: 3,
-            }}
-          >
-            Gestion des sauces
-          </Typography>
-        </Fade>
+    <Box sx={{ p: 3 }}>
+      <Fade in timeout={800}>
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{
+            background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          <RestaurantIcon sx={{ color: "#ff9800", fontSize: "2rem" }} />
+          Gestion des sauces
+        </Typography>
+       </Fade>
 
         {/* Add new sauce form */}
         <Fade in timeout={1000}>
@@ -878,12 +803,13 @@ export default function AdminSauce() {
             <Typography variant="h6" sx={{ mb: 2, color: "primary.main", fontWeight: 700 }}>
               Ajouter une nouvelle sauce
             </Typography>
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "nowrap" }}>
               <TextField
                 size="small"
                 label="Nom"
                 value={newSauce.name}
                 onChange={(e) => setNewSauce({ ...newSauce, name: e.target.value })}
+                sx={{ width: '15%' }}
               />
               <TextField
                 size="small"
@@ -892,42 +818,40 @@ export default function AdminSauce() {
                 value={newSauce.price}
                 onChange={(e) => setNewSauce({ ...newSauce, price: e.target.value })}
                 inputProps={{ step: "0.01" }}
+                sx={{ width: '8%' }}
               />
               <TextField
                 size="small"
                 label="Description"
                 value={newSauce.description}
                 onChange={(e) => setNewSauce({ ...newSauce, description: e.target.value })}
-                sx={{ flexGrow: 1 }}
+                sx={{ width: '25%' }}
               />
-              <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Button variant="outlined" component="label" startIcon={<ImageIcon />} size="small">
-                    Télécharger Image
-                    <input type="file" hidden accept="image/*" onChange={handleImageChange} />
-                  </Button>
-                  {imagePreview && (
-                    <Button variant="text" color="error" size="small" onClick={handleRemoveImage}>
-                      Supprimer
-                    </Button>
-                  )}
-                </Box>
-                {imagePreview && (
-                  <Box sx={{ mt: 1, display: "flex", alignItems: "center" }}>
-                    <Avatar
-                      src={imagePreview}
-                      variant="rounded"
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        mr: 1,
-                        border: "2px solid rgba(255, 152, 0, 0.3)",
-                      }}
-                    />
-                  </Box>
-                )}
-              </Box>
-              <FormControl sx={{ minWidth: 200 }} size="small">
+              
+              <Button 
+                variant="outlined" 
+                component="label" 
+                startIcon={<ImageIcon />} 
+                size="small"
+                sx={{ height: '40px' }}
+              >
+                {imagePreview ? "Changer Image" : "Télécharger Image"}
+                <input type="file" hidden accept="image/*" onChange={handleImageChange} />
+              </Button>
+              
+              {imagePreview && (
+                <Avatar
+                  src={imagePreview}
+                  variant="rounded"
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    border: "2px solid rgba(255, 152, 0, 0.3)",
+                  }}
+                />
+              )}
+              
+              <FormControl size="small" sx={{ width: '15%' }}>
                 <InputLabel>Tags</InputLabel>
                 <Select
                   multiple
@@ -961,52 +885,45 @@ export default function AdminSauce() {
                   ))}
                 </Select>
               </FormControl>
-              <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={newSauce.available}
-                      onChange={(e) => setNewSauce({ ...newSauce, available: e.target.checked })}
-                      color="primary"
-                    />
-                  }
-                  label="Disponible"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={newSauce.availableForDelivery}
-                      onChange={(e) => setNewSauce({ ...newSauce, availableForDelivery: e.target.checked })}
-                      color="primary"
-                    />
-                  }
-                  label="Livraison"
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={newSauce.speciality}
-                      onChange={(e) => setNewSauce({ ...newSauce, speciality: e.target.checked })}
-                      color="primary"
-                    />
-                  }
-                  label="Spécialité"
-                />
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleNewSauceSubmit}
-                  disabled={!newSauce.name || !newSauce.price || !newSauce.description}
-                  sx={{
-                    background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-                    "&:hover": {
-                      background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
-                    },
-                  }}
-                >
-                  Ajouter Sauce
-                </Button>
-              </Box>
+              
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={newSauce.available}
+                    onChange={(e) => setNewSauce({ ...newSauce, available: e.target.checked })}
+                    color="primary"
+                  />
+                }
+                label="Disponible"
+                sx={{ mx: 0.5 }}
+              />
+              
+              <TextField
+                label="Ordre"
+                value={newSauce.ordre}
+                onChange={(e) => setNewSauce({ ...newSauce, ordre: e.target.value })}
+                variant="outlined"
+                size="small"
+                sx={{ width: '8%' }}
+                placeholder="Ordre"
+              />
+              
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleNewSauceSubmit}
+                disabled={!newSauce.name || !newSauce.price || !newSauce.description}
+                sx={{
+                  background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                  "&:hover": {
+                    background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
+                  },
+                  height: '40px',
+                  ml: 'auto'
+                }}
+              >
+                Ajouter
+              </Button>
             </Box>
           </Paper>
         </Fade>
@@ -1029,27 +946,9 @@ export default function AdminSauce() {
               checkboxSelection
               disableSelectionOnClick
               getRowClassName={(params) =>
-                !params.row.available ? "unavailable-row" : params.row.speciality ? "speciality-row" : ""
+                !params.row.available ? "unavailable-row" : ""
               }
-              sx={{
-                height: "100%",
-                "& .unavailable-row": {
-                  backgroundColor: "rgba(255, 0, 0, 0.1)",
-                },
-                "& .speciality-row": {
-                  backgroundColor: "rgba(255, 152, 0, 0.1)",
-                },
-                "& .MuiDataGrid-row:hover": {
-                  backgroundColor: "rgba(255, 152, 0, 0.08)",
-                },
-                "& .MuiDataGrid-toolbarContainer": {
-                  backgroundColor: "rgba(255, 152, 0, 0.05)",
-                  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                },
-              }}
-              components={{
-                Toolbar: GridToolbar,
-              }}
+              components={{ Toolbar: GridToolbar }}
               componentsProps={{
                 toolbar: {
                   showQuickFilter: true,
@@ -1061,6 +960,19 @@ export default function AdminSauce() {
                 },
               }}
               density="comfortable"
+              sx={{
+                height: "100%",
+                "& .unavailable-row": {
+                  backgroundColor: "rgba(255, 0, 0, 0.1)",
+                },
+                "& .MuiDataGrid-row:hover": {
+                  backgroundColor: "rgba(255, 152, 0, 0.08)",
+                },
+                "& .MuiDataGrid-toolbarContainer": {
+                  backgroundColor: "rgba(255, 152, 0, 0.05)",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                },
+              }}
               initialState={{
                 sorting: {
                   sortModel: [{ field: "name", sort: "asc" }],
@@ -1102,7 +1014,6 @@ export default function AdminSauce() {
             {alert.message}
           </Alert>
         </Snackbar>
-      </Box>
-    </ThemeProvider>
+    </Box>
   )
 }

@@ -9,6 +9,7 @@ import Login from './views/login';
 import Profile from './views/userProfile';
 import AdminSauce from './views/adminSauce';
 import AdminPlat from './views/adminPlat';
+import AdminDashboard from './views/AdminDashboard';
 import Menu from './views/Menu';
 import Navbar from './components/Navbar';
 import AdminTags from './views/adminTags';
@@ -39,6 +40,7 @@ root.render(
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<Menu />} />
+              <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/sauces" element={<AdminSauce />} />
               <Route path="/admin/plats" element={<AdminPlat />} />
               <Route path="/admin/tags" element={<AdminTags />} />

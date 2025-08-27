@@ -177,7 +177,7 @@ export default function OrderHistory() {
     setError(null)
 
     try {
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("authToken")
       if (!token) {
         throw new Error("Non authentifié")
       }
@@ -394,10 +394,10 @@ export default function OrderHistory() {
             <>
               {orders.map((order, index) => (
                 <Fade in timeout={1000 + index * 200} key={order.id}>
-                  <Card sx={{ mb: 3 }}>
-                    <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-                      <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={3}>
+                  <Card sx={{ mb: 4 }}>
+                    <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                      <Grid container spacing={3} alignItems="center" sx={{ mb: 3 }}>
+                        <Grid item xs={12} sm={6} md={4}>
                           <Box display="flex" alignItems="center" gap={1}>
                             <Box
                               sx={{
@@ -421,179 +421,246 @@ export default function OrderHistory() {
                         </Grid>
 
                         <Grid item xs={12} sm={6} md={2}>
-                          <Chip
-                            label={order.statusText}
-                            color={getStatusColor(order.status)}
-                            icon={getStatusIcon(order.status)}
-                            sx={{ fontWeight: 600 }}
-                          />
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Statut actuel
+                            </Typography>
+                            <Chip
+                              label={order.statusText}
+                              color={getStatusColor(order.status)}
+                              icon={getStatusIcon(order.status)}
+                              sx={{ fontWeight: 600 }}
+                            />
+                          </Box>
                         </Grid>
 
                         <Grid item xs={6} sm={6} md={2}>
-                          <Typography variant="body2" color="text.secondary">
-                            Total
-                          </Typography>
-                          <Typography variant="h6" sx={{ color: "primary.main", fontWeight: 700 }}>
-                            {formatPrice(order.totalPrice)}
-                          </Typography>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Total
+                            </Typography>
+                            <Typography variant="h6" sx={{ color: "primary.main", fontWeight: 700 }}>
+                              {formatPrice(order.totalPrice)}
+                            </Typography>
+                          </Box>
                         </Grid>
 
                         <Grid item xs={6} sm={6} md={2}>
-                          <Typography variant="body2" color="text.secondary">
-                            Articles
-                          </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                            {order.items.length} article{order.items.length > 1 ? "s" : ""}
-                          </Typography>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Articles
+                            </Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                              {order.items.length} article{order.items.length > 1 ? "s" : ""}
+                            </Typography>
+                          </Box>
                         </Grid>
 
-                        <Grid item xs={12} md={3}>
-                          {order.deliveryAddress && (
-                            <Box>
-                              <Typography variant="body2" color="text.secondary">
-                                Livraison
-                              </Typography>
+                        <Grid item xs={12} md={2}>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Type de commande
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {order.OrderType === 'takeout' ? 'À emporter' : 'Livraison'}
+                            </Typography>
+                            {order.takeoutTime ? (
                               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {order.deliveryAddress.street}
+                                {new Date(order.takeoutTime).toLocaleTimeString('fr-FR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
                               </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {order.deliveryAddress.city}
+                            ) : order.OrderType === 'takeout' ? (
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
+                                ASAP
                               </Typography>
-                            </Box>
-                          )}
+                            ) : null}
+                          </Box>
                         </Grid>
                       </Grid>
 
-                      <Divider sx={{ my: 2, backgroundColor: "rgba(255, 255, 255, 0.1)" }} />
-
-                      <Accordion>
-                        <AccordionSummary
-                          expandIcon={<ExpandMoreIcon sx={{ color: "primary.main" }} />}
-                          sx={{ padding: 0, minHeight: "auto" }}
-                        >
-                          <Typography variant="body2" sx={{ color: "primary.main", fontWeight: 700 }}>
-                            Voir les détails de la commande
+                      {/* Admin Message Section */}
+                      {order.restaurantMessage && (
+                        <Box sx={{ mb: 3, p: 2, borderRadius: 2, backgroundColor: "rgba(255, 152, 0, 0.1)", border: "1px solid rgba(255, 152, 0, 0.3)" }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "primary.main", mb: 1 }}>
+                            Message du restaurant
                           </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails sx={{ padding: 0, pt: 2 }}>
-                          <Box>
-                            <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 2 }}>
-                              Articles commandés
+                          <Typography variant="body2" color="text.primary">
+                            {order.restaurantMessage}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Status History - Latest Status with Expandable Timeline */}
+                      {order.statusHistory && order.statusHistory.length > 0 && (
+                        <Box sx={{ mb: 3 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                              Suivi de la commande
                             </Typography>
-
-                            <List>
-                              {order.items.map((item) => {
-                                const itemKey = `${order.id}-${item.id}`
-                                const isExpanded = expandedItems[itemKey]
-                                const itemDetails = formatItemDetails(item)
-
-                                return (
-                                  <ListItem
-                                    key={item.id}
-                                    sx={{
-                                      backgroundColor: "rgba(255, 255, 255, 0.03)",
-                                      borderRadius: 2,
-                                      mb: 1,
-                                      flexDirection: "column",
-                                      alignItems: "stretch",
-                                      border: "1px solid rgba(255, 255, 255, 0.08)",
-                                    }}
-                                  >
-                                    <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                                      <ListItemText
-                                        primary={
-                                          <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                                            <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                                              {item.plat.name}
-                                            </Typography>
-                                            {item.quantity > 1 && (
-                                              <Chip
-                                                label={`x${item.quantity}`}
-                                                size="small"
-                                                color="primary"
-                                                sx={{ fontWeight: 600 }}
-                                              />
-                                            )}
-                                          </Box>
-                                        }
-                                        secondary={
-                                          <Typography variant="body2" color="text.secondary">
-                                            {formatPrice(item.unitPrice)}
-                                            {item.quantity > 1 && ` (${formatPrice(item.totalPrice)} total)`}
-                                          </Typography>
-                                        }
-                                      />
-
-                                      {itemDetails.length > 0 && (
-                                        <IconButton
-                                          onClick={() => toggleItemExpansion(order.id, item.id)}
-                                          sx={{ color: "primary.main" }}
-                                        >
-                                          {isExpanded ? <ExpandLess /> : <ExpandMore />}
-                                        </IconButton>
-                                      )}
-                                    </Box>
-
-                                    {itemDetails.length > 0 && (
-                                      <Collapse in={isExpanded}>
-                                        <Box
-                                          sx={{
-                                            mt: 2,
-                                            pl: 2,
-                                            borderLeft: "3px solid",
-                                            borderColor: "primary.main",
-                                            backgroundColor: "rgba(255, 152, 0, 0.05)",
-                                            borderRadius: 1,
-                                            p: 2,
-                                          }}
-                                        >
-                                          {itemDetails.map((detail, index) => (
-                                            <Typography
-                                              key={index}
-                                              variant="body2"
-                                              sx={{ color: "text.secondary", mb: 0.5 }}
-                                            >
-                                              • {detail}
-                                            </Typography>
-                                          ))}
-                                        </Box>
-                                      </Collapse>
-                                    )}
-                                  </ListItem>
-                                )
-                              })}
-                            </List>
-
-                            {order.statusHistory && order.statusHistory.length > 0 && (
-                              <Box sx={{ mt: 3 }}>
-                                <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 2 }}>
-                                  Historique du statut
+                            {order.statusHistory.length > 1 && (
+                              <IconButton
+                                onClick={() => {
+                                  const timelineKey = `timeline-${order.id}`;
+                                  setExpandedItems(prev => ({
+                                    ...prev,
+                                    [timelineKey]: !prev[timelineKey]
+                                  }));
+                                }}
+                                size="small"
+                                sx={{ color: "primary.main" }}
+                              >
+                                {expandedItems[`timeline-${order.id}`] ? <ExpandLess /> : <ExpandMore />}
+                              </IconButton>
+                            )}
+                          </Box>
+                          
+                          {/* Latest Status Always Visible */}
+                          <Box sx={{ position: 'relative', pl: 3, mb: 2 }}>
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                left: '10px',
+                                top: '8px',
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '50%',
+                                backgroundColor: 'primary.main',
+                                border: '2px solid',
+                                borderColor: 'primary.main',
+                              }}
+                            />
+                            <Box sx={{ ml: 1 }}>
+                              <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                {order.statusHistory[0].status}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(order.statusHistory[0].timestamp).toLocaleDateString("fr-FR", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </Typography>
+                              {order.statusHistory[0].notes && (
+                                <Typography variant="body2" sx={{ mt: 0.5, fontStyle: 'italic', color: 'text.secondary' }}>
+                                  Note: {order.statusHistory[0].notes}
                                 </Typography>
-                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                                  {order.statusHistory.map((status, index) => (
-                                    <Chip
-                                      key={index}
-                                      label={`${status.status} - ${new Date(status.timestamp).toLocaleDateString(
-                                        "fr-FR",
-                                        {
+                              )}
+                            </Box>
+                          </Box>
+
+                          {/* Expandable Full Timeline */}
+                          {order.statusHistory.length > 1 && (
+                            <Collapse in={expandedItems[`timeline-${order.id}`]}>
+                              <Box sx={{ position: 'relative', pl: 3, borderLeft: '2px solid rgba(255, 152, 0, 0.3)', ml: '10px' }}>
+                                {order.statusHistory.slice(1).map((status, index) => (
+                                  <Box key={index} sx={{ position: 'relative', mb: 2, display: 'flex', alignItems: 'center' }}>
+                                    <Box
+                                      sx={{
+                                        position: 'absolute',
+                                        left: '-15px',
+                                        width: '10px',
+                                        height: '10px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'rgba(255, 152, 0, 0.5)',
+                                        border: '2px solid rgba(255, 152, 0, 0.5)',
+                                      }}
+                                    />
+                                    <Box sx={{ ml: 1 }}>
+                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                        {status.status}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {new Date(status.timestamp).toLocaleDateString("fr-FR", {
                                           day: "2-digit",
                                           month: "2-digit",
                                           hour: "2-digit",
                                           minute: "2-digit",
-                                        },
-                                      )}`}
-                                      size="small"
-                                      variant="outlined"
-                                      sx={{
-                                        borderColor: "rgba(255, 152, 0, 0.3)",
-                                        color: "text.secondary",
-                                        fontSize: "0.75rem",
-                                      }}
-                                    />
-                                  ))}
-                                </Box>
+                                        })}
+                                      </Typography>
+                                      {status.notes && (
+                                        <Typography variant="body2" sx={{ mt: 0.5, fontStyle: 'italic', color: 'text.secondary' }}>
+                                          Note: {status.notes}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Box>
+                                ))}
                               </Box>
-                            )}
+                            </Collapse>
+                          )}
+                        </Box>
+                      )}
+
+                      <Divider sx={{ my: 3, backgroundColor: "rgba(255, 255, 255, 0.1)" }} />
+
+                      {/* Compact Articles Section - Single Expandable */}
+                      <Accordion sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}>
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon sx={{ color: "primary.main" }} />}
+                          sx={{ padding: 0, minHeight: "auto" }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 1 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                              Articles commandés ({order.items.length})
+                            </Typography>
+                            <Typography variant="h6" sx={{ color: "primary.main", fontWeight: 700 }}>
+                              {formatPrice(order.totalPrice)}
+                            </Typography>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ padding: 0, pt: 2 }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            {order.items.map((item) => {
+                              const itemDetails = formatItemDetails(item);
+                              return (
+                                <Box
+                                  key={item.id}
+                                  sx={{
+                                    p: 2,
+                                    borderRadius: 1,
+                                    backgroundColor: "rgba(255, 255, 255, 0.02)",
+                                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                                  }}
+                                >
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: itemDetails.length > 0 ? 1 : 0 }}>
+                                    <Box sx={{ flex: 1 }}>
+                                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                        {item.quantity}x {item.plat ? item.plat.name : item.sauce.name}
+                                        {item.versionSize && (
+                                          <Chip
+                                            label={item.versionSize}
+                                            size="small"
+                                            variant="outlined"
+                                            sx={{ ml: 1, height: '20px', fontSize: '0.7rem' }}
+                                          />
+                                        )}
+                                      </Typography>
+                                    </Box>
+                                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main', ml: 2 }}>
+                                      {formatPrice(item.totalPrice)}
+                                    </Typography>
+                                  </Box>
+                                  
+                                  {/* Item Details */}
+                                  {itemDetails.length > 0 && (
+                                    <Box sx={{ pl: 1, borderLeft: '2px solid rgba(255, 152, 0, 0.3)' }}>
+                                      {itemDetails.map((detail, index) => (
+                                        <Typography
+                                          key={index}
+                                          variant="body2"
+                                          sx={{ color: "text.secondary", fontSize: '0.85rem', mb: 0.25 }}
+                                        >
+                                          • {detail}
+                                        </Typography>
+                                      ))}
+                                    </Box>
+                                  )}
+                                </Box>
+                              );
+                            })}
                           </Box>
                         </AccordionDetails>
                       </Accordion>

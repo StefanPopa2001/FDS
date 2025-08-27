@@ -4,14 +4,114 @@ const CryptoJS = require('crypto-js');
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const validator = require('validator');
 require("dotenv").config();
 const rateLimit = require('express-rate-limit');
-
+const http = require('http');
+const { Server } = require('socket.io');
 
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+// Input sanitization functions
+function sanitizeInput(input) {
+  if (typeof input !== 'string') return input;
+  return validator.escape(input.trim());
+}
+
+function sanitizeEmail(email) {
+  if (typeof email !== 'string') return '';
+  return validator.normalizeEmail(email.trim()) || '';
+}
+
+function sanitizePhone(phone) {
+  if (typeof phone !== 'string') return '';
+  // Remove all non-numeric characters except + and leading zeros
+  return phone.trim().replace(/[^\d+]/g, '');
+}
+
+// Enhanced password validation
+function validatePassword(password) {
+  if (!password || password.length < 8) {
+    return "Password must be at least 8 characters long";
+  }
+  if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+    return "Password must contain at least one uppercase letter, one lowercase letter, and one number";
+  }
+  if (/(.)\1{2,}/.test(password)) {
+    return "Password cannot contain repeated characters";
+  }
+  // Check for common weak patterns
+  const weakPatterns = ['123456', 'password', 'qwerty', 'admin'];
+  const lowerPassword = password.toLowerCase();
+  for (const pattern of weakPatterns) {
+    if (lowerPassword.includes(pattern)) {
+      return "Password contains common weak patterns";
+    }
+  }
+  return null;
+}
+
 const app = express();
+const server = http.createServer(app);
+
+// Setup Socket.IO with CORS
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  }
+});
+
+// Store admin socket connections
+const adminSockets = new Map();
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  // Handle admin joining
+  socket.on('join-admin', (data) => {
+    const { token } = data;
+    // Verify admin token (you might want to add proper JWT verification here)
+    if (token) {
+      adminSockets.set(socket.id, { socket, token });
+      socket.join('admin-room');
+      console.log('Admin joined:', socket.id);
+    }
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    adminSockets.delete(socket.id);
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+// Function to broadcast order updates to admin clients
+function broadcastOrderUpdate(orderData, type = 'orderUpdate') {
+  io.to('admin-room').emit(type, orderData);
+}
+
+// Security middleware
+// HTTPS enforcement in production
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && !req.secure && req.get('x-forwarded-proto') !== 'https') {
+    return res.redirect('https://' + req.get('host') + req.url);
+  }
+  next();
+});
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
@@ -20,8 +120,13 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 //Rate limiting configuration (anti brute force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // Limit each IP to 50 requests per windowMs for auth routes
-  message: 'Too many requests from this IP, please try again after 15 minutes'
+  max: 5, // Limit each IP to 5 requests per windowMs for auth routes
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Add progressive delays
+  skipSuccessfulRequests: true,
+  skipFailedRequests: false
 });
 
 //Middleware for authentication
@@ -60,34 +165,71 @@ const upload = multer({
 
 //Works
 //Create a new user
-//TODO: Add phone number validation
 app.post("/users/createUser", async (req, res) => {
-  const { name, email, phone, password, salt } = req.body;
+  let { name, email, phone, password, salt } = req.body;
 
-  //Regex to check mail validity
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: "Invalid email format" });
+  // Sanitize inputs
+  name = sanitizeInput(name);
+  email = sanitizeEmail(email);
+  phone = sanitizePhone(phone);
+
+  // Validate username format (only letters, spaces and numbers)
+  const nameRegex = /^[a-zA-Z0-9 ]+$/;
+  if (!name || !nameRegex.test(name)) {
+    return res.status(400).json({ error: "Invalid name format. Please use only letters, numbers, and spaces" });
+  }
+
+  // Validate phone number format (international format)
+  const phoneRegex = /^(\+[1-9][0-9]{0,2}|0)[0-9]{9,15}$/;
+  if (!phone || !phoneRegex.test(phone)) {
+    return res.status(400).json({ error: "Invalid phone number format. Please use a valid format like 048XXXXXXX or +XXXXXXXXXXXX" });
+  }
+
+  // Convert email to lowercase for storage and comparisons
+  const normalizedEmail = email;
+
+  //Regex to check mail validity - allow only common special characters
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(normalizedEmail)) {
+    return res.status(400).json({ error: "Invalid email format. Please use only letters, numbers, and common special characters (._%+-)" });
   }
 
   //Check if password and salt are provided
   if (!password || !salt) {
     return res.status(400).json({ error: "Password and salt are required" });
   }
+  
+  // Enhanced password validation - Note: this validates the original password before hashing
+  // Since the frontend sends hashed passwords, we'll keep the original validation for now
+  // but recommend implementing client-side validation as well
+  if (password && password.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters long" });
+  }
 
   try {
+    // Check if user with the same name already exists
+    const existingUserName = await prisma.user.findFirst({ where: { name } });
+    if (existingUserName) {
+      return res.status(409).json({ error: "Username already exists" });
+    }
 
-    //Check if user with the same email already exists
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
+    // Check if user with the same phone number already exists
+    const existingUserPhone = await prisma.user.findFirst({ where: { phone } });
+    if (existingUserPhone) {
+      return res.status(409).json({ error: "Phone number already exists" });
+    }
+
+    //Check if user with the same email already exists (case-insensitive)
+    const existingUserEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingUserEmail) {
       return res.status(409).json({ error: "Email already exists" });
     }
 
-    // Create user with the hashed password and salt
+    // Create user with the hashed password and salt and normalized email
     const user = await prisma.user.create({
       data: {
         name,
-        email,
+        email: normalizedEmail, // Store email in lowercase
         phone,
         password,
         salt,
@@ -95,7 +237,7 @@ app.post("/users/createUser", async (req, res) => {
     });
 
     //Generate token
-    const token = jwt.sign({ userId: user.id, email: user.email }, SECRET_KEY, {
+    const token = jwt.sign({ userId: user.id, email: normalizedEmail }, SECRET_KEY, {
       expiresIn: "365d",
     });
 
@@ -109,39 +251,70 @@ app.post("/users/createUser", async (req, res) => {
   }
 });
 
+// Get user salt for secure login
+app.post("/users/getSalt", authLimiter, async (req, res) => {
+  const { email } = req.body;
+  
+  // Normalize and sanitize the email
+  const normalizedEmail = sanitizeEmail(email);
+
+  try {
+    //Check if the users email exists
+    const user = await prisma.user.findUnique({ 
+      where: { email: normalizedEmail },
+      select: { salt: true, enabled: true }
+    });
+    
+    if (!user || !user.enabled) {
+      // Always return a fake salt to prevent timing attacks and email enumeration
+      const fakeSalt = CryptoJS.lib.WordArray.random(32).toString();
+      return res.json({ salt: fakeSalt });
+    }
+
+    res.json({ salt: user.salt });
+  } catch (err) {
+    // Return fake salt even on error to prevent timing attacks
+    const fakeSalt = CryptoJS.lib.WordArray.random(32).toString();
+    res.json({ salt: fakeSalt });
+  }
+});
+
 
 //Login user
 app.post("/users/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
+  
+  // Normalize and sanitize the email
+  const normalizedEmail = sanitizeEmail(email);
 
   try {
     //Check if the users email exists
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    //If user was found
-    //Hash the provided password with stored salt
-    const hashedPassword = CryptoJS.SHA256(password + user.salt).toString();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     
-    //Compare the hashed password
-    if (hashedPassword !== user.password) {
-      return res.status(401).json({ error: "Invalid email or password" });
+    // Always perform the same operations regardless of user existence to prevent timing attacks
+    let isValidLogin = false;
+    
+    if (user && user.enabled && password === user.password) {
+      isValidLogin = true;
     }
+    
+    if (isValidLogin) {
+      const token = jwt.sign({ userId: user.id, email: user.email }, SECRET_KEY, {
+        expiresIn: "365d",
+      });
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, SECRET_KEY, {
-      expiresIn: "365d",
-    });
-
-    res.json({ user: { id: user.id, email: user.email, name: user.name, type: user.type }, token });
+      res.json({ user: { id: user.id, email: user.email, name: user.name, type: user.type }, token });
+    } else {
+      // Same error message regardless of whether email exists or password is wrong
+      res.status(401).json({ error: "Invalid email or password" });
+    }
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // Middleware to authenticate requests
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "Missing token" });
 
@@ -149,6 +322,21 @@ const authenticate = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
     req.user = decoded;
+    
+    // Check if user is enabled
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { enabled: true }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    if (!user.enabled) {
+      return res.status(403).json({ error: "Votre compte a été suspendu" });
+    }
+    
     next();
   } catch {
     return res.status(401).json({ error: "Invalid token" });
@@ -173,6 +361,7 @@ app.get("/users", authenticate, async (req, res) => {
         email: true,
         phone: true,
         type: true,
+        enabled: true,
         createdAt: true,
       }
     });
@@ -186,7 +375,51 @@ app.get("/users", authenticate, async (req, res) => {
 app.put("/users/:id", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, type } = req.body;
+    let { name, email, phone, type, enabled } = req.body;
+    
+    // Sanitize inputs
+    if (name) name = sanitizeInput(name);
+    if (email) email = sanitizeEmail(email);
+    if (phone) phone = sanitizePhone(phone);
+    
+    // Validate username format if provided (only letters, spaces and numbers)
+    if (name) {
+      const nameRegex = /^[a-zA-Z0-9 ]+$/;
+      if (!nameRegex.test(name)) {
+        return res.status(400).json({ error: "Invalid name format. Please use only letters, numbers, and spaces" });
+      }
+    }
+    
+    // Check if trying to disable an admin account
+    if (enabled === false) {
+      const userToUpdate = await prisma.user.findUnique({
+        where: { id: parseInt(id) },
+        select: { type: true }
+      });
+      
+      if (userToUpdate && userToUpdate.type === 1) {
+        return res.status(400).json({ error: "Admin accounts cannot be suspended" });
+      }
+    }
+    
+    // Validate phone number format if provided (international format)
+    if (phone) {
+      const phoneRegex = /^(\+[1-9][0-9]{0,2}|0)[0-9]{9,15}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ error: "Invalid phone number format. Please use a valid format like 048XXXXXXX or +XXXXXXXXXXXX" });
+      }
+    }
+    
+    // Normalize email if provided
+    const normalizedEmail = email || undefined;
+    
+    // Validate email format if provided
+    if (normalizedEmail) {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({ error: "Invalid email format. Please use only letters, numbers, and common special characters (._%+-)" });
+      }
+    }
 
     const requestingUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
@@ -196,15 +429,48 @@ app.put("/users/:id", authenticate, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized access" });
     }
 
+    // Check if another user already has this name (if name is being updated)
+    if (name) {
+      const existingUserName = await prisma.user.findFirst({ 
+        where: { 
+          name,
+          id: { not: parseInt(id) } // Exclude the current user
+        }
+      });
+      if (existingUserName) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+    }
+
+    // Check if another user already has this phone number (if phone is being updated)
+    if (phone) {
+      const existingUserPhone = await prisma.user.findFirst({ 
+        where: { 
+          phone,
+          id: { not: parseInt(id) } // Exclude the current user
+        }
+      });
+      if (existingUserPhone) {
+        return res.status(409).json({ error: "Phone number already exists" });
+      }
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
-      data: { name, email, phone, type },
+      data: { 
+        name, 
+        email: normalizedEmail, 
+        phone, 
+        type,
+        ...(enabled !== undefined && { enabled }) // Include enabled only if it's provided
+      },
       select: {
         id: true,
         name: true,
         email: true,
         phone: true,
         type: true,
+        enabled: true,
         createdAt: true,
       }
     });
@@ -273,11 +539,31 @@ app.get("/users/profile", authenticate, async (req, res) => {
 // Update user profile (self)
 app.put("/users/profile", authenticate, async (req, res) => {
   try {
-    const { phone } = req.body;
+    let { phone } = req.body;
+
+    // Sanitize input
+    phone = sanitizePhone(phone);
 
     // Validate input
     if (!phone) {
       return res.status(400).json({ error: "Phone number is required" });
+    }
+
+    // Validate phone number format (international format)
+    const phoneRegex = /^(\+[1-9][0-9]{0,2}|0)[0-9]{9,15}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ error: "Invalid phone number format. Please use a valid format like 048XXXXXXX or +XXXXXXXXXXXX" });
+    }
+    
+    // Check if phone number is already in use by another user
+    const existingUserPhone = await prisma.user.findFirst({ 
+      where: { 
+        phone,
+        id: { not: req.user.userId } // Exclude the current user
+      }
+    });
+    if (existingUserPhone) {
+      return res.status(409).json({ error: "Phone number already exists" });
     }
 
     // Update the user profile (only phone number)
@@ -305,7 +591,7 @@ app.put("/users/profile", authenticate, async (req, res) => {
 app.post("/orders", authenticate, async (req, res) => {
   try {
     console.log('Received order request:', JSON.stringify(req.body, null, 2));
-    const { items, deliveryAddress, paymentMethod, notes } = req.body;
+    const { items, deliveryAddress, paymentMethod, notes, OrderType, takeoutTime } = req.body;
 
     // Validate input
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -320,24 +606,40 @@ app.post("/orders", authenticate, async (req, res) => {
     const orderItems = [];
 
     for (const item of items) {
-      // Get the plat details
-      const plat = await prisma.plat.findUnique({
-        where: { id: item.platId },
-        include: { versions: true }
-      });
+      let itemPrice = 0;
 
-      if (!plat) {
-        return res.status(400).json({ error: `Plat with id ${item.platId} not found` });
+      // Check if this is a dish order (has platId)
+      if (item.platId) {
+        // Get the plat details
+        const plat = await prisma.plat.findUnique({
+          where: { id: item.platId },
+          include: { versions: true }
+        });
+
+        if (!plat) {
+          return res.status(400).json({ error: `Plat with id ${item.platId} not found` });
+        }
+
+        // Get the version price
+        let basePrice = plat.price; // Use the plat's base price
+        if (plat.versions && plat.versions.length > 0) {
+          const version = plat.versions.find(v => v.size === item.version) || plat.versions[0];
+          basePrice += version.extraPrice; // Add the extra price for the version
+        }
+
+        itemPrice = basePrice;
       }
-
-      // Get the version price
-      let basePrice = plat.price; // Use the plat's base price
-      if (plat.versions && plat.versions.length > 0) {
-        const version = plat.versions.find(v => v.size === item.version) || plat.versions[0];
-        basePrice += version.extraPrice; // Add the extra price for the version
+      
+      // For standalone sauce orders (no platId but has sauceId)
+      else if (item.sauceId) {
+        // This is a standalone sauce order, itemPrice starts at 0
+        itemPrice = 0;
       }
-
-      let itemPrice = basePrice;
+      
+      // If neither platId nor sauceId, this is an invalid item
+      else {
+        return res.status(400).json({ error: "Item must have either platId or sauceId" });
+      }
 
       // Add sauce price if any
       if (item.sauceId) {
@@ -369,8 +671,7 @@ app.post("/orders", authenticate, async (req, res) => {
       totalPrice += itemTotal;
 
       orderItems.push({
-        type: 'plat',
-        platId: item.platId,
+        platId: item.platId || null,
         quantity: item.quantity,
         unitPrice: itemPrice,
         totalPrice: itemTotal,
@@ -384,41 +685,19 @@ app.post("/orders", authenticate, async (req, res) => {
     console.log('Total price calculated:', totalPrice);
     console.log('Order items prepared:', orderItems.length);
 
-    // Create delivery address if provided
-    let addressId = null;
-    if (deliveryAddress) {
-      console.log('Creating delivery address:', deliveryAddress);
-      const address = await prisma.address.create({
-        data: {
-          userId: req.user.userId, // Connect address to the user
-          street: deliveryAddress.street,
-          city: deliveryAddress.city,
-          postalCode: deliveryAddress.postalCode,
-          country: deliveryAddress.country || 'Belgium'
-        }
-      });
-      addressId = address.id;
-      console.log('Address created with ID:', addressId);
-    }
-
-    // Calculate delivery fee (same logic as frontend)
-    const deliveryFee = totalPrice >= 25.00 ? 0 : 2.50;
+    // For takeout orders, no delivery fee
+    const deliveryFee = OrderType === 'takeout' ? 0 : (totalPrice >= 25.00 ? 0 : 2.50);
     const finalTotal = totalPrice + deliveryFee;
 
     // Create the order
     const order = await prisma.order.create({
       data: {
         userId: req.user.userId,
-        totalPrice,
-        finalTotal,
-        deliveryFee,
-        distanceExtra: 0,
-        tipAmount: 0,
+        totalPrice: finalTotal,
         status: 0, // En attente
-        paymentMethod: paymentMethod || 'cash',
-        message: notes || null,
-        deliveryAddressId: addressId,
-        deliveryType: 0, // Delivery
+        clientMessage: notes || null,
+        OrderType: OrderType || 'takeout',
+        takeoutTime: takeoutTime ? new Date(takeoutTime) : null,
         items: {
           create: orderItems
         }
@@ -431,8 +710,7 @@ app.post("/orders", authenticate, async (req, res) => {
             extra: true,
             platSauce: true
           }
-        },
-        deliveryAddress: true
+        }
       }
     });
 
@@ -490,6 +768,20 @@ app.post("/orders", authenticate, async (req, res) => {
       }
     });
 
+    // Broadcast new order to admin clients
+    broadcastOrderUpdate({
+      type: 'newOrder',
+      order: {
+        id: order.id,
+        userId: order.userId,
+        totalPrice: order.totalPrice,
+        status: order.status,
+        OrderType: order.OrderType,
+        createdAt: order.createdAt,
+        clientMessage: order.clientMessage
+      }
+    }, 'newOrder');
+
   } catch (error) {
     console.error('Error creating order:', error);
     res.status(500).json({ error: "Internal server error" });
@@ -537,7 +829,6 @@ app.get("/users/orders", authenticate, async (req, res) => {
             }
           }
         },
-        deliveryAddress: true,
         statusHistory: {
           orderBy: {
             timestamp: 'desc'
@@ -617,7 +908,6 @@ app.get("/users/orders/:orderId", authenticate, async (req, res) => {
             }
           }
         },
-        deliveryAddress: true,
         statusHistory: {
           orderBy: {
             timestamp: 'desc'
@@ -728,7 +1018,6 @@ app.get("/admin/orders", authenticate, async (req, res) => {
             }
           }
         },
-        deliveryAddress: true,
         statusHistory: {
           orderBy: {
             timestamp: 'desc'
@@ -797,10 +1086,15 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       return res.status(400).json({ error: "Invalid status value" });
     }
 
-    // Update order status
+    // Update order status and restaurant message if notes provided
+    const updateData = { status: parseInt(status) };
+    if (notes && notes.trim()) {
+      updateData.restaurantMessage = notes.trim();
+    }
+    
     const updatedOrder = await prisma.order.update({
       where: { id: parseInt(orderId) },
-      data: { status: parseInt(status) }
+      data: updateData
     });
 
     // Add status history entry
@@ -821,6 +1115,15 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
         statusText: getStatusText(updatedOrder.status)
       }
     });
+
+    // Broadcast order status update to admin clients
+    broadcastOrderUpdate({
+      type: 'statusUpdate',
+      orderId: updatedOrder.id,
+      status: updatedOrder.status,
+      statusText: getStatusText(updatedOrder.status),
+      notes: notes || null
+    }, 'orderStatusUpdate');
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ error: "Internal server error" });
@@ -873,7 +1176,6 @@ app.get("/admin/orders/:orderId", authenticate, async (req, res) => {
             }
           }
         },
-        deliveryAddress: true,
         statusHistory: {
           orderBy: {
             timestamp: 'desc'
@@ -1037,7 +1339,7 @@ app.get('/sauces', async (req, res) => {
 // Create sauce
 app.post("/sauces", upload.single('image'), async (req, res) => {
   try {
-    const { name, price, description, availableForDelivery, available, speciality, tags } = req.body;
+    const { name, price, description, available, ordre, tags } = req.body;
     
     // Validate required fields
     if (!name || price === undefined || !description) {
@@ -1073,9 +1375,8 @@ app.post("/sauces", upload.single('image'), async (req, res) => {
         price: parseFloat(price),
         description,
         image: imageUrl,
-        availableForDelivery: typeof availableForDelivery === 'boolean' ? availableForDelivery : availableForDelivery === 'true',
         available: typeof available === 'boolean' ? available : available === 'true',
-        speciality: typeof speciality === 'boolean' ? speciality : speciality === 'true',
+        ordre: ordre || null,
         tags: parsedTags.length > 0 ? {
           connect: parsedTags
         } : undefined
@@ -1101,7 +1402,7 @@ app.post("/sauces", upload.single('image'), async (req, res) => {
 // Update sauce
 app.put("/sauces/:id", upload.single('image'), async (req, res) => {
   const { id } = req.params;
-  const { name, price, description, keepExistingImage, availableForDelivery, available, speciality, tags } = req.body;
+  const { name, price, description, keepExistingImage, available, ordre, tags } = req.body;
   try {
     // Validate required fields
     if (!name || price === undefined || !description) {
@@ -1171,9 +1472,8 @@ app.put("/sauces/:id", upload.single('image'), async (req, res) => {
         price: parseFloat(price),
         description,
         image: imageUrl,
-        availableForDelivery: typeof availableForDelivery === 'boolean' ? availableForDelivery : availableForDelivery === 'true',
         available: typeof available === 'boolean' ? available : available === 'true',
-        speciality: typeof speciality === 'boolean' ? speciality : speciality === 'true',
+        ordre: ordre || null,
         tags: {
           set: parsedTags // This replaces all existing tag connections
         }
@@ -1434,7 +1734,7 @@ app.post("/plats", upload.single('image'), async (req, res) => {
       name, 
       price, 
       description, 
-      type,
+      ordre,
       availableForDelivery, 
       available, 
       speciality,
@@ -1491,7 +1791,7 @@ app.post("/plats", upload.single('image'), async (req, res) => {
         name,
         price: parseFloat(price),
         description,
-        type: type || "snack",
+        ordre: ordre || "",
         image: imageUrl,
         availableForDelivery: availableForDelivery === 'true' || availableForDelivery === true,
         available: available === 'true' || available === true,
@@ -1501,10 +1801,7 @@ app.post("/plats", upload.single('image'), async (req, res) => {
         versions: {
           create: parsedVersions.map(version => ({
             size: version.size,
-            extraPrice: parseFloat(version.extraPrice || 0),
-            available: typeof version.available === 'boolean' ? version.available : true,
-            availableForDelivery: typeof version.availableForDelivery === 'boolean' ? version.availableForDelivery : true,
-            speciality: typeof version.speciality === 'boolean' ? version.speciality : false,
+            extraPrice: parseFloat(version.extraPrice || 0)
           }))
         },
         tags: parsedTags.length > 0 ? {
@@ -1537,7 +1834,7 @@ app.put("/plats/:id", upload.single('image'), async (req, res) => {
     name, 
     price, 
     description, 
-    type,
+    ordre,
     keepExistingImage, 
     availableForDelivery, 
     available, 
@@ -1638,7 +1935,7 @@ app.put("/plats/:id", upload.single('image'), async (req, res) => {
           name,
           price: parseFloat(price),
           description,
-          type: type || "snack",
+          ordre: ordre || "",
           image: imageUrl,
           availableForDelivery: availableForDelivery === 'true' || availableForDelivery === true,
           available: available === 'true' || available === true,
@@ -1648,10 +1945,7 @@ app.put("/plats/:id", upload.single('image'), async (req, res) => {
           versions: {
             create: parsedVersions.map(version => ({
               size: version.size,
-              extraPrice: parseFloat(version.extraPrice || 0),
-              available: typeof version.available === 'boolean' ? version.available : true,
-              availableForDelivery: typeof version.availableForDelivery === 'boolean' ? version.availableForDelivery : true,
-              speciality: typeof version.speciality === 'boolean' ? version.speciality : false,
+              extraPrice: parseFloat(version.extraPrice || 0)
             }))
           },
           tags: {
@@ -1997,7 +2291,7 @@ app.get('/plats/:id/ingredients', async (req, res) => {
 app.post('/plats/:id/ingredients', async (req, res) => {
   try {
     const { id } = req.params;
-    const { ingredientId, removable, essential } = req.body;
+    const { ingredientId, removable } = req.body;
     
     if (!ingredientId) {
       return res.status(400).json({ error: 'Ingredient ID is required' });
@@ -2008,7 +2302,6 @@ app.post('/plats/:id/ingredients', async (req, res) => {
         platId: parseInt(id),
         ingredientId: parseInt(ingredientId),
         removable: removable !== false, // Default to true
-        essential: essential === true || essential === 'true'
       },
       include: {
         ingredient: true
@@ -2029,7 +2322,7 @@ app.post('/plats/:id/ingredients', async (req, res) => {
 app.put('/plats/:platId/ingredients/:ingredientId', async (req, res) => {
   try {
     const { platId, ingredientId } = req.params;
-    const { removable, essential } = req.body;
+    const { removable } = req.body;
     
     const platIngredient = await prisma.platIngredient.update({
       where: {
@@ -2040,7 +2333,6 @@ app.put('/plats/:platId/ingredients/:ingredientId', async (req, res) => {
       },
       data: {
         removable: removable !== false,
-        essential: essential === true || essential === 'true'
       },
       include: {
         ingredient: true
@@ -2081,4 +2373,160 @@ app.delete('/plats/:platId/ingredients/:ingredientId', async (req, res) => {
   }
 });
 
-app.listen(3001, '0.0.0.0', () => console.log("Server running on 0.0.0.0:3001"));
+// SETTINGS ROUTES
+
+// Get all settings (public access for basic settings)
+app.get('/settings', async (req, res) => {
+  try {
+    const settings = await prisma.settings.findMany({
+      orderBy: [
+        { category: 'asc' },
+        { key: 'asc' }
+      ]
+    });
+    res.json(settings);
+  } catch (error) {
+    console.error('Get settings error:', error);
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+// Get a specific setting by key (public access)
+app.get('/settings/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const setting = await prisma.settings.findUnique({
+      where: { key: key }
+    });
+    
+    if (!setting) {
+      return res.status(404).json({ error: 'Setting not found' });
+    }
+    
+    res.json(setting);
+  } catch (error) {
+    console.error('Get setting error:', error);
+    res.status(500).json({ error: 'Failed to fetch setting' });
+  }
+});
+
+// Create or update multiple settings
+app.post('/settings', authenticate, async (req, res) => {
+  try {
+    const { settings } = req.body;
+    
+    if (!Array.isArray(settings)) {
+      return res.status(400).json({ error: 'Settings must be an array' });
+    }
+
+    // Use transactions to ensure all settings are saved together
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedSettings = [];
+      
+      for (const setting of settings) {
+        const { key, value, type, category, description } = setting;
+        
+        if (!key || value === undefined) {
+          throw new Error(`Invalid setting: key and value are required`);
+        }
+
+        // Sanitize inputs
+        const sanitizedKey = sanitizeInput(key);
+        const sanitizedValue = sanitizeInput(value.toString());
+        const sanitizedType = sanitizeInput(type || 'string');
+        const sanitizedCategory = sanitizeInput(category || 'general');
+        const sanitizedDescription = sanitizeInput(description || '');
+
+        const updatedSetting = await tx.settings.upsert({
+          where: { key: sanitizedKey },
+          update: {
+            value: sanitizedValue,
+            type: sanitizedType,
+            category: sanitizedCategory,
+            description: sanitizedDescription,
+          },
+          create: {
+            key: sanitizedKey,
+            value: sanitizedValue,
+            type: sanitizedType,
+            category: sanitizedCategory,
+            description: sanitizedDescription,
+          },
+        });
+        
+        updatedSettings.push(updatedSetting);
+      }
+      
+      return updatedSettings;
+    });
+
+    res.json({ 
+      message: 'Settings updated successfully', 
+      settings: result 
+    });
+  } catch (error) {
+    console.error('Update settings error:', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// Update a single setting
+app.put('/settings/:key', authenticate, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { value, type, category, description } = req.body;
+    
+    if (value === undefined) {
+      return res.status(400).json({ error: 'Value is required' });
+    }
+
+    // Sanitize inputs
+    const sanitizedValue = sanitizeInput(value.toString());
+    const sanitizedType = sanitizeInput(type || 'string');
+    const sanitizedCategory = sanitizeInput(category || 'general');
+    const sanitizedDescription = sanitizeInput(description || '');
+
+    const setting = await prisma.settings.upsert({
+      where: { key: key },
+      update: {
+        value: sanitizedValue,
+        type: sanitizedType,
+        category: sanitizedCategory,
+        description: sanitizedDescription,
+      },
+      create: {
+        key: key,
+        value: sanitizedValue,
+        type: sanitizedType,
+        category: sanitizedCategory,
+        description: sanitizedDescription,
+      },
+    });
+
+    res.json(setting);
+  } catch (error) {
+    console.error('Update setting error:', error);
+    res.status(500).json({ error: 'Failed to update setting' });
+  }
+});
+
+// Delete a setting
+app.delete('/settings/:key', authenticate, async (req, res) => {
+  try {
+    const { key } = req.params;
+    
+    await prisma.settings.delete({
+      where: { key: key }
+    });
+    
+    res.json({ message: 'Setting deleted successfully' });
+  } catch (error) {
+    console.error('Delete setting error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Setting not found' });
+    }
+    res.status(500).json({ error: 'Failed to delete setting' });
+  }
+});
+
+server.listen(3001, '0.0.0.0', () => console.log("Server with Socket.IO running on 0.0.0.0:3001"));

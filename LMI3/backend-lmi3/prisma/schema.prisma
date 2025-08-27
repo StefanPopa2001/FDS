@@ -16,23 +16,23 @@ model User {
   phone     String?
   salt      String
   type      Int       @default(0)
-  addresses Address[]
+  enabled Boolean     @default(true)
   orders    Order[]
+  
 }
 
 model Sauce {
-  id                   Int         @id @default(autoincrement())
-  description          String
-  name                 String      @unique
-  price                Float
-  type                 String      @default("sauce")
-  image                String?
-  available            Boolean     @default(true)
-  availableForDelivery Boolean     @default(true)
-  speciality           Boolean     @default(false)
-  platSauces           OrderItem[] @relation("PlatSauce")
-  orderItems           OrderItem[]
-  tags                 Tags[]      @relation("SauceToTags")
+  id          Int         @id @default(autoincrement())
+  description String
+  name        String      @unique
+  price       Float
+  type        String      @default("sauce")
+  image       String?
+  available   Boolean     @default(true)
+  ordre       String?
+  platSauces  OrderItem[] @relation("PlatSauce")
+  orderItems  OrderItem[]
+  tags        Tags[]      @relation("SauceToTags")
 
   @@index([name])
   @@index([price])
@@ -65,7 +65,6 @@ model Extra {
   nom                  String
   description          String
   price                Float
-  type                 String           @default("extra")
   available            Boolean          @default(true)
   availableForDelivery Boolean          @default(true)
   speciality           Boolean          @default(false)
@@ -79,7 +78,6 @@ model PlatIngredient {
   platId       Int
   ingredientId Int
   removable    Boolean    @default(true)
-  essential    Boolean    @default(false)
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
   plat         Plat       @relation(fields: [platId], references: [id], onDelete: Cascade)
 
@@ -93,7 +91,7 @@ model Plat {
   description          String
   name                 String           @unique
   price                Float
-  type                 String           @default("snack")
+  ordre                String?
   image                String?
   available            Boolean          @default(true)
   availableForDelivery Boolean          @default(true)
@@ -113,9 +111,6 @@ model PlatVersion {
   id                   Int     @id @default(autoincrement())
   size                 String
   extraPrice           Float
-  available            Boolean @default(true)
-  availableForDelivery Boolean @default(true)
-  speciality           Boolean @default(false)
   platId               Int
   plat                 Plat    @relation(fields: [platId], references: [id], onDelete: Cascade)
 
@@ -127,42 +122,25 @@ model PlatVersion {
 model Order {
   id                      Int                  @id @default(autoincrement())
   userId                  Int?
+  user                    User?                @relation(fields: [userId], references: [id])
   status                  Int                  @default(0)
   totalPrice              Float
-  deliveryFee             Float                @default(0)
-  distanceExtra           Float                @default(0)
-  tipAmount               Float                @default(0)
-  finalTotal              Float
-  message                 String?
-  paymentMethod           String
-  paymentDetails          Json?
-  estimatedCompletionTime Int?
-  distance                Float?
-  deliveryType            Int                  @default(0)
-  deliveryAddressId       Int?
-  clientLatitude          Float?
-  clientLongitude         Float?
-  deliveryBoyLatitude     Float?
-  deliveryBoyLongitude    Float?
-  restaurantLatitude      Float?
-  restaurantLongitude     Float?
+  clientMessage           String?
+  restaurantMessage       String?
+  isViewed                Boolean              @default(false)
+  OrderType            String               @default("takeout") // "takeout" or "delivery"
+  takeoutTime             DateTime?
   createdAt               DateTime             @default(now())
   confirmedAt             DateTime?
   canceledAt              DateTime?
   preparationStartedAt    DateTime?
-  inDeliveryAt            DateTime?
-  deliveredAt             DateTime?
   completedAt             DateTime?
-  updatedAt               DateTime             @updatedAt
-  deliveryAddress         Address?             @relation(fields: [deliveryAddressId], references: [id])
-  user                    User?                @relation(fields: [userId], references: [id])
   items                   OrderItem[]
   statusHistory           OrderStatusHistory[]
 
   @@index([userId])
   @@index([status])
   @@index([createdAt])
-  @@index([deliveryAddressId])
 }
 
 model OrderStatusHistory {
@@ -177,28 +155,9 @@ model OrderStatusHistory {
   @@index([timestamp])
 }
 
-model Address {
-  id           Int     @id @default(autoincrement())
-  userId       Int
-  name         String  @default("Home")
-  street       String
-  city         String
-  postalCode   String
-  country      String  @default("France")
-  latitude     Float?
-  longitude    Float?
-  instructions String?
-  isDefault    Boolean @default(false)
-  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders       Order[]
-
-  @@index([userId])
-}
-
 model OrderItem {
   id                 Int                          @id @default(autoincrement())
   orderId            Int
-  type               String
   platId             Int?
   sauceId            Int?
   extraId            Int?
@@ -247,4 +206,18 @@ model OrderItemRemovedIngredient {
   @@unique([orderItemId, ingredientId])
   @@index([orderItemId])
   @@index([ingredientId])
+}
+
+model Settings {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  type        String   @default("string") // "string", "boolean", "number", "time"
+  description String?
+  category    String   @default("general") // "general", "orders", "hours", "menu"
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+  @@index([category])
 }

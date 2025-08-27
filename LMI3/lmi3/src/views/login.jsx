@@ -13,7 +13,6 @@ import {
   Alert,
   IconButton,
   InputAdornment,
-  Divider,
   Avatar,
   ThemeProvider,
   createTheme,
@@ -29,14 +28,13 @@ import {
   Lock,
   Person,
   Phone,
-  Google,
-  Facebook,
   Login as LoginIcon,
   PersonAdd,
 } from "@mui/icons-material"
 import CryptoJS from "crypto-js"
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import TermsOfUseModal from '../components/TermsOfUseModal'
 
 const darkTheme = createTheme({
   palette: {
@@ -128,6 +126,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [alert, setAlert] = useState({ show: false, message: "", type: "info" })
+  const [termsModalOpen, setTermsModalOpen] = useState(false)
   const navigate = useNavigate()
 
   // Use AuthContext instead of direct API calls
@@ -213,15 +212,6 @@ export default function AuthPage() {
     }
   }
 
-  const handleSocialLogin = (provider) => {
-    console.log(`${provider} login attempted`)
-    setAlert({
-      show: true,
-      message: `${provider} login initiated (Mock response)`,
-      type: "info",
-    })
-  }
-
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue)
     setAlert({ show: false, message: "", type: "info" })
@@ -279,8 +269,8 @@ export default function AuthPage() {
                     >
                       Rudy et Fanny
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Bienvenue dans votre espace personnel
+                    <Typography variant="body2" color="text.primary">
+                      Bienvenue sur le site de commande en ligne
                     </Typography>
                   </Box>
                 </Zoom>
@@ -377,45 +367,6 @@ export default function AuthPage() {
                         Se connecter
                       </Button>
 
-                      <Divider sx={{ mb: 3 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Ou continuer avec
-                        </Typography>
-                      </Divider>
-
-                      <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-                        <Button
-                          fullWidth
-                          variant="outlined"
-                          startIcon={<Google />}
-                          onClick={() => handleSocialLogin("Google")}
-                          sx={{
-                            borderColor: "rgba(255, 255, 255, 0.2)",
-                            "&:hover": {
-                              borderColor: "primary.main",
-                              backgroundColor: "rgba(255, 152, 0, 0.1)",
-                            },
-                          }}
-                        >
-                          Google
-                        </Button>
-                        <Button
-                          fullWidth
-                          variant="outlined"
-                          startIcon={<Facebook />}
-                          onClick={() => handleSocialLogin("Facebook")}
-                          sx={{
-                            borderColor: "rgba(255, 255, 255, 0.2)",
-                            "&:hover": {
-                              borderColor: "primary.main",
-                              backgroundColor: "rgba(255, 152, 0, 0.1)",
-                            },
-                          }}
-                        >
-                          Facebook
-                        </Button>
-                      </Box>
-
                       <Box sx={{ textAlign: "center" }}>
                         <Typography variant="body2" color="text.secondary">
                           Pas encore de compte ?{" "}
@@ -425,6 +376,17 @@ export default function AuthPage() {
                             sx={{ color: "primary.main", p: 0, minWidth: "auto" }}
                           >
                             Inscrivez-vous
+                          </Button>
+                        </Typography>
+                        
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, fontSize: "0.7rem" }}>
+                          En continuant, vous acceptez nos{" "}
+                          <Button
+                            variant="text"
+                            onClick={() => setTermsModalOpen(true)}
+                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: "0.7rem" }}
+                          >
+                            conditions d'utilisation, politique de confidentialité et politique de cookies
                           </Button>
                         </Typography>
                       </Box>
@@ -557,6 +519,17 @@ export default function AuthPage() {
                             Connectez-vous
                           </Button>
                         </Typography>
+                        
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, fontSize: "0.7rem" }}>
+                          En continuant, vous acceptez nos{" "}
+                          <Button
+                            variant="text"
+                            onClick={() => setTermsModalOpen(true)}
+                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: "0.7rem" }}
+                          >
+                            conditions d'utilisation, politique de confidentialité et politique de cookies
+                          </Button>
+                        </Typography>
                       </Box>
                     </Box>
                   </Fade>
@@ -569,12 +542,18 @@ export default function AuthPage() {
           <Fade in timeout={1200}>
             <Box sx={{ textAlign: "center", mt: 4 }}>
               <Typography variant="body2" color="text.secondary">
-                © 2024 Rudy et Fanny. Tous droits réservés.
+                © 2025 Rudy et Fanny. Tous droits réservés.
               </Typography>
             </Box>
           </Fade>
         </Container>
       </Box>
+
+      {/* Terms of Use Modal */}
+      <TermsOfUseModal 
+        open={termsModalOpen} 
+        onClose={() => setTermsModalOpen(false)} 
+      />
     </ThemeProvider>
   )
 }

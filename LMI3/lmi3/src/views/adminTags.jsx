@@ -6,13 +6,10 @@ import {
   Button,
   Snackbar,
   Alert,
-  ThemeProvider,
-  createTheme,
   TextField,
   Typography,
   Paper,
   Fade,
-  CssBaseline,
   Switch,
   FormControlLabel,
 } from "@mui/material"
@@ -26,112 +23,6 @@ import {
   Tag as TagIcon,
 } from "@mui/icons-material"
 import config from '../config';
-
-// Create dark theme with black/orange design
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: {
-      main: "#ff9800",
-      light: "#ffb74d",
-      dark: "#f57c00",
-    },
-    secondary: {
-      main: "#f44336",
-    },
-    background: {
-      default: "#0a0a0a",
-      paper: "#1a1a1a",
-    },
-    text: {
-      primary: "#ffffff",
-      secondary: "#b0b0b0",
-    },
-    success: {
-      main: "#4caf50",
-    },
-    error: {
-      main: "#f44336",
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 800,
-      letterSpacing: "-0.02em",
-    },
-    h6: {
-      fontWeight: 600,
-      letterSpacing: "-0.01em",
-    },
-  },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: "none",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          textTransform: "none",
-          fontWeight: 600,
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          "&:hover": {
-            transform: "translateY(-2px)",
-          },
-        },
-        contained: {
-          background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-          "&:hover": {
-            background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 12,
-            backgroundColor: "rgba(255, 255, 255, 0.05)",
-            "&:hover fieldset": {
-              borderColor: "#ff9800",
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#ff9800",
-            },
-          },
-        },
-      },
-    },
-    MuiDataGrid: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          "& .MuiDataGrid-cell": {
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "rgba(255, 152, 0, 0.1)",
-            borderColor: "rgba(255, 255, 255, 0.08)",
-          },
-          "& .MuiDataGrid-columnHeaderTitle": {
-            fontWeight: 700,
-            color: "#ff9800",
-          },
-        },
-      },
-    },
-  },
-})
 
 export default function AdminTags() {
   const [tags, setTags] = useState([])
@@ -152,11 +43,17 @@ export default function AdminTags() {
       width: 70,
       type: "number",
       filterable: true,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
     },
     {
       field: "emoji",
       headerName: "Emoji",
       width: 100,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
       renderCell: (params) =>
         editMode[params.row.id] ? (
           <TextField
@@ -180,6 +77,9 @@ export default function AdminTags() {
       field: "nom",
       headerName: "Nom",
       flex: 1,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
       renderCell: (params) =>
         editMode[params.row.id] ? (
           <TextField
@@ -203,6 +103,9 @@ export default function AdminTags() {
       field: "description",
       headerName: "Description",
       flex: 2,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
       renderCell: (params) =>
         editMode[params.row.id] ? (
           <TextField
@@ -226,6 +129,9 @@ export default function AdminTags() {
       field: "recherchable",
       headerName: "Recherchable",
       width: 120,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
       renderCell: (params) =>
         editMode[params.row.id] ? (
           <FormControlLabel
@@ -256,6 +162,9 @@ export default function AdminTags() {
       headerName: "Actions",
       width: 150,
       sortable: false,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
       renderCell: (params) => (
         <Box sx={{ display: "flex", gap: 1 }}>
           {editMode[params.row.id] ? (
@@ -301,6 +210,34 @@ export default function AdminTags() {
       ),
     },
   ]
+
+  const gridStyles = {
+    '& .MuiDataGrid-cell': {
+      display: 'flex',
+      alignItems: 'center',
+    },
+    '& .MuiDataGrid-cellContent': {
+      display: 'flex',
+      alignItems: 'center',
+      width: '100%',
+    },
+    '& .centered-cell': {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    '& .MuiDataGrid-columnHeaderTitleContainer': {
+      justifyContent: 'center',
+    },
+    '& .MuiDataGrid-columnHeaderTitle': {
+      textAlign: 'center',
+      width: '100%',
+    },
+    '& .MuiDataGrid-row:hover': {
+      backgroundColor: 'rgba(255, 152, 0, 0.08)',
+    },
+    height: '100%',
+  };
 
   // Fetch tags
   const fetchTags = async () => {
@@ -395,29 +332,41 @@ export default function AdminTags() {
   }
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <CssBaseline />
-      <Box sx={{ minHeight: "100vh", background: "linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)", p: 3 }}>
-        <Fade in timeout={800}>
-          <Typography variant="h6" component="h1" sx={{ fontWeight: 600, color: "text.primary", mb: 3 }}>
-            Gestion des tags
-          </Typography>
-        </Fade>
+    <Box sx={{ p: 3 }}>
+      <Fade in timeout={800}>
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{
+            background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          <TagIcon sx={{ color: "#ff9800", fontSize: "2rem" }} />
+          Gestion des tags
+        </Typography>
+      </Fade>
 
-        {/* Add new tag form */}
-        <Fade in timeout={1000}>
-          <Paper
-            elevation={0}
-            sx={{
-              mb: 3,
-              p: 3,
-              borderRadius: 3,
-              background: "rgba(26, 26, 26, 0.8)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2, color: "primary.main", fontWeight: 700 }}>
+      {/* Add new tag form */}
+      <Fade in timeout={1000}>
+        <Paper
+          elevation={0}
+          sx={{
+            mb: 3,
+            p: 3,
+            borderRadius: 3,
+            background: "rgba(26, 26, 26, 0.8)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+          }}
+        >
+          <Typography variant="h6" sx={{ mb: 2, color: "primary.main", fontWeight: 700 }}>
               Ajouter un nouveau tag
             </Typography>
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
@@ -477,6 +426,7 @@ export default function AdminTags() {
             <DataGrid
               rows={tags}
               columns={columns}
+              sx={gridStyles}
               pageSize={10}
               rowsPerPageOptions={[10, 25, 50, 100]}
               disableSelectionOnClick
@@ -492,12 +442,6 @@ export default function AdminTags() {
                 },
               }}
               density="comfortable"
-              sx={{
-                height: "100%",
-                "& .MuiDataGrid-row:hover": {
-                  backgroundColor: "rgba(255, 152, 0, 0.08)",
-                },
-              }}
               initialState={{
                 sorting: {
                   sortModel: [{ field: "nom", sort: "asc" }],
@@ -536,7 +480,6 @@ export default function AdminTags() {
             {alert.message}
           </Alert>
         </Snackbar>
-      </Box>
-    </ThemeProvider>
+    </Box>
   )
 }

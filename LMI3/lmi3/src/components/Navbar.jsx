@@ -181,12 +181,7 @@ const Navbar = () => {
     { text: "Profil", icon: <PersonIcon />, path: "/profile" },
     { text: "Mes Commandes", icon: <ReceiptIcon />, path: "/orders" },
     ...(isAdmin() ? [
-      { text: "Commandes", icon: <ReceiptIcon />, path: "/admin/orders" },
-      { text: "Sauces", icon: <AdminIcon />, path: "/admin/sauces" },
-      { text: "Plats", icon: <FastfoodIcon />, path: "/admin/plats" },
-      { text: "Tags", icon: <AdminIcon />, path: "/admin/tags" },
-      { text: "Extras", icon: <AdminIcon />, path: "/admin/extras" },
-      { text: "Utilisateurs", icon: <AdminIcon />, path: "/admin/users" },
+      { text: "Tableau de bord Admin", icon: <AdminIcon />, path: "/admin" },
     ] : []),
     { text: "Déconnexion", icon: <LogoutIcon />, onClick: handleLogout },
   ]
@@ -207,12 +202,18 @@ const Navbar = () => {
         >
           <Container maxWidth="xl">
             <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 70 } }}>
-              <RestaurantIcon
+              <Box
+                component="img"
+                src="/rudyetfannylogo.png"
+                alt="Rudy et Fanny Logo"
                 sx={{
-                  display: { xs: "none", md: "flex" },
-                  mr: 1,
-                  color: "primary.main",
-                  fontSize: 32,
+                  height: { xs: 32, md: 40 },
+                  width: "auto",
+                  mr: 1.5,
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "scale(1.1)",
+                  },
                 }}
               />
               <Typography
@@ -222,7 +223,6 @@ const Navbar = () => {
                 to="/"
                 sx={{
                   mr: 2,
-                  display: { xs: "none", md: "flex" },
                   fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
                   fontWeight: 800,
                   background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
@@ -231,7 +231,7 @@ const Navbar = () => {
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   textDecoration: "none",
-                  fontSize: "1.5rem",
+                  fontSize: { xs: "1.3rem", md: "1.5rem" },
                   letterSpacing: "-0.02em",
                   transition: "all 0.3s ease",
                   "&:hover": {
@@ -264,13 +264,19 @@ const Navbar = () => {
       >
         <Container maxWidth="xl">
           <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 70 } }}>
-            {/* Logo */}
-            <RestaurantIcon
+            {/* Logo and Title - left aligned */}
+            <Box
+              component="img"
+              src="/rudyetfannylogo.png"
+              alt="Rudy et Fanny Logo"
               sx={{
-                display: { xs: "none", md: "flex" },
-                mr: 1,
-                color: "primary.main",
-                fontSize: 32,
+                height: { xs: 32, md: 40 },
+                width: "auto",
+                mr: 1.5,
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  transform: "scale(1.1)",
+                },
               }}
             />
             <Typography
@@ -280,7 +286,6 @@ const Navbar = () => {
               to="/"
               sx={{
                 mr: 2,
-                display: { xs: "none", md: "flex" },
                 fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
                 fontWeight: 800,
                 background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
@@ -289,7 +294,7 @@ const Navbar = () => {
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 textDecoration: "none",
-                fontSize: "1.5rem",
+                fontSize: { xs: "1.3rem", md: "1.5rem" },
                 letterSpacing: "-0.02em",
                 transition: "all 0.3s ease",
                 "&:hover": {
@@ -299,134 +304,9 @@ const Navbar = () => {
             >
               Rudy et Fanny
             </Typography>
-
-            {/* Mobile menu */}
-            <Box sx={{ flexGrow: 1, display: { xs: "flex", md: "none" } }}>
-              <IconButton
-                size="large"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleOpenNavMenu}
-                sx={{
-                  color: "primary.main",
-                  "&:hover": {
-                    backgroundColor: "rgba(255, 152, 0, 0.1)",
-                    transform: "scale(1.1)",
-                  },
-                }}
-              >
-                <MenuIcon />
-              </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorElNav}
-                anchorOrigin={{
-                  vertical: "bottom",
-                  horizontal: "left",
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "left",
-                }}
-                open={Boolean(anchorElNav)}
-                onClose={handleCloseNavMenu}
-                sx={{
-                  display: { xs: "block", md: "none" },
-                  "& .MuiPaper-root": {
-                    background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
-                    backdropFilter: "blur(20px)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    borderRadius: 2,
-                    mt: 1,
-                  },
-                }}
-              >
-                {menuItems.map((item) => (
-                  <MenuItem
-                    key={item.text}
-                    onClick={handleCloseNavMenu}
-                    component={Link}
-                    to={item.path}
-                    sx={{
-                      color: "text.primary",
-                      borderRadius: 1,
-                      mx: 1,
-                      my: 0.5,
-                      "&:hover": {
-                        backgroundColor: "rgba(255, 152, 0, 0.1)",
-                        transform: "translateX(8px)",
-                      },
-                    }}
-                  >
-                    <Box sx={{ color: "primary.main", mr: 1 }}>{item.icon}</Box>
-                    <Typography sx={{ fontWeight: 600 }}>{item.text}</Typography>
-                  </MenuItem>
-                ))}
-              </Menu>
-            </Box>
-
-            {/* Logo for mobile */}
-            <RestaurantIcon
-              sx={{
-                display: { xs: "flex", md: "none" },
-                mr: 1,
-                color: "primary.main",
-                fontSize: 28,
-              }}
-            />
-            <Typography
-              variant="h5"
-              noWrap
-              component={Link}
-              to="/"
-              sx={{
-                mr: 2,
-                display: { xs: "flex", md: "none" },
-                flexGrow: 1,
-                fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-                fontWeight: 800,
-                background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-                backgroundClip: "text",
-                textFillColor: "transparent",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                textDecoration: "none",
-                fontSize: "1.3rem",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Rudy et Fanny
-            </Typography>
-
-            {/* Desktop menu */}
-            <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" } }}>
-              {menuItems.map((item) => (
-                <Button
-                  key={item.text}
-                  component={Link}
-                  to={item.path}
-                  onClick={handleCloseNavMenu}
-                  startIcon={<Box sx={{ color: "primary.main" }}>{item.icon}</Box>}
-                  sx={{
-                    my: 2,
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    mx: 1,
-                    px: 2,
-                    py: 1,
-                    fontWeight: 600,
-                    "&:hover": {
-                      backgroundColor: "rgba(255, 152, 0, 0.1)",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                >
-                  {item.text}
-                </Button>
-              ))}
-            </Box>
+            
+            {/* Spacer */}
+            <Box sx={{ flexGrow: 1 }} />
 
             {/* User menu */}
             <Box sx={{ flexGrow: 0, display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -85,10 +85,13 @@ const getBasketStorageKey = (userId) => {
 const saveBasketToStorage = (items, userId) => {
   try {
     const storageKey = getBasketStorageKey(userId);
+    console.log('Saving basket to storage:', { storageKey, itemCount: items.length });
     if (items.length === 0) {
       localStorage.removeItem(storageKey);
+      console.log('Removed empty basket from storage');
     } else {
       localStorage.setItem(storageKey, JSON.stringify(items));
+      console.log('Saved basket items to storage');
     }
   } catch (error) {
     console.error('Error saving basket to localStorage:', error);
@@ -155,9 +158,12 @@ const basketReducer = (state, action) => {
     
     case BASKET_ACTIONS.REMOVE_ITEM: {
       const itemId = action.payload;
+      console.log('Removing item from basket:', itemId);
       const newItems = state.items.filter(item => item.id !== itemId);
       const totalItems = newItems.reduce((sum, item) => sum + item.quantity, 0);
       const totalPrice = newItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
+      
+      console.log('Item removed. New basket:', { itemCount: newItems.length, totalItems, totalPrice });
       
       return {
         ...state,
@@ -189,6 +195,7 @@ const basketReducer = (state, action) => {
     }
     
     case BASKET_ACTIONS.CLEAR_BASKET: {
+      console.log('Clearing entire basket');
       return {
         ...state,
         items: [],
@@ -299,6 +306,13 @@ export const BasketProvider = ({ children }) => {
     }
   }, [state.items, state.userId, state.isInitialized]);
 
+  // Auto-save whenever basket items change
+  useEffect(() => {
+    if (state.isInitialized) {
+      saveBasket();
+    }
+  }, [state.items, saveBasket]);
+
   // User management functions
   const handleLogin = useCallback((userId) => {
     // When logging in, preserve current basket and associate with user
@@ -324,27 +338,22 @@ export const BasketProvider = ({ children }) => {
     }
   }, [state.userId, handleLogin, handleLogout]);
   
-  // Basket action functions that trigger saves
+  // Basket action functions
   const addToBasket = useCallback((item) => {
     dispatch({ type: BASKET_ACTIONS.ADD_ITEM, payload: item });
-    // Save after state update
-    setTimeout(() => saveBasket(), 0);
-  }, [saveBasket]);
+  }, []);
   
   const removeFromBasket = useCallback((itemId) => {
     dispatch({ type: BASKET_ACTIONS.REMOVE_ITEM, payload: itemId });
-    setTimeout(() => saveBasket(), 0);
-  }, [saveBasket]);
+  }, []);
   
   const updateQuantity = useCallback((itemId, quantity) => {
     dispatch({ type: BASKET_ACTIONS.UPDATE_QUANTITY, payload: { itemId, quantity } });
-    setTimeout(() => saveBasket(), 0);
-  }, [saveBasket]);
+  }, []);
   
   const clearBasket = useCallback(() => {
     dispatch({ type: BASKET_ACTIONS.CLEAR_BASKET });
-    setTimeout(() => saveBasket(), 0);
-  }, [saveBasket]);
+  }, []);
   
   const resetBasket = useCallback(() => {
     clearAllBasketStorage();

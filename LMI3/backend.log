@@ -1,0 +1,325 @@
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node index.js`[39m
+[dotenv@17.0.0] injecting env (3) from .env – 🔐 encrypt with dotenvx: https://dotenvx.com
+Server with Socket.IO running on 0.0.0.0:3001
+Client connected: YqCcr7nR62JtJtFYAAAC
+Client connected: uLd3DRJZ4cxEwRtZAAAD
+Admin joined: YqCcr7nR62JtJtFYAAAC
+Admin joined: uLd3DRJZ4cxEwRtZAAAD
+Client connected: v-pL9OxNFKKFZjrWAAAG
+Client connected: htjK6vLB4wcFYB-BAAAH
+Admin joined: v-pL9OxNFKKFZjrWAAAG
+Admin joined: htjK6vLB4wcFYB-BAAAH
+Client disconnected: v-pL9OxNFKKFZjrWAAAG
+Client disconnected: uLd3DRJZ4cxEwRtZAAAD
+Client disconnected: htjK6vLB4wcFYB-BAAAH
+Client disconnected: YqCcr7nR62JtJtFYAAAC
+Client connected: 1dO6MtcxDVmKfM2GAAAK
+Client connected: z9SazHm6_7RyWmQUAAAL
+Admin joined: 1dO6MtcxDVmKfM2GAAAK
+Admin joined: z9SazHm6_7RyWmQUAAAL
+Client connected: T1Yk7QL6ITgoxVnuAAAO
+Client connected: sCSr5gIwFoyhxHcMAAAP
+Admin joined: T1Yk7QL6ITgoxVnuAAAO
+Admin joined: sCSr5gIwFoyhxHcMAAAP
+Client disconnected: 1dO6MtcxDVmKfM2GAAAK
+Client disconnected: T1Yk7QL6ITgoxVnuAAAO
+Client disconnected: z9SazHm6_7RyWmQUAAAL
+Client disconnected: sCSr5gIwFoyhxHcMAAAP
+Client connected: FEhWCXo9a8dWGn2YAAAS
+Client connected: g35OML8KHGBT3HFIAAAT
+Admin joined: FEhWCXo9a8dWGn2YAAAS
+Admin joined: g35OML8KHGBT3HFIAAAT
+Client disconnected: g35OML8KHGBT3HFIAAAT
+Client disconnected: FEhWCXo9a8dWGn2YAAAS
+Client connected: sHSUHhyZziiZa8rVAAAW
+Client connected: JJIqOhACOKWwofy1AAAX
+Admin joined: sHSUHhyZziiZa8rVAAAW
+Admin joined: JJIqOhACOKWwofy1AAAX
+Client connected: x7dz9L45qv2Qr55sAAAa
+Client connected: fPuMC8SKAUz0MfQ4AAAb
+Admin joined: x7dz9L45qv2Qr55sAAAa
+Admin joined: fPuMC8SKAUz0MfQ4AAAb
+Client connected: dATJ4cumjp3G1ImOAAAe
+Client connected: 4hIAyxtgGUSiKtAOAAAf
+Admin joined: dATJ4cumjp3G1ImOAAAe
+Admin joined: 4hIAyxtgGUSiKtAOAAAf
+Client connected: 2ZtR8GLRyLE6zJDwAAAi
+Client connected: Deb2NBkfwdcOQ3P6AAAj
+Admin joined: 2ZtR8GLRyLE6zJDwAAAi
+Admin joined: Deb2NBkfwdcOQ3P6AAAj
+Client connected: DBZN9JGfXm2k6bwhAAAm
+Client connected: qToZLKNmh_3DIwl7AAAn
+Admin joined: DBZN9JGfXm2k6bwhAAAm
+Admin joined: qToZLKNmh_3DIwl7AAAn
+Client connected: SAg9dnUa0eHy0HvhAAAq
+Client connected: QcUktt3z_J_XlzekAAAr
+Admin joined: SAg9dnUa0eHy0HvhAAAq
+Admin joined: QcUktt3z_J_XlzekAAAr
+Client connected: xQ-kLfwrBFJDP1CBAAAu
+Client connected: 7jeQJMCM4M-upCpBAAAv
+Admin joined: xQ-kLfwrBFJDP1CBAAAu
+Admin joined: 7jeQJMCM4M-upCpBAAAv
+Client connected: WFYRWu4dG86OMQjgAAAy
+Client connected: BvJYP0G3ufzJ0kSYAAAz
+Admin joined: WFYRWu4dG86OMQjgAAAy
+Admin joined: BvJYP0G3ufzJ0kSYAAAz
+Client connected: lNgh4qg_jxlhm5SwAAA2
+Client connected: D_7Xm0JqiPJFeXcJAAA3
+Admin joined: lNgh4qg_jxlhm5SwAAA2
+Admin joined: D_7Xm0JqiPJFeXcJAAA3
+Client connected: HrnFDYh0zm3YLJoGAAA6
+Client connected: pXZEK1nnwfJiI7uoAAA7
+Admin joined: HrnFDYh0zm3YLJoGAAA6
+Admin joined: pXZEK1nnwfJiI7uoAAA7
+Client connected: mcxjfG8bBQw-z7ojAAA-
+Client connected: UHnisscy0LjoTSdFAAA_
+Admin joined: mcxjfG8bBQw-z7ojAAA-
+Admin joined: UHnisscy0LjoTSdFAAA_
+Client connected: Kbg20Uhdz7KDgF0VAABC
+Client connected: 4r8iJqny-LCEv8GmAABD
+Admin joined: Kbg20Uhdz7KDgF0VAABC
+Admin joined: 4r8iJqny-LCEv8GmAABD
+Client connected: wHQ8JmXBK2b8G6qaAABG
+Client connected: 9uM4fOldo8iwHSI-AABH
+Admin joined: wHQ8JmXBK2b8G6qaAABG
+Admin joined: 9uM4fOldo8iwHSI-AABH
+Client connected: oDs8dBmbpBwMzJNGAABK
+Client connected: UupJOR5T4dWFLQIcAABL
+Admin joined: oDs8dBmbpBwMzJNGAABK
+Admin joined: UupJOR5T4dWFLQIcAABL
+Client disconnected: qToZLKNmh_3DIwl7AAAn
+Client disconnected: HrnFDYh0zm3YLJoGAAA6
+Client disconnected: sHSUHhyZziiZa8rVAAAW
+Client disconnected: xQ-kLfwrBFJDP1CBAAAu
+Client disconnected: x7dz9L45qv2Qr55sAAAa
+Client disconnected: pXZEK1nnwfJiI7uoAAA7
+Client disconnected: WFYRWu4dG86OMQjgAAAy
+Client disconnected: QcUktt3z_J_XlzekAAAr
+Client disconnected: mcxjfG8bBQw-z7ojAAA-
+Client disconnected: 9uM4fOldo8iwHSI-AABH
+Client disconnected: UHnisscy0LjoTSdFAAA_
+Client disconnected: JJIqOhACOKWwofy1AAAX
+Client disconnected: 4hIAyxtgGUSiKtAOAAAf
+Client disconnected: D_7Xm0JqiPJFeXcJAAA3
+Client disconnected: UupJOR5T4dWFLQIcAABL
+Client disconnected: fPuMC8SKAUz0MfQ4AAAb
+Client disconnected: SAg9dnUa0eHy0HvhAAAq
+Client disconnected: oDs8dBmbpBwMzJNGAABK
+Client disconnected: dATJ4cumjp3G1ImOAAAe
+Client disconnected: Deb2NBkfwdcOQ3P6AAAj
+Client disconnected: 2ZtR8GLRyLE6zJDwAAAi
+Client disconnected: 4r8iJqny-LCEv8GmAABD
+Client disconnected: DBZN9JGfXm2k6bwhAAAm
+Client disconnected: Kbg20Uhdz7KDgF0VAABC
+Client disconnected: 7jeQJMCM4M-upCpBAAAv
+Client disconnected: lNgh4qg_jxlhm5SwAAA2
+Client disconnected: BvJYP0G3ufzJ0kSYAAAz
+Client disconnected: wHQ8JmXBK2b8G6qaAABG
+Client connected: v4CYFBUz1akENVzmAABO
+Client connected: 1XnxO4dOjED90V2IAABP
+Admin joined: v4CYFBUz1akENVzmAABO
+Admin joined: 1XnxO4dOjED90V2IAABP
+Client connected: hMH10UVHTaza3WtyAABS
+Client connected: K0Iiz0tyKvvNYuHBAABT
+Admin joined: hMH10UVHTaza3WtyAABS
+Admin joined: K0Iiz0tyKvvNYuHBAABT
+Client connected: G7OhJW1Mo2mTUErhAABW
+Client connected: PPYjqlf2pUUVdFzBAABX
+Admin joined: G7OhJW1Mo2mTUErhAABW
+Admin joined: PPYjqlf2pUUVdFzBAABX
+Client connected: wpDHcyZH5D7DIocyAABa
+Client connected: CpdyaaOrL_HSdZEcAABb
+Admin joined: wpDHcyZH5D7DIocyAABa
+Admin joined: CpdyaaOrL_HSdZEcAABb
+Client connected: POSt0gpTMtpJV0I7AABe
+Client connected: aYupoczOu8_L8pslAABf
+Admin joined: POSt0gpTMtpJV0I7AABe
+Admin joined: aYupoczOu8_L8pslAABf
+Client disconnected: 1XnxO4dOjED90V2IAABP
+Client disconnected: wpDHcyZH5D7DIocyAABa
+Client disconnected: CpdyaaOrL_HSdZEcAABb
+Client disconnected: v4CYFBUz1akENVzmAABO
+Client disconnected: hMH10UVHTaza3WtyAABS
+Client disconnected: K0Iiz0tyKvvNYuHBAABT
+Client disconnected: PPYjqlf2pUUVdFzBAABX
+Client disconnected: G7OhJW1Mo2mTUErhAABW
+Client disconnected: POSt0gpTMtpJV0I7AABe
+Client disconnected: aYupoczOu8_L8pslAABf
+Client connected: SlgNnB4bdmWtBwyuAABi
+Client connected: revCesG3h67hgXLdAABj
+Admin joined: SlgNnB4bdmWtBwyuAABi
+Admin joined: revCesG3h67hgXLdAABj
+Client connected: JhQpVzpSvYxPeovNAABm
+Client connected: Sb812OPLuzn9nGjeAABn
+Admin joined: JhQpVzpSvYxPeovNAABm
+Admin joined: Sb812OPLuzn9nGjeAABn
+Client disconnected: Sb812OPLuzn9nGjeAABn
+Client disconnected: JhQpVzpSvYxPeovNAABm
+Client disconnected: SlgNnB4bdmWtBwyuAABi
+Client disconnected: revCesG3h67hgXLdAABj
+Client connected: mBLHlf_zH8NHN8MPAABq
+Client connected: YmAYl5XCKayyyPiSAABr
+Admin joined: mBLHlf_zH8NHN8MPAABq
+Admin joined: YmAYl5XCKayyyPiSAABr
+Client disconnected: mBLHlf_zH8NHN8MPAABq
+Client disconnected: YmAYl5XCKayyyPiSAABr
+Client connected: qq93eOuT3ucPfoVSAABu
+Client connected: 5a-KbxcKGbt66fm1AABv
+Admin joined: qq93eOuT3ucPfoVSAABu
+Admin joined: 5a-KbxcKGbt66fm1AABv
+Client disconnected: qq93eOuT3ucPfoVSAABu
+Client disconnected: 5a-KbxcKGbt66fm1AABv
+Client connected: zMxHCvKezFWT__0jAABy
+Client connected: l7TXZF14IS6LFGb6AABz
+Admin joined: zMxHCvKezFWT__0jAABy
+Admin joined: l7TXZF14IS6LFGb6AABz
+Client connected: tdh_nsAmS7nafos4AAB2
+Client connected: UaYzMrPtPe9ralDyAAB3
+Admin joined: tdh_nsAmS7nafos4AAB2
+Admin joined: UaYzMrPtPe9ralDyAAB3
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node index.js`[39m
+[dotenv@17.0.0] injecting env (3) from .env – 🔐 encrypt with dotenvx: https://dotenvx.com
+Server with Socket.IO running on 0.0.0.0:3001
+Client connected: vCMxsLEW5QmZ2NV1AAAD
+Client connected: 3U79MAP4qHJI9N3VAAAE
+Client connected: Q55YnhaRP5ccg6AvAAAF
+Admin joined: vCMxsLEW5QmZ2NV1AAAD
+Admin joined: Q55YnhaRP5ccg6AvAAAF
+Admin joined: 3U79MAP4qHJI9N3VAAAE
+Client connected: OJMq4VMvUPOvWkabAAAH
+Admin joined: OJMq4VMvUPOvWkabAAAH
+Get settings error: TypeError: Cannot read properties of undefined (reading 'findMany')
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/index.js:2381:44
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:117:3)
+    at handle (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:295:15
+    at processParams (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:582:12)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:291:5)
+    at cors (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/cors/lib/index.js:188:7)
+Get settings error: TypeError: Cannot read properties of undefined (reading 'findMany')
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/index.js:2381:44
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:117:3)
+    at handle (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:295:15
+    at processParams (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:582:12)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:291:5)
+    at cors (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/cors/lib/index.js:188:7)
+Get settings error: TypeError: Cannot read properties of undefined (reading 'findMany')
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/index.js:2381:44
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:117:3)
+    at handle (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:295:15
+    at processParams (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:582:12)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:291:5)
+    at cors (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/cors/lib/index.js:188:7)
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node index.js`[39m
+[dotenv@17.0.0] injecting env (3) from .env – 🔐 encrypt with dotenvx: https://dotenvx.com
+Server with Socket.IO running on 0.0.0.0:3001
+Client connected: -rSBlgKGrks2HYE8AAAB
+Admin joined: -rSBlgKGrks2HYE8AAAB
+Client connected: vho8M_1qUyARPM0uAAAD
+Admin joined: vho8M_1qUyARPM0uAAAD
+Client connected: 2mJYbGoXqa7kWRaaAAAF
+Admin joined: 2mJYbGoXqa7kWRaaAAAF
+Client connected: f3h9OdAub6k7LmCYAAAH
+Admin joined: f3h9OdAub6k7LmCYAAAH
+Get settings error: TypeError: Cannot read properties of undefined (reading 'findMany')
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/index.js:2381:44
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:117:3)
+    at handle (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:295:15
+    at processParams (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:582:12)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:291:5)
+    at cors (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/cors/lib/index.js:188:7)
+Get settings error: TypeError: Cannot read properties of undefined (reading 'findMany')
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/index.js:2381:44
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:117:3)
+    at handle (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:295:15
+    at processParams (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:582:12)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:291:5)
+    at cors (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/cors/lib/index.js:188:7)
+Get settings error: TypeError: Cannot read properties of undefined (reading 'findMany')
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/index.js:2381:44
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:157:13)
+    at Route.dispatch (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/route.js:117:3)
+    at handle (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:435:11)
+    at Layer.handleRequest (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/lib/layer.js:152:17)
+    at /home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:295:15
+    at processParams (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:582:12)
+    at next (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/router/index.js:291:5)
+    at cors (/home/popas/Desktop/FDS/LMI3/backend-lmi3/node_modules/cors/lib/index.js:188:7)
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node index.js`[39m
+[dotenv@17.0.0] injecting env (3) from .env – 🔐 encrypt with dotenvx: https://dotenvx.com
+Server with Socket.IO running on 0.0.0.0:3001
+Client connected: AThnH8IsLQIP-BsqAAAB
+Admin joined: AThnH8IsLQIP-BsqAAAB
+Client connected: ry1j7V7Io-Ar98inAAAD
+Admin joined: ry1j7V7Io-Ar98inAAAD
+Client connected: KR50FMYRSoPpo97OAAAF
+Admin joined: KR50FMYRSoPpo97OAAAF
+Client connected: nnROZ1S0I1DA4OtbAAAH
+Admin joined: nnROZ1S0I1DA4OtbAAAH
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node index.js`[39m
+[dotenv@17.0.0] injecting env (3) from .env – 🔐 encrypt with dotenvx: https://dotenvx.com
+Server with Socket.IO running on 0.0.0.0:3001
+Client connected: fX8xG1NzFKtZhTGpAAAC
+Client connected: fObMb67puaoXrKqmAAAD
+Admin joined: fX8xG1NzFKtZhTGpAAAC
+Admin joined: fObMb67puaoXrKqmAAAD
+Client connected: P03QBKXWmcBlWh8QAAAF
+Admin joined: P03QBKXWmcBlWh8QAAAF
+Client connected: 7BYrfqCsN2EWGEoiAAAH
+Admin joined: 7BYrfqCsN2EWGEoiAAAH
+Client disconnected: fX8xG1NzFKtZhTGpAAAC
+Client disconnected: P03QBKXWmcBlWh8QAAAF
+Client disconnected: 7BYrfqCsN2EWGEoiAAAH
+Client disconnected: fObMb67puaoXrKqmAAAD
+Client connected: GCDgkDpHyhjLpxCoAAAK
+Client connected: jPeky1AgePULZzDkAAAL
+Admin joined: GCDgkDpHyhjLpxCoAAAK
+Admin joined: jPeky1AgePULZzDkAAAL
+Client connected: jzV8GkZk7kmXRtzRAAAO
+Client connected: 4yCnWNxinKaSAnaAAAAP
+Admin joined: jzV8GkZk7kmXRtzRAAAO
+Admin joined: 4yCnWNxinKaSAnaAAAAP
+Client disconnected: 4yCnWNxinKaSAnaAAAAP
+Client disconnected: jzV8GkZk7kmXRtzRAAAO
+Client disconnected: jPeky1AgePULZzDkAAAL
+Client disconnected: GCDgkDpHyhjLpxCoAAAK
+Client connected: 30Mf6etrsPFtz_cMAAAR
+Admin joined: 30Mf6etrsPFtz_cMAAAR
+Client connected: IKRo7IwOZx8MmXufAAAT
+Admin joined: IKRo7IwOZx8MmXufAAAT
+Client connected: XMa8vJxZwAA0JWQBAAAV
+Admin joined: XMa8vJxZwAA0JWQBAAAV
+Client connected: AaEtCusgvwey2j-rAAAX
+Admin joined: AaEtCusgvwey2j-rAAAX
+Client disconnected: 30Mf6etrsPFtz_cMAAAR
+Client disconnected: AaEtCusgvwey2j-rAAAX
+Client disconnected: XMa8vJxZwAA0JWQBAAAV
+Client disconnected: IKRo7IwOZx8MmXufAAAT

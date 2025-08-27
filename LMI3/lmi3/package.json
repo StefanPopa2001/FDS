@@ -7,8 +7,10 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.2.0",
+    "@mui/lab": "^7.0.0-beta.16",
     "@mui/material": "^7.2.0",
     "@mui/x-data-grid": "^8.8.0",
+    "@mui/x-date-pickers": "^8.10.2",
     "@tanstack/match-sorter-utils": "^8.19.4",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/table-core": "^8.21.3",
@@ -20,10 +22,12 @@
     "ag-grid-enterprise": "^34.0.2",
     "ag-grid-react": "^34.0.2",
     "crypto-js": "^4.2.0",
+    "date-fns": "^4.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.7.0",
     "react-scripts": "5.0.1",
+    "socket.io-client": "^4.8.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

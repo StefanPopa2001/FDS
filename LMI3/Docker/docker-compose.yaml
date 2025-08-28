@@ -76,16 +76,31 @@ services:
       - "traefik.http.routers.backend-api-secure.service=backend"
       - "traefik.http.routers.backend-api-secure.middlewares=api-stripprefix,cors"
       - "traefik.http.routers.backend-api-secure.priority=3"
+      # WebSocket routes for Socket.IO (HTTPS) - no stripprefix to preserve Socket.IO path
+      - "traefik.http.routers.backend-ws-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/api/socket.io`)"
+      - "traefik.http.routers.backend-ws-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-ws-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend-ws-secure.service=backend"
+      - "traefik.http.routers.backend-ws-secure.middlewares=ws-stripprefix,cors"
+      - "traefik.http.routers.backend-ws-secure.priority=4"
       # API routes for IP (HTTP) - no redirect
       - "traefik.http.routers.backend-api-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend-api-ip.entrypoints=web"
       - "traefik.http.routers.backend-api-ip.service=backend"
       - "traefik.http.routers.backend-api-ip.middlewares=api-stripprefix,cors"
       - "traefik.http.routers.backend-api-ip.priority=3"
+      # WebSocket routes for Socket.IO (HTTP)
+      - "traefik.http.routers.backend-ws-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/api/socket.io`)"
+      - "traefik.http.routers.backend-ws-ip.entrypoints=web"
+      - "traefik.http.routers.backend-ws-ip.service=backend"
+      - "traefik.http.routers.backend-ws-ip.middlewares=ws-stripprefix,cors"
+      - "traefik.http.routers.backend-ws-ip.priority=4"
       # Service configuration
       - "traefik.http.services.backend.loadbalancer.server.port=3001"
       # Fix stripprefix middleware
       - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
+      # WebSocket stripprefix middleware (only strips /api, preserves /socket.io)
+      - "traefik.http.middlewares.ws-stripprefix.stripprefix.prefixes=/api"
       # Direct routes for uploads (HTTPS)
       - "traefik.http.routers.backend-uploads-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/uploads`)"
       - "traefik.http.routers.backend-uploads-secure.entrypoints=websecure"
@@ -161,20 +176,7 @@ services:
       - db
     labels:
       - "traefik.enable=true"
-      # PgAdmin for domain (HTTPS)
-      - "traefik.http.routers.pgadmin-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/pgadmin`)"
-      - "traefik.http.routers.pgadmin-secure.entrypoints=websecure"
-      - "traefik.http.routers.pgadmin-secure.tls.certresolver=myresolver"
-      - "traefik.http.routers.pgadmin-secure.service=pgadmin"
-      - "traefik.http.routers.pgadmin-secure.middlewares=pgadmin-stripprefix"
-      - "traefik.http.routers.pgadmin-secure.priority=2"
-      # PgAdmin for IP (HTTP)
-      - "traefik.http.routers.pgadmin-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/pgadmin`)"
-      - "traefik.http.routers.pgadmin-ip.entrypoints=web"
-      - "traefik.http.routers.pgadmin-ip.service=pgadmin"
-      - "traefik.http.routers.pgadmin-ip.middlewares=pgadmin-stripprefix"
-      - "traefik.http.routers.pgadmin-ip.priority=2"
-      # PgAdmin for localhost (HTTP)
+      # PgAdmin for localhost only (HTTP)
       - "traefik.http.routers.pgadmin-local.rule=Host(`localhost`) && PathPrefix(`/pgadmin`)"
       - "traefik.http.routers.pgadmin-local.entrypoints=web"
       - "traefik.http.routers.pgadmin-local.service=pgadmin"

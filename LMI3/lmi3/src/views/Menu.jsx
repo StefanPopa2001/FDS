@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -54,6 +54,66 @@ import {
 } from "@mui/icons-material"
 import { useBasket } from '../contexts/BasketContext'
 import config from '../config'
+
+// Lazy Image Component with Intersection Observer
+const LazyImage = ({ src, alt, sx, onError, placeholder, ...props }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const imgRef = useRef();
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '50px'
+      }
+    );
+
+    if (imgRef.current) {
+      observer.observe(imgRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  const handleLoad = useCallback(() => {
+    setIsLoaded(true);
+  }, []);
+
+  return (
+    <Box ref={imgRef} sx={sx}>
+      {!isInView || !isLoaded ? (
+        <Skeleton
+          variant="rectangular"
+          width="100%"
+          height="100%"
+          animation="wave"
+          sx={{ borderRadius: 1 }}
+        />
+      ) : null}
+      {isInView && (
+        <CardMedia
+          component="img"
+          src={src}
+          alt={alt}
+          onLoad={handleLoad}
+          onError={onError}
+          sx={{
+            ...sx,
+            display: isLoaded ? 'block' : 'none'
+          }}
+          {...props}
+        />
+      )}
+    </Box>
+  );
+};
 
 const darkTheme = createTheme({
   palette: {
@@ -887,9 +947,8 @@ const Menu = () => {
                     </Box>
 
                     {sauce.image && !imageErrors[sauce.id] ? (
-                      <CardMedia
-                        component="img"
-                        image={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
+                      <LazyImage
+                        src={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
                         alt={sauce.name}
                         onError={() => handleImageError(sauce.id)}
                         sx={{
@@ -1096,9 +1155,8 @@ const Menu = () => {
                     </Box>
 
                     {plat.image && !imageErrors[plat.id] ? (
-                      <CardMedia
-                        component="img"
-                        image={plat.image.startsWith("http") ? plat.image : `${config.API_URL}${plat.image}`}
+                      <LazyImage
+                        src={plat.image.startsWith("http") ? plat.image : `${config.API_URL}${plat.image}`}
                         alt={plat.name}
                         onError={() => handleImageError(plat.id)}
                         sx={{
@@ -1355,9 +1413,8 @@ const Menu = () => {
                   {/* Plat Image */}
                   {selectedPlat.image && (
                     <Box sx={{ mb: 3, borderRadius: 2, overflow: "hidden" }}>
-                      <CardMedia
-                        component="img"
-                        image={selectedPlat.image.startsWith("http") ? selectedPlat.image : `${config.API_URL}${selectedPlat.image}`}
+                      <LazyImage
+                        src={selectedPlat.image.startsWith("http") ? selectedPlat.image : `${config.API_URL}${selectedPlat.image}`}
                         alt={selectedPlat.name}
                         sx={{
                           width: "100%",

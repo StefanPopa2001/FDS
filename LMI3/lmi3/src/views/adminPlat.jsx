@@ -174,8 +174,8 @@ export default function AdminPlat() {
     },
     {
       field: "IncludesSauce",
-      headerName: "Sauce Incluse",
-      width: 120,
+      headerName: "Possibilité de Sauce",
+      width: 140,
       align: 'center',
       headerAlign: 'center',
       renderCell: (params) => (
@@ -191,14 +191,26 @@ export default function AdminPlat() {
     },
     {
       field: "saucePrice",
-      headerName: "Prix Sauce (€)",
-      width: 130,
+      headerName: "Prix Sauce (€) - 0€ = Incluse",
+      width: 180,
       type: "number",
       align: 'center',
       headerAlign: 'center',
       renderCell: (params) => (
-        <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
-          {`€${params.value.toFixed(2)}`}
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            fontWeight: 700, 
+            color: params.value === 0 ? "success.main" : "primary.main", 
+            width: '100%', 
+            textAlign: 'center', 
+            display: 'flex', 
+            alignItems: 'center', 
+            height: '100%', 
+            justifyContent: 'center' 
+          }}
+        >
+          {params.value === 0 ? "Incluse (0€)" : `€${params.value.toFixed(2)}`}
         </Typography>
       ),
     },
@@ -992,11 +1004,12 @@ export default function AdminPlat() {
                   inputProps={{ step: "0.01", min: "0" }}
                 />
                 <TextField
-                  label="Prix sauce (€)"
+                  label="Prix sauce (€) - 0€ = sauce incluse"
                   type="number"
                   value={newPlat.saucePrice}
                   onChange={(e) => setNewPlat({ ...newPlat, saucePrice: e.target.value })}
                   inputProps={{ step: "0.01", min: "0" }}
+                  helperText="Si 0€, la sauce est incluse gratuitement"
                 />
               </Box>
 
@@ -1036,7 +1049,7 @@ export default function AdminPlat() {
                       onChange={(e) => setNewPlat({ ...newPlat, IncludesSauce: e.target.checked })}
                     />
                   }
-                  label="Sauce incluse"
+                  label="Possibilité de choisir une sauce"
                 />
               </Box>
 

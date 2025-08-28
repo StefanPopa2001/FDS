@@ -40,8 +40,10 @@ import {
   ExpandLess,
   ExpandMore,
   ShoppingBag as ShoppingBagIcon,
+  Chat as ChatIcon,
 } from "@mui/icons-material"
 import config from "../config.js"
+import OrderChat from "../components/OrderChat"
 
 const darkTheme = createTheme({
   palette: {
@@ -164,6 +166,7 @@ export default function OrderHistory() {
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({})
   const [expandedItems, setExpandedItems] = useState({})
+  const [openChat, setOpenChat] = useState(null)
 
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
@@ -416,6 +419,23 @@ export default function OrderHistory() {
                               <Typography variant="body2" color="text.secondary">
                                 {order.formattedDate}
                               </Typography>
+                            </Box>
+                            <Box sx={{ ml: 'auto' }}>
+                              <IconButton
+                                onClick={() => setOpenChat(openChat === order.id ? null : order.id)}
+                                sx={{
+                                  backgroundColor: openChat === order.id ? 'rgba(255, 152, 0, 0.2)' : 'rgba(255, 152, 0, 0.1)',
+                                  color: '#ff9800',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(255, 152, 0, 0.3)',
+                                    transform: 'scale(1.05)',
+                                  },
+                                  transition: 'all 0.2s ease'
+                                }}
+                                title="Ouvrir le chat"
+                              >
+                                <ChatIcon />
+                              </IconButton>
                             </Box>
                           </Box>
                         </Grid>
@@ -686,6 +706,13 @@ export default function OrderHistory() {
           )}
         </Container>
       </Box>
+      
+      {/* Order Chat Component */}
+      <OrderChat 
+        orderId={openChat} 
+        isOpen={!!openChat} 
+        onClose={() => setOpenChat(null)} 
+      />
     </ThemeProvider>
   )
 }

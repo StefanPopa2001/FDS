@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -53,6 +53,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from "@mui/icons-material"
 import { useBasket } from '../contexts/BasketContext'
+import LazyImage from '../components/LazyImage'
 import config from '../config'
 
 const darkTheme = createTheme({
@@ -148,13 +149,12 @@ const PlaceholderImage = ({ alt, sx, ...props }) => (
 const Menu = () => {
   const [sauces, setSauces] = useState([])
   const [plats, setPlats] = useState([])
-  const [filteredSauces, setFilteredSauces] = useState([])
-  const [filteredPlats, setFilteredPlats] = useState([])
   const [selectedSauce, setSelectedSauce] = useState(null)
   const [selectedPlat, setSelectedPlat] = useState(null)
   const [selectedVersion, setSelectedVersion] = useState(null)
   const [selectedIngredients, setSelectedIngredients] = useState([]) // Track removed ingredients
   const [quantity, setQuantity] = useState(1)
+  const [itemMessage, setItemMessage] = useState("") // Message for individual items
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("available")
   const [modalOpen, setModalOpen] = useState(false)
@@ -345,9 +345,8 @@ const Menu = () => {
     }
   }, [sauces, plats, searchableTags])
 
-  // Handle filtering
-  useEffect(() => {
-    // Filter sauces with client-side tag filtering (single selection)
+  // Optimized filtering with useMemo
+  const filteredSauces = useMemo(() => {
     let filteredSauceData = [...sauces]
 
     // Tag filtering: Show items if they match the selected tag, or show all if "all" is selected
@@ -372,9 +371,10 @@ const Menu = () => {
       filteredSauceData = filteredSauceData.filter((sauce) => sauce.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
-    setFilteredSauces(filteredSauceData)
+    return filteredSauceData
+  }, [sauces, selectedTagFilter, filterType, searchTerm])
 
-    // Filter plats with client-side tag filtering (single selection)
+  const filteredPlats = useMemo(() => {
     let filteredPlatData = [...plats]
 
     // Tag filtering: Show items if they match the selected tag, or show all if "all" is selected
@@ -410,8 +410,8 @@ const Menu = () => {
       filteredPlatData = filteredPlatData.filter((plat) => plat.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
-    setFilteredPlats(filteredPlatData)
-  }, [filterType, searchTerm, sauces, plats, selectedTagFilter, searchableTags, settings]) // Update dependencies
+    return filteredPlatData
+  }, [plats, selectedTagFilter, settings, filterType, searchTerm])
 
   const handleSauceClick = (sauce) => {
     setSelectedSauce(sauce)
@@ -887,15 +887,23 @@ const Menu = () => {
                     </Box>
 
                     {sauce.image && !imageErrors[sauce.id] ? (
-                      <CardMedia
-                        component="img"
-                        image={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
+                      <LazyImage
+                        src={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
                         alt={sauce.name}
                         onError={() => handleImageError(sauce.id)}
+                        placeholder={
+                          <PlaceholderImage
+                            alt={sauce.name}
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                            }}
+                          />
+                        }
                         sx={{
                           width: "100%",
                           height: "100%",
-                          objectFit: "fill", // Stretch to fill
+                          objectFit: "fill",
                         }}
                       />
                     ) : (
@@ -1096,15 +1104,23 @@ const Menu = () => {
                     </Box>
 
                     {plat.image && !imageErrors[plat.id] ? (
-                      <CardMedia
-                        component="img"
-                        image={plat.image.startsWith("http") ? plat.image : `${config.API_URL}${plat.image}`}
+                      <LazyImage
+                        src={plat.image.startsWith("http") ? plat.image : `${config.API_URL}${plat.image}`}
                         alt={plat.name}
                         onError={() => handleImageError(plat.id)}
+                        placeholder={
+                          <PlaceholderImage
+                            alt={plat.name}
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                            }}
+                          />
+                        }
                         sx={{
                           width: "100%",
                           height: "100%",
-                          objectFit: "fill", // Stretch to fill
+                          objectFit: "fill",
                         }}
                       />
                     ) : (
@@ -1266,6 +1282,25 @@ const Menu = () => {
                       <Chip label="Temporairement Indisponible" color="error" sx={{ fontWeight: 600 }} />
                     )}
                   </Box>
+
+                  {/* Message field */}
+                  <Box sx={{ mt: 3 }}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      variant="outlined"
+                      label="Message spécial (optionnel)"
+                      placeholder="Demandes particulières, allergies, etc..."
+                      value={itemMessage}
+                      onChange={(e) => setItemMessage(e.target.value)}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 2,
+                        }
+                      }}
+                    />
+                  </Box>
                 </DialogContent>
                 <DialogActions
                   sx={{
@@ -1293,8 +1328,10 @@ const Menu = () => {
                         type: 'sauce',
                         sauce: selectedSauce,
                         quantity: 1,
+                        message: itemMessage.trim() || null,
                       });
                       setModalOpen(false);
+                      setItemMessage(""); // Reset message
                     }}
                     sx={{
                       borderRadius: 2,
@@ -1723,6 +1760,25 @@ const Menu = () => {
                       )}
                     </Box>
                   )}
+
+                  {/* Message field */}
+                  <Box sx={{ mt: 3 }}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      variant="outlined"
+                      label="Message spécial (optionnel)"
+                      placeholder="Demandes particulières, allergies, etc..."
+                      value={itemMessage}
+                      onChange={(e) => setItemMessage(e.target.value)}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 2,
+                        }
+                      }}
+                    />
+                  </Box>
                 </DialogContent>
 
                 <DialogActions sx={{ p: 3 }}>
@@ -1755,9 +1811,11 @@ const Menu = () => {
                         extras: selectedExtrasDetails,
                         removedIngredients: removedIngredientsDetails,
                         quantity: quantity,
+                        message: itemMessage.trim() || null,
                       });
                       
                       setPlatVersionModalOpen(false);
+                      setItemMessage(""); // Reset message
                     }}
                     variant="contained"
                     disabled={!selectedVersion || isOrderingDisabled()}
@@ -1782,4 +1840,4 @@ const Menu = () => {
   )
 }
 
-export default Menu
+export default React.memo(Menu)

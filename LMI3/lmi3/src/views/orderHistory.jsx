@@ -28,6 +28,7 @@ import {
   Fade,
   useMediaQuery,
   useTheme,
+  Button,
 } from "@mui/material"
 import {
   ExpandMore as ExpandMoreIcon,
@@ -40,7 +41,9 @@ import {
   ExpandLess,
   ExpandMore,
   ShoppingBag as ShoppingBagIcon,
+  Chat as ChatIcon,
 } from "@mui/icons-material"
+import OrderChat from "../components/OrderChat"
 import config from "../config.js"
 
 const darkTheme = createTheme({
@@ -164,12 +167,25 @@ export default function OrderHistory() {
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({})
   const [expandedItems, setExpandedItems] = useState({})
+  const [chatOpen, setChatOpen] = useState(false)
+  const [selectedOrderId, setSelectedOrderId] = useState(null)
+  const [userId, setUserId] = useState(null)
 
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
   useEffect(() => {
     fetchOrders()
+    // Get user ID from token
+    const token = localStorage.getItem("authToken")
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setUserId(payload.userId)
+      } catch (error) {
+        console.error('Error parsing token:', error)
+      }
+    }
   }, [page])
 
   const fetchOrders = async () => {
@@ -210,6 +226,16 @@ export default function OrderHistory() {
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage)
+  }
+
+  const openChat = (orderId) => {
+    setSelectedOrderId(orderId)
+    setChatOpen(true)
+  }
+
+  const closeChat = () => {
+    setChatOpen(false)
+    setSelectedOrderId(null)
   }
 
   const toggleItemExpansion = (orderId, itemId) => {
@@ -457,6 +483,25 @@ export default function OrderHistory() {
                         </Grid>
 
                         <Grid item xs={12} md={2}>
+                          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                            <Button
+                              variant="outlined"
+                              startIcon={<ChatIcon />}
+                              onClick={() => openChat(order.id)}
+                              sx={{
+                                borderColor: 'primary.main',
+                                color: 'primary.main',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                                }
+                              }}
+                            >
+                              Chat
+                            </Button>
+                          </Box>
+                        </Grid>
+
+                        <Grid item xs={12} md={2}>
                           <Box>
                             <Typography variant="body2" color="text.secondary" gutterBottom>
                               Type de commande
@@ -686,6 +731,15 @@ export default function OrderHistory() {
           )}
         </Container>
       </Box>
+
+      {/* Order Chat Dialog */}
+      <OrderChat
+        open={chatOpen}
+        onClose={closeChat}
+        orderId={selectedOrderId}
+        userId={userId}
+        userType="client"
+      />
     </ThemeProvider>
   )
 }

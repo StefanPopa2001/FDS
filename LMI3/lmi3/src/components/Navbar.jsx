@@ -30,6 +30,7 @@ import {
 } from "@mui/icons-material"
 import { Link, useNavigate } from "react-router-dom"
 import Basket from './Basket'
+import NotificationCenter from './NotificationCenter'
 import { useAuth } from '../contexts/AuthContext'
 import { useBasket } from '../contexts/BasketContext'
 
@@ -310,6 +311,11 @@ const Navbar = () => {
 
             {/* User menu */}
             <Box sx={{ flexGrow: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Notifications - Only for logged in users */}
+              {isLoggedIn && (
+                <NotificationCenter userId={user?.userId} />
+              )}
+              
               {/* Basket Icon - Always visible */}
               <Basket />
               

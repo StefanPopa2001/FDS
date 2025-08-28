@@ -81,6 +81,42 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle joining order chat room
+  socket.on('join-order-chat', (data) => {
+    const { orderId, userId, userType } = data;
+    if (orderId) {
+      socket.join(`order-chat-${orderId}`);
+      console.log(`${userType} ${userId} joined chat for order ${orderId}`);
+    }
+  });
+
+  // Handle leaving order chat room
+  socket.on('leave-order-chat', (data) => {
+    const { orderId } = data;
+    if (orderId) {
+      socket.leave(`order-chat-${orderId}`);
+      console.log(`Client left chat for order ${orderId}`);
+    }
+  });
+
+  // Handle order status updates
+  socket.on('order-status-updated', (data) => {
+    const { orderId, status, message } = data;
+    // Broadcast to the specific order chat room and admin room
+    io.to(`order-chat-${orderId}`).emit('order-status-update', {
+      orderId,
+      status,
+      message,
+      timestamp: new Date()
+    });
+    io.to('admin-room').emit('order-status-update', {
+      orderId,
+      status,
+      message,
+      timestamp: new Date()
+    });
+  });
+
   // Handle disconnection
   socket.on('disconnect', () => {
     adminSockets.delete(socket.id);
@@ -678,7 +714,8 @@ app.post("/orders", authenticate, async (req, res) => {
         versionSize: item.version || null,
         sauceId: item.sauceId || null,
         extraId: item.extraId || null,
-        platSauceId: item.platSauceId || null
+        platSauceId: item.platSauceId || null,
+        message: item.message ? sanitizeInput(item.message) : null
       });
     }
 
@@ -1124,6 +1161,15 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       statusText: getStatusText(updatedOrder.status),
       notes: notes || null
     }, 'orderStatusUpdate');
+
+    // Emit to the specific order chat room for real-time client notification
+    io.to(`order-chat-${updatedOrder.id}`).emit('order-status-update', {
+      orderId: updatedOrder.id,
+      status: updatedOrder.status,
+      statusText: getStatusText(updatedOrder.status),
+      message: updateData.restaurantMessage || null,
+      timestamp: new Date()
+    });
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ error: "Internal server error" });
@@ -1251,12 +1297,12 @@ app.get('/tags/searchable', async (req, res) => {
 // Create tag
 app.post('/tags', async (req, res) => {
   try {
-    const { nom, description, emoji } = req.body;
+    const { nom, description, emoji, recherchable } = req.body;
     if (!nom || !description || !emoji) {
       return res.status(400).json({ error: 'Nom, description, and emoji are required' });
     }
     const tag = await prisma.tags.create({
-      data: { nom, description, emoji },
+      data: { nom, description, emoji, recherchable: recherchable || false },
     });
     res.status(201).json(tag);
   } catch (error) {
@@ -1271,14 +1317,14 @@ app.post('/tags', async (req, res) => {
 // Update tag
 app.put('/tags/:id', async (req, res) => {
   const { id } = req.params;
-  const { nom, description, emoji } = req.body;
+  const { nom, description, emoji, recherchable } = req.body;
   try {
     if (!nom || !description || !emoji) {
       return res.status(400).json({ error: 'Nom, description, and emoji are required' });
     }
     const tag = await prisma.tags.update({
       where: { id: parseInt(id) },
-      data: { nom, description, emoji },
+      data: { nom, description, emoji, recherchable: recherchable || false },
     });
     res.json(tag);
   } catch (error) {
@@ -2526,6 +2572,85 @@ app.delete('/settings/:key', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Setting not found' });
     }
     res.status(500).json({ error: 'Failed to delete setting' });
+  }
+});
+
+// Order Chat Routes
+// Get chat messages for an order
+app.get('/orders/:orderId/chat', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const messages = await prisma.orderChat.findMany({
+      where: { orderId: parseInt(orderId) },
+      include: {
+        sender: {
+          select: { id: true, name: true, email: true }
+        }
+      },
+      orderBy: { timestamp: 'asc' }
+    });
+    
+    res.json(messages);
+  } catch (error) {
+    console.error('Get chat messages error:', error);
+    res.status(500).json({ error: 'Failed to fetch chat messages' });
+  }
+});
+
+// Send a chat message
+app.post('/orders/:orderId/chat', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { message, senderId, senderType } = req.body;
+    
+    if (!message || !senderType) {
+      return res.status(400).json({ error: 'Message and senderType are required' });
+    }
+    
+    const chatMessage = await prisma.orderChat.create({
+      data: {
+        orderId: parseInt(orderId),
+        senderId: senderId ? parseInt(senderId) : null,
+        senderType: sanitizeInput(senderType),
+        message: sanitizeInput(message)
+      },
+      include: {
+        sender: {
+          select: { id: true, name: true, email: true }
+        }
+      }
+    });
+    
+    // Broadcast the new message via Socket.IO
+    io.emit(`chat-${orderId}`, chatMessage);
+    
+    res.status(201).json(chatMessage);
+  } catch (error) {
+    console.error('Send chat message error:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// Mark chat messages as read
+app.put('/orders/:orderId/chat/read', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { senderType } = req.body;
+    
+    await prisma.orderChat.updateMany({
+      where: {
+        orderId: parseInt(orderId),
+        senderType: { not: senderType },
+        isRead: false
+      },
+      data: { isRead: true }
+    });
+    
+    res.json({ message: 'Messages marked as read' });
+  } catch (error) {
+    console.error('Mark messages as read error:', error);
+    res.status(500).json({ error: 'Failed to mark messages as read' });
   }
 });
 

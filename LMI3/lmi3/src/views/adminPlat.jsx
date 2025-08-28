@@ -174,7 +174,7 @@ export default function AdminPlat() {
     },
     {
       field: "IncludesSauce",
-      headerName: "Sauce Incluse",
+      headerName: "Sauce Autorisée",
       width: 120,
       align: 'center',
       headerAlign: 'center',
@@ -1036,7 +1036,7 @@ export default function AdminPlat() {
                       onChange={(e) => setNewPlat({ ...newPlat, IncludesSauce: e.target.checked })}
                     />
                   }
-                  label="Sauce incluse"
+                  label="Sauce autorisée (si prix = 0€, sauce incluse)"
                 />
               </Box>
 

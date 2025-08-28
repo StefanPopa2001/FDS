@@ -8,17 +8,17 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
+  id        Int         @id @default(autoincrement())
+  email     String      @unique
   name      String?
-  createdAt DateTime  @default(now())
+  createdAt DateTime    @default(now())
   password  String
   phone     String?
   salt      String
-  type      Int       @default(0)
-  enabled Boolean     @default(true)
+  type      Int         @default(0)
+  enabled   Boolean     @default(true)
   orders    Order[]
-  
+  chatMessages OrderChat[]
 }
 
 model Sauce {
@@ -137,6 +137,7 @@ model Order {
   completedAt             DateTime?
   items                   OrderItem[]
   statusHistory           OrderStatusHistory[]
+  chatMessages            OrderChat[]
 
   @@index([userId])
   @@index([status])
@@ -168,6 +169,7 @@ model OrderItem {
   totalPrice         Float
   platSauceId        Int?
   platSaucePrice     Float                        @default(0)
+  message            String?
   extra              Extra?                       @relation(fields: [extraId], references: [id])
   order              Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   plat               Plat?                        @relation(fields: [platId], references: [id])
@@ -180,6 +182,21 @@ model OrderItem {
   @@index([platId])
   @@index([sauceId])
   @@index([extraId])
+}
+
+model OrderChat {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  senderId  Int?
+  senderType String  // "client" or "shop"
+  message   String
+  timestamp DateTime @default(now())
+  isRead    Boolean  @default(false)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender    User?    @relation(fields: [senderId], references: [id])
+
+  @@index([orderId])
+  @@index([timestamp])
 }
 
 model OrderItemExtra {

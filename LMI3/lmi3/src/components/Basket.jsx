@@ -36,6 +36,8 @@ import {
   CreditCard as CreditCardIcon,
   AccountBalance as BankIcon,
   Money as CashIcon,
+  Note as NoteIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useBasket } from '../contexts/BasketContext';
@@ -44,7 +46,9 @@ import OrderConfirmation from './OrderConfirmation';
 import config from '../config.js';
 
 const BasketItem = ({ item }) => {
-  const { updateQuantity, removeFromBasket, getItemDisplayName, getItemDescription, calculateItemPrice } = useBasket();
+  const { updateQuantity, removeFromBasket, getItemDisplayName, getItemDescription, calculateItemPrice, updateItemNote } = useBasket();
+  const [showNoteField, setShowNoteField] = useState(false);
+  const [noteText, setNoteText] = useState(item.notes || '');
   
   const handleQuantityChange = (newQuantity) => {
     if (newQuantity <= 0) {
@@ -52,6 +56,20 @@ const BasketItem = ({ item }) => {
     } else {
       updateQuantity(item.id, newQuantity);
     }
+  };
+
+  const handleNoteChange = (event) => {
+    setNoteText(event.target.value);
+  };
+
+  const handleNoteSave = () => {
+    updateItemNote(item.id, noteText);
+    setShowNoteField(false);
+  };
+
+  const handleNoteCancel = () => {
+    setNoteText(item.notes || '');
+    setShowNoteField(false);
   };
   
   return (
@@ -80,26 +98,114 @@ const BasketItem = ({ item }) => {
                 {getItemDescription(item)}
               </Typography>
             )}
-            <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
+            {item.notes && (
+              <Box sx={{ 
+                mt: 1, 
+                p: 1, 
+                backgroundColor: 'rgba(255, 152, 0, 0.1)', 
+                borderRadius: 1,
+                border: '1px solid rgba(255, 152, 0, 0.3)'
+              }}>
+                <Typography variant="body2" sx={{ color: '#ff9800', fontSize: '0.8rem' }}>
+                  📝 Note: {item.notes}
+                </Typography>
+              </Box>
+            )}
+            <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800', mt: 1 }}>
               €{calculateItemPrice(item).toFixed(2)}
             </Typography>
           </Box>
-          <Tooltip title="Supprimer">
-            <IconButton
-              size="small"
-              onClick={() => removeFromBasket(item.id)}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Tooltip title="Ajouter une note">
+              <IconButton
+                size="small"
+                onClick={() => setShowNoteField(!showNoteField)}
+                sx={{
+                  color: item.notes ? '#ff9800' : '#666',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 152, 0, 0.2)',
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <NoteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Supprimer">
+              <IconButton
+                size="small"
+                onClick={() => removeFromBasket(item.id)}
+                sx={{
+                  color: '#f44336',
+                  '&:hover': {
+                    backgroundColor: 'rgba(244, 67, 54, 0.2)',
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+        
+        {/* Note input field */}
+        {showNoteField && (
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Ajouter une note pour cet article (ex: sans oignons, sauce à part...)"
+              value={noteText}
+              onChange={handleNoteChange}
               sx={{
-                color: '#f44336',
-                '&:hover': {
-                  backgroundColor: 'rgba(244, 67, 54, 0.2)',
-                  transform: 'scale(1.1)',
+                mb: 1,
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'rgba(255, 152, 0, 0.3)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'rgba(255, 152, 0, 0.7)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#ff9800',
+                  },
                 },
               }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+            />
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleNoteCancel}
+                sx={{
+                  borderColor: 'rgba(255, 152, 0, 0.5)',
+                  color: '#ff9800',
+                  '&:hover': {
+                    borderColor: '#ff9800',
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                  },
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleNoteSave}
+                sx={{
+                  backgroundColor: '#ff9800',
+                  '&:hover': {
+                    backgroundColor: '#f57c00',
+                  },
+                }}
+              >
+                Enregistrer
+              </Button>
+            </Box>
+          </Box>
+        )}
         
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

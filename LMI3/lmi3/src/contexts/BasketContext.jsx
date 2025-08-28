@@ -18,6 +18,7 @@ const BASKET_ACTIONS = {
   ADD_ITEM: 'ADD_ITEM',
   REMOVE_ITEM: 'REMOVE_ITEM',
   UPDATE_QUANTITY: 'UPDATE_QUANTITY',
+  UPDATE_NOTE: 'UPDATE_NOTE',
   CLEAR_BASKET: 'CLEAR_BASKET',
   TOGGLE_BASKET: 'TOGGLE_BASKET',
   LOAD_BASKET: 'LOAD_BASKET',
@@ -193,6 +194,19 @@ const basketReducer = (state, action) => {
         totalPrice,
       };
     }
+
+    case BASKET_ACTIONS.UPDATE_NOTE: {
+      const { itemId, notes } = action.payload;
+      
+      const newItems = state.items.map(item => 
+        item.id === itemId ? { ...item, notes } : item
+      );
+      
+      return {
+        ...state,
+        items: newItems,
+      };
+    }
     
     case BASKET_ACTIONS.CLEAR_BASKET: {
       console.log('Clearing entire basket');
@@ -350,6 +364,10 @@ export const BasketProvider = ({ children }) => {
   const updateQuantity = useCallback((itemId, quantity) => {
     dispatch({ type: BASKET_ACTIONS.UPDATE_QUANTITY, payload: { itemId, quantity } });
   }, []);
+
+  const updateItemNote = useCallback((itemId, notes) => {
+    dispatch({ type: BASKET_ACTIONS.UPDATE_NOTE, payload: { itemId, notes } });
+  }, []);
   
   const clearBasket = useCallback(() => {
     dispatch({ type: BASKET_ACTIONS.CLEAR_BASKET });
@@ -412,6 +430,7 @@ export const BasketProvider = ({ children }) => {
     addToBasket,
     removeFromBasket,
     updateQuantity,
+    updateItemNote,
     clearBasket,
     resetBasket,
     toggleBasket,

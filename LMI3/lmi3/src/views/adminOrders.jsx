@@ -115,7 +115,9 @@ export default function AdminOrders() {
   
   // Socket.io connection
   const socket = useMemo(() => {
-    const newSocket = io(config.API_URL);
+    const newSocket = io(config.WS_URL, {
+      path: config.WS_PATH
+    });
     
     newSocket.on('connect', () => {
       console.log('Connected to WebSocket server');

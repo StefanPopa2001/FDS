@@ -81,6 +81,26 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle user joining for order notifications
+  socket.on('join-user', (data) => {
+    const { token, userId } = data;
+    // Verify user token (you might want to add proper JWT verification here)
+    if (token && userId) {
+      socket.join(`user-${userId}`);
+      console.log(`User ${userId} joined:`, socket.id);
+    }
+  });
+
+  // Handle joining order-specific room for chat
+  socket.on('join-order-chat', (data) => {
+    const { token, orderId, userId } = data;
+    // Verify token and access rights (you might want to add proper JWT verification here)
+    if (token && orderId) {
+      socket.join(`order-${orderId}`);
+      console.log(`Client joined order ${orderId} chat:`, socket.id);
+    }
+  });
+
   // Handle disconnection
   socket.on('disconnect', () => {
     adminSockets.delete(socket.id);
@@ -678,7 +698,8 @@ app.post("/orders", authenticate, async (req, res) => {
         versionSize: item.version || null,
         sauceId: item.sauceId || null,
         extraId: item.extraId || null,
-        platSauceId: item.platSauceId || null
+        platSauceId: item.platSauceId || null,
+        message: item.message || null
       });
     }
 
@@ -1107,6 +1128,12 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       }
     });
 
+    // Get the order details to send notification to customer
+    const orderWithUser = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) },
+      include: { user: true }
+    });
+
     res.json({
       message: "Status updated successfully",
       order: {
@@ -1124,6 +1151,30 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       statusText: getStatusText(updatedOrder.status),
       notes: notes || null
     }, 'orderStatusUpdate');
+
+    // Send notification to customer if order has a user
+    if (orderWithUser && orderWithUser.userId) {
+      const customerNotificationData = {
+        type: 'orderStatusUpdate',
+        orderId: updatedOrder.id,
+        status: updatedOrder.status,
+        statusText: getStatusText(updatedOrder.status),
+        restaurantMessage: notes || null,
+        timestamp: new Date()
+      };
+
+      // Send to user-specific room
+      io.to(`user-${orderWithUser.userId}`).emit('orderStatusUpdate', customerNotificationData);
+      
+      // Also send a visual/audio notification trigger
+      io.to(`user-${orderWithUser.userId}`).emit('orderNotification', {
+        type: 'statusUpdate',
+        title: 'Mise à jour de commande',
+        message: `Votre commande #${updatedOrder.id} est maintenant: ${getStatusText(updatedOrder.status)}`,
+        orderId: updatedOrder.id,
+        playSound: true
+      });
+    }
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ error: "Internal server error" });
@@ -1251,12 +1302,12 @@ app.get('/tags/searchable', async (req, res) => {
 // Create tag
 app.post('/tags', async (req, res) => {
   try {
-    const { nom, description, emoji } = req.body;
+    const { nom, description, emoji, recherchable } = req.body;
     if (!nom || !description || !emoji) {
       return res.status(400).json({ error: 'Nom, description, and emoji are required' });
     }
     const tag = await prisma.tags.create({
-      data: { nom, description, emoji },
+      data: { nom, description, emoji, recherchable: recherchable !== undefined ? recherchable : false },
     });
     res.status(201).json(tag);
   } catch (error) {
@@ -1271,14 +1322,14 @@ app.post('/tags', async (req, res) => {
 // Update tag
 app.put('/tags/:id', async (req, res) => {
   const { id } = req.params;
-  const { nom, description, emoji } = req.body;
+  const { nom, description, emoji, recherchable } = req.body;
   try {
     if (!nom || !description || !emoji) {
       return res.status(400).json({ error: 'Nom, description, and emoji are required' });
     }
     const tag = await prisma.tags.update({
       where: { id: parseInt(id) },
-      data: { nom, description, emoji },
+      data: { nom, description, emoji, recherchable: recherchable !== undefined ? recherchable : false },
     });
     res.json(tag);
   } catch (error) {
@@ -2526,6 +2577,152 @@ app.delete('/settings/:key', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Setting not found' });
     }
     res.status(500).json({ error: 'Failed to delete setting' });
+  }
+});
+
+// Chat endpoints
+// Get chat messages for an order
+app.get('/orders/:orderId/chat', authenticate, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Verify user has access to this order
+    const order = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) },
+      include: { user: true }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Check if user is the order owner or admin
+    if (order.userId !== req.user.userId && req.user.type !== 1) {
+      return res.status(403).json({ error: 'Unauthorized access' });
+    }
+
+    const messages = await prisma.chatMessage.findMany({
+      where: { orderId: parseInt(orderId) },
+      include: {
+        sender: {
+          select: { name: true, email: true }
+        }
+      },
+      orderBy: { timestamp: 'asc' }
+    });
+
+    res.json(messages);
+  } catch (error) {
+    console.error('Get chat messages error:', error);
+    res.status(500).json({ error: 'Failed to fetch chat messages' });
+  }
+});
+
+// Send a chat message
+app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { message } = req.body;
+
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Verify user has access to this order
+    const order = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) },
+      include: { user: true }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Check if user is the order owner or admin
+    const isAdmin = req.user.type === 1;
+    const isOrderOwner = order.userId === req.user.userId;
+    
+    if (!isAdmin && !isOrderOwner) {
+      return res.status(403).json({ error: 'Unauthorized access' });
+    }
+
+    const chatMessage = await prisma.chatMessage.create({
+      data: {
+        orderId: parseInt(orderId),
+        senderId: isAdmin ? null : req.user.userId,
+        isFromShop: isAdmin,
+        message: message.trim(),
+        isRead: false
+      },
+      include: {
+        sender: {
+          select: { name: true, email: true }
+        }
+      }
+    });
+
+    // Broadcast the message to relevant clients via WebSocket
+    const messageData = {
+      orderId: parseInt(orderId),
+      message: chatMessage,
+      isFromShop: isAdmin
+    };
+
+    // Send to order-specific room (both customer and admin if they're in the chat)
+    io.to(`order-${orderId}`).emit('newChatMessage', messageData);
+
+    // Send to admin room if message is from customer
+    if (!isAdmin) {
+      io.to('admin-room').emit('newChatMessage', messageData);
+    }
+    
+    // Send to specific user if message is from admin
+    if (isAdmin && order.userId) {
+      io.to(`user-${order.userId}`).emit('newChatMessage', messageData);
+    }
+
+    res.status(201).json(chatMessage);
+  } catch (error) {
+    console.error('Send chat message error:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// Mark messages as read
+app.put('/orders/:orderId/chat/read', authenticate, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Verify user has access to this order
+    const order = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Check if user is the order owner or admin
+    if (order.userId !== req.user.userId && req.user.type !== 1) {
+      return res.status(403).json({ error: 'Unauthorized access' });
+    }
+
+    const isAdmin = req.user.type === 1;
+
+    // Mark messages as read - mark shop messages as read if user is customer, and vice versa
+    await prisma.chatMessage.updateMany({
+      where: {
+        orderId: parseInt(orderId),
+        isFromShop: isAdmin ? false : true, // Admin marks customer messages as read, customer marks shop messages as read
+        isRead: false
+      },
+      data: { isRead: true }
+    });
+
+    res.json({ message: 'Messages marked as read' });
+  } catch (error) {
+    console.error('Mark messages as read error:', error);
+    res.status(500).json({ error: 'Failed to mark messages as read' });
   }
 });
 

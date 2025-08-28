@@ -18,6 +18,7 @@ model User {
   type      Int       @default(0)
   enabled Boolean     @default(true)
   orders    Order[]
+  chatMessages ChatMessage[]
   
 }
 
@@ -137,6 +138,7 @@ model Order {
   completedAt             DateTime?
   items                   OrderItem[]
   statusHistory           OrderStatusHistory[]
+  chatMessages            ChatMessage[]
 
   @@index([userId])
   @@index([status])
@@ -168,6 +170,7 @@ model OrderItem {
   totalPrice         Float
   platSauceId        Int?
   platSaucePrice     Float                        @default(0)
+  message            String?                      // Customer message for this specific item
   extra              Extra?                       @relation(fields: [extraId], references: [id])
   order              Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   plat               Plat?                        @relation(fields: [platId], references: [id])
@@ -220,4 +223,20 @@ model Settings {
 
   @@index([key])
   @@index([category])
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  senderId  Int?     // User ID if sent by customer, null if sent by shop
+  isFromShop Boolean @default(false)
+  message   String
+  timestamp DateTime @default(now())
+  isRead    Boolean  @default(false)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender    User?    @relation(fields: [senderId], references: [id])
+
+  @@index([orderId])
+  @@index([timestamp])
+  @@index([isFromShop])
 }

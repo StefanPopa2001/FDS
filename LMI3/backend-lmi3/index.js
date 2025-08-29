@@ -11,7 +11,16 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+let prisma;
+try {
+  prisma = new PrismaClient({
+    log: ['query', 'error', 'warn'],
+  });
+  console.log('Prisma Client initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize Prisma Client:', error);
+  process.exit(1);
+}
 
 // Input sanitization functions
 function sanitizeInput(input) {
@@ -58,9 +67,14 @@ const server = http.createServer(app);
 // Setup Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"]
-  }
+    origin: ['https://rudyetfanny.be', 'http://168.231.81.212', 'http://localhost:3000'],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  },
+  path: '/socket.io',
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
 
 // Store admin socket connections
@@ -71,13 +85,35 @@ io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
   // Handle admin joining
-  socket.on('join-admin', (data) => {
+  socket.on('join-admin', async (data) => {
     const { token } = data;
-    // Verify admin token (you might want to add proper JWT verification here)
-    if (token) {
-      adminSockets.set(socket.id, { socket, token });
-      socket.join('admin-room');
-      console.log('Admin joined:', socket.id);
+    try {
+      // Verify the JWT token
+      const decoded = jwt.verify(token, SECRET_KEY);
+      
+      // Check if user is admin
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId }
+      });
+
+      if (user && user.type === 1) {
+        adminSockets.set(socket.id, { socket, userId: user.id });
+        socket.join('admin-room');
+        console.log('Admin joined:', socket.id);
+        // Send confirmation
+        socket.emit('admin-connected', { success: true });
+      } else {
+        socket.emit('admin-connected', { 
+          success: false, 
+          error: 'Unauthorized access' 
+        });
+      }
+    } catch (error) {
+      console.error('Admin join error:', error);
+      socket.emit('admin-connected', { 
+        success: false, 
+        error: 'Invalid token' 
+      });
     }
   });
 
@@ -86,7 +122,6 @@ io.on('connection', (socket) => {
     const { orderId, userId, userType } = data;
     if (orderId) {
       socket.join(`order-chat-${orderId}`);
-      console.log(`${userType} ${userId} joined chat for order ${orderId}`);
     }
   });
 
@@ -95,7 +130,6 @@ io.on('connection', (socket) => {
     const { orderId } = data;
     if (orderId) {
       socket.leave(`order-chat-${orderId}`);
-      console.log(`Client left chat for order ${orderId}`);
     }
   });
 
@@ -149,7 +183,14 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-app.use(cors({ origin: "*" }));
+app.use(cors({
+  origin: ['https://rudyetfanny.be', 'http://168.231.81.212', 'http://localhost:3000'],
+  methods: ['GET', 'OPTIONS', 'PUT', 'POST', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400,
+  exposedHeaders: ['*']
+}));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 //Works
@@ -273,7 +314,7 @@ app.post("/users/createUser", async (req, res) => {
     });
 
     //Generate token
-    const token = jwt.sign({ userId: user.id, email: normalizedEmail }, SECRET_KEY, {
+    const token = jwt.sign({ userId: user.id, email: normalizedEmail, type: user.type }, SECRET_KEY, {
       expiresIn: "365d",
     });
 
@@ -335,7 +376,7 @@ app.post("/users/login", authLimiter, async (req, res) => {
     }
     
     if (isValidLogin) {
-      const token = jwt.sign({ userId: user.id, email: user.email }, SECRET_KEY, {
+      const token = jwt.sign({ userId: user.id, email: user.email, type: user.type }, SECRET_KEY, {
         expiresIn: "365d",
       });
 
@@ -359,10 +400,10 @@ const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, SECRET_KEY);
     req.user = decoded;
     
-    // Check if user is enabled
+    // Fetch complete user information including type
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { enabled: true }
+      select: { id: true, email: true, name: true, type: true, enabled: true }
     });
     
     if (!user) {
@@ -372,6 +413,10 @@ const authenticate = async (req, res, next) => {
     if (!user.enabled) {
       return res.status(403).json({ error: "Votre compte a été suspendu" });
     }
+    
+    // Add user type to req.user
+    req.user.type = user.type;
+    req.user.name = user.name;
     
     next();
   } catch {
@@ -634,8 +679,6 @@ app.post("/orders", authenticate, async (req, res) => {
       console.log('Error: Invalid items array');
       return res.status(400).json({ error: "Items are required" });
     }
-
-    console.log('Processing', items.length, 'items');
     
     // Calculate total price by fetching real prices from database
     let totalPrice = 0;
@@ -718,9 +761,6 @@ app.post("/orders", authenticate, async (req, res) => {
         message: item.message ? sanitizeInput(item.message) : null
       });
     }
-
-    console.log('Total price calculated:', totalPrice);
-    console.log('Order items prepared:', orderItems.length);
 
     // For takeout orders, no delivery fee
     const deliveryFee = OrderType === 'takeout' ? 0 : (totalPrice >= 25.00 ? 0 : 2.50);
@@ -1159,7 +1199,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       orderId: updatedOrder.id,
       status: updatedOrder.status,
       statusText: getStatusText(updatedOrder.status),
-      notes: notes || null
+      notes: updatedOrder.restaurantMessage || null
     }, 'orderStatusUpdate');
 
     // Emit to the specific order chat room for real-time client notification
@@ -2577,9 +2617,23 @@ app.delete('/settings/:key', authenticate, async (req, res) => {
 
 // Order Chat Routes
 // Get chat messages for an order
-app.get('/orders/:orderId/chat', async (req, res) => {
+app.get('/orders/:orderId/chat', authenticate, async (req, res) => {
   try {
     const { orderId } = req.params;
+    
+    // Verify user has access to this order
+    const order = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Allow access if user owns the order, it's a guest order, or user is admin
+    if (order.userId !== req.user.userId && order.userId !== null && req.user.type !== 1) {
+      return res.status(403).json({ error: 'Unauthorized access to this order' });
+    }
     
     const messages = await prisma.orderChat.findMany({
       where: { orderId: parseInt(orderId) },
@@ -2599,19 +2653,40 @@ app.get('/orders/:orderId/chat', async (req, res) => {
 });
 
 // Send a chat message
-app.post('/orders/:orderId/chat', async (req, res) => {
+app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { message, senderId, senderType } = req.body;
+    const { message, senderType } = req.body;
     
     if (!message || !senderType) {
       return res.status(400).json({ error: 'Message and senderType are required' });
+    }
+
+    // Verify user has access to this order
+    const order = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Allow access if user owns the order, it's a guest order, or user is admin
+    if (order.userId !== req.user.userId && order.userId !== null && req.user.type !== 1) {
+      return res.status(403).json({ error: 'Unauthorized access to this order' });
+    }
+
+    // Validate sender type based on user role
+    // Admin users can send messages as either shop or client
+    // Regular users can only send as client
+    if (req.user.type !== 1 && senderType !== 'client') {
+      return res.status(400).json({ error: 'Regular users can only send messages as client' });
     }
     
     const chatMessage = await prisma.orderChat.create({
       data: {
         orderId: parseInt(orderId),
-        senderId: senderId ? parseInt(senderId) : null,
+        senderId: req.user.userId,
         senderType: sanitizeInput(senderType),
         message: sanitizeInput(message)
       },
@@ -2622,8 +2697,30 @@ app.post('/orders/:orderId/chat', async (req, res) => {
       }
     });
     
-    // Broadcast the new message via Socket.IO
-    io.emit(`chat-${orderId}`, chatMessage);
+    // Create notification for the recipient (opposite of sender type)
+    if (order && order.userId) {
+      const recipientType = senderType === 'client' ? 'shop' : 'client';
+      const notificationTitle = senderType === 'client' ? 'Nouveau message client' : 'Nouveau message restaurant';
+      const notificationMessage = `Nouveau message concernant la commande #${orderId}`;
+      
+      await prisma.notification.create({
+        data: {
+          userId: order.userId,
+          type: 'chat',
+          title: notificationTitle,
+          message: notificationMessage,
+          data: {
+            orderId: parseInt(orderId),
+            chatMessageId: chatMessage.id,
+            senderType: senderType,
+            message: message
+          }
+        }
+      });
+    }
+    
+    // Broadcast the new message via Socket.IO to specific room
+    io.to(`order-chat-${orderId}`).emit(`chat-message`, chatMessage);
     
     res.status(201).json(chatMessage);
   } catch (error) {
@@ -2651,6 +2748,107 @@ app.put('/orders/:orderId/chat/read', async (req, res) => {
   } catch (error) {
     console.error('Mark messages as read error:', error);
     res.status(500).json({ error: 'Failed to mark messages as read' });
+  }
+});
+
+// Notification endpoints
+// Get user notifications
+app.get('/notifications', authenticate, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, unreadOnly = false } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    const whereClause = {
+      userId: req.user.userId
+    };
+    
+    if (unreadOnly === 'true') {
+      whereClause.isRead = false;
+    }
+    
+    const notifications = await prisma.notification.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: parseInt(limit)
+    });
+    
+    const totalCount = await prisma.notification.count({
+      where: whereClause
+    });
+    
+    res.json({
+      notifications,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalCount / parseInt(limit)),
+        totalCount,
+        hasNextPage: offset + parseInt(limit) < totalCount,
+        hasPrevPage: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// Mark notification as read
+app.put('/notifications/:id/read', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const notification = await prisma.notification.updateMany({
+      where: {
+        id: parseInt(id),
+        userId: req.user.userId
+      },
+      data: { isRead: true }
+    });
+    
+    if (notification.count === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    
+    res.json({ message: 'Notification marked as read' });
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+// Mark all notifications as read
+app.put('/notifications/read-all', authenticate, async (req, res) => {
+  try {
+    await prisma.notification.updateMany({
+      where: {
+        userId: req.user.userId,
+        isRead: false
+      },
+      data: { isRead: true }
+    });
+    
+    res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    console.error('Mark all notifications as read error:', error);
+    res.status(500).json({ error: 'Failed to mark all notifications as read' });
+  }
+});
+
+// Get unread notification count
+app.get('/notifications/unread-count', authenticate, async (req, res) => {
+  try {
+    const count = await prisma.notification.count({
+      where: {
+        userId: req.user.userId,
+        isRead: false
+      }
+    });
+    
+    res.json({ count });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({ error: 'Failed to get unread count' });
   }
 });
 

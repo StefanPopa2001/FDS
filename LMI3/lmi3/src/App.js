@@ -4,6 +4,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { BasketProvider } from './contexts/BasketContext';
 import Navbar from './components/Navbar';
 import Menu from './views/Menu';
+import MenuView from './views/MenuView';
+import CashierView from './views/CashierView';
 import AdminDashboard from './views/AdminDashboard';
 import OrderHistory from './views/orderHistory';
 import UserProfile from './views/userProfile';
@@ -24,6 +26,9 @@ function App() {
             <Navbar />
             <Routes>
               <Route path="/" element={<Menu />} />
+              <Route path="/menu" element={<Menu />} />
+              <Route path="/borne" element={<MenuView />} />
+              <Route path="/caisse" element={<CashierView />} />
               <Route path="/profile" element={<UserProfile />} />
               <Route path="/orders" element={<OrderHistory />} />
               <Route path="/admin" element={<AdminDashboard />} />

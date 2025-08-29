@@ -11,6 +11,8 @@ import AdminSauce from './views/adminSauce';
 import AdminPlat from './views/adminPlat';
 import AdminDashboard from './views/AdminDashboard';
 import Menu from './views/Menu';
+import MenuView from './views/MenuView';
+import CashierView from './views/CashierView';
 import Navbar from './components/Navbar';
 import AdminTags from './views/adminTags';
 import AdminUsers from './views/adminUsers';
@@ -50,6 +52,8 @@ root.render(
               <Route path="/profile" element={<Profile />} />
               <Route path="/orders" element={<OrderHistory />} />
               <Route path="/menu" element={<Menu />} />
+              <Route path="/borne" element={<MenuView />} />
+              <Route path="/caisse" element={<CashierView />} />
               <Route path="*" element={<NotFound />} />
             </Route>
             <Route path="/login" element={<Login />} />

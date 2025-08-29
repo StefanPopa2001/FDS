@@ -18,6 +18,7 @@ const BASKET_ACTIONS = {
   ADD_ITEM: 'ADD_ITEM',
   REMOVE_ITEM: 'REMOVE_ITEM',
   UPDATE_QUANTITY: 'UPDATE_QUANTITY',
+  UPDATE_MESSAGE: 'UPDATE_MESSAGE',
   CLEAR_BASKET: 'CLEAR_BASKET',
   TOGGLE_BASKET: 'TOGGLE_BASKET',
   LOAD_BASKET: 'LOAD_BASKET',
@@ -47,6 +48,9 @@ const generateItemId = (item) => {
     if (item.removedIngredients && item.removedIngredients.length > 0) {
       const ingredientIds = item.removedIngredients.map(i => i.id || i.name).sort().join('-');
       id += `-removed-${ingredientIds}`;
+    }
+    if (item.message) {
+      id += `-message-${item.message.replace(/\s+/g, '-').toLowerCase()}`;
     }
   } else if (item.type === 'sauce') {
     id = `sauce-${item.sauce.id || item.sauce.name}`;
@@ -191,6 +195,19 @@ const basketReducer = (state, action) => {
         items: newItems,
         totalItems,
         totalPrice,
+      };
+    }
+    
+    case BASKET_ACTIONS.UPDATE_MESSAGE: {
+      const { itemId, message } = action.payload;
+      
+      const newItems = state.items.map(item => 
+        item.id === itemId ? { ...item, message: message.trim() || null } : item
+      );
+      
+      return {
+        ...state,
+        items: newItems,
       };
     }
     
@@ -351,6 +368,10 @@ export const BasketProvider = ({ children }) => {
     dispatch({ type: BASKET_ACTIONS.UPDATE_QUANTITY, payload: { itemId, quantity } });
   }, []);
   
+  const updateMessage = useCallback((itemId, message) => {
+    dispatch({ type: BASKET_ACTIONS.UPDATE_MESSAGE, payload: { itemId, message } });
+  }, []);
+  
   const clearBasket = useCallback(() => {
     dispatch({ type: BASKET_ACTIONS.CLEAR_BASKET });
   }, []);
@@ -402,6 +423,9 @@ export const BasketProvider = ({ children }) => {
       if (item.removedIngredients && item.removedIngredients.length > 0) {
         description.push(`Sans: ${item.removedIngredients.map(i => i.name).join(', ')}`);
       }
+      if (item.message) {
+        description.push(`Note: ${item.message}`);
+      }
     }
     
     return description.join(' | ');
@@ -412,6 +436,7 @@ export const BasketProvider = ({ children }) => {
     addToBasket,
     removeFromBasket,
     updateQuantity,
+    updateMessage,
     clearBasket,
     resetBasket,
     toggleBasket,

@@ -155,7 +155,9 @@ const Menu = () => {
   const [selectedIngredients, setSelectedIngredients] = useState([]) // Track removed ingredients
   const [quantity, setQuantity] = useState(1)
   const [itemMessage, setItemMessage] = useState("") // Message for individual items
+  // Throttle search input for better mobile performance
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("available")
   const [modalOpen, setModalOpen] = useState(false)
   const [platVersionModalOpen, setPlatVersionModalOpen] = useState(false)
@@ -175,6 +177,32 @@ const Menu = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
   const isTablet = useMediaQuery(theme.breakpoints.between("md", "lg"))
+
+  // Debounce search term to improve performance on mobile
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, isMobile ? 300 : 150) // Longer debounce on mobile
+
+    return () => clearTimeout(timer)
+  }, [searchTerm, isMobile])
+
+  // Memoize card styles for better performance
+  const cardStyles = useMemo(() => ({
+    width: { xs: 160, md: 220 },
+    height: { xs: 200, md: 280 },
+    display: "flex",
+    flexDirection: "column",
+    cursor: "pointer",
+    position: "relative",
+    overflow: "hidden",
+    transition: isMobile ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", // Disable transitions on mobile for better performance
+    "&:hover": isMobile ? {} : {
+      transform: "translateY(-8px) scale(1.02)",
+      boxShadow: "0 20px 40px rgba(255, 152, 0, 0.15), 0 0 0 1px rgba(255, 152, 0, 0.1)",
+      border: "1px solid rgba(255, 152, 0, 0.2)",
+    },
+  }), [isMobile])
 
   // Helper function to check if ordering is allowed
   const isOrderingDisabled = () => {
@@ -420,7 +448,12 @@ const Menu = () => {
 
   const handlePlatClick = (plat) => {
     setSelectedPlat(plat)
-    setSelectedVersion(null)
+    // Auto-select the first version if there's only one, otherwise set to null
+    if (plat.versions && plat.versions.length === 1) {
+      setSelectedVersion(plat.versions[0])
+    } else {
+      setSelectedVersion(null)
+    }
     setSelectedSauceForPlat(null)
     setSelectedExtras([]) // Reset selected extras
     setSelectedIngredients([]) // Reset removed ingredients
@@ -777,7 +810,7 @@ const Menu = () => {
           >
             {/* Render Sauces */}
             {filteredSauces.map((sauce, index) => (
-              <Zoom in timeout={600 + index * 100} key={`sauce-${sauce.id}`}>
+              <Zoom in timeout={300 + index * 50} key={`sauce-${sauce.id}`}>
                 <Card
                   sx={{
                     width: { xs: 160, md: 220 },
@@ -788,6 +821,12 @@ const Menu = () => {
                     position: "relative",
                     overflow: "hidden",
                     opacity: sauce.available ? 1 : 0.6,
+                    transition: isMobile ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    "&:hover": isMobile ? {} : {
+                      transform: "translateY(-8px) scale(1.02)",
+                      boxShadow: "0 20px 40px rgba(255, 152, 0, 0.15), 0 0 0 1px rgba(255, 152, 0, 0.1)",
+                      border: "1px solid rgba(255, 152, 0, 0.2)",
+                    },
                   }}
                   onClick={() => handleSauceClick(sauce)}
                 >
@@ -973,18 +1012,9 @@ const Menu = () => {
 
             {/* Render Plats */}
             {filteredPlats.map((plat, index) => (
-              <Zoom in timeout={600 + (filteredSauces.length + index) * 100} key={`plat-${plat.id}`}>
+              <Zoom in timeout={300 + (filteredSauces.length + index) * 50} key={`plat-${plat.id}`}>
                 <Card
-                  sx={{
-                    width: { xs: 160, md: 220 },
-                    height: { xs: 200, md: 280 },
-                    display: "flex",
-                    flexDirection: "column",
-                    cursor: "pointer",
-                    position: "relative",
-                    overflow: "hidden",
-                    opacity: plat.available ? 1 : 0.6,
-                  }}
+                  sx={cardStyles}
                   onClick={() => handlePlatClick(plat)}
                 >
                   {/* Image Section */}
@@ -1158,6 +1188,7 @@ const Menu = () => {
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: "vertical",
                           overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
                         {plat.name}
@@ -1180,7 +1211,10 @@ const Menu = () => {
                           fontSize: { xs: "1rem", md: "1.2rem" },
                         }}
                       >
-                        À partir de €{plat.price.toFixed(2)}
+                        {plat.versions && plat.versions.length > 1 
+                          ? `À partir de €${plat.price.toFixed(2)}`
+                          : `€${plat.price.toFixed(2)}`
+                        }
                       </Typography>
                     </Box>
                   </CardContent>
@@ -1411,7 +1445,7 @@ const Menu = () => {
                   </Typography>
 
                   {/* Sauce Selection */}
-                  {selectedPlat.saucePrice !== undefined && (
+                  {selectedPlat.IncludesSauce !== false && selectedPlat.saucePrice !== undefined && (
                     <Box sx={{ mb: 3 }}>
                       <FormControl fullWidth variant="outlined">
                         <InputLabel id="sauce-select-label" sx={{ color: "#ff9800" }}>
@@ -1652,40 +1686,42 @@ const Menu = () => {
                     </Box>
                   )}
 
-                  {/* Version Selection */}
-                  <Box sx={{ mb: 3 }}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel id="version-select-label" sx={{ color: "#ff9800" }}>Taille</InputLabel>
-                      <Select
-                        labelId="version-select-label"
-                        value={selectedVersion ? selectedVersion.id : ""}
-                        onChange={(e) => {
-                          const version = selectedPlat.versions.find(v => v.id === e.target.value);
-                          handleVersionSelect(version || null);
-                        }}
-                        label="Taille"
-                        sx={{
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "rgba(255, 152, 0, 0.5)",
-                          },
-                          "&:hover .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#ff9800",
-                          },
-                        }}
-                      >
-                        {selectedPlat.versions && sortVersionsByPrice(selectedPlat.versions, selectedPlat.price).map((version) => (
-                          <MenuItem key={version.id} value={version.id}>
-                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                              <Typography>{version.size}</Typography>
-                              <Typography color="primary" sx={{ ml: 2 }}>
-                                €{(selectedPlat.price + version.extraPrice).toFixed(2)}
-                              </Typography>
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
+                  {/* Version Selection - Only show if multiple versions exist */}
+                  {selectedPlat.versions && selectedPlat.versions.length > 1 && (
+                    <Box sx={{ mb: 3 }}>
+                      <FormControl fullWidth variant="outlined">
+                        <InputLabel id="version-select-label" sx={{ color: "#ff9800" }}>Taille</InputLabel>
+                        <Select
+                          labelId="version-select-label"
+                          value={selectedVersion ? selectedVersion.id : ""}
+                          onChange={(e) => {
+                            const version = selectedPlat.versions.find(v => v.id === e.target.value);
+                            handleVersionSelect(version || null);
+                          }}
+                          label="Taille"
+                          sx={{
+                            "& .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "rgba(255, 152, 0, 0.5)",
+                            },
+                            "&:hover .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#ff9800",
+                            },
+                          }}
+                        >
+                          {selectedPlat.versions && sortVersionsByPrice(selectedPlat.versions, selectedPlat.price).map((version) => (
+                            <MenuItem key={version.id} value={version.id}>
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                                <Typography>{version.size}</Typography>
+                                <Typography color="primary" sx={{ ml: 2 }}>
+                                  €{(selectedPlat.price + version.extraPrice).toFixed(2)}
+                                </Typography>
+                              </Box>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  )}
 
                   {/* Quantity Selection */}
                   {selectedVersion && (

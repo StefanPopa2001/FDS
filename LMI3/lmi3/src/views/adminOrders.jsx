@@ -60,6 +60,7 @@ import {
   Cancel as CancelIcon,
   Notifications as NotificationsIcon,
   Today as TodayIcon,
+  Chat as ChatIcon,
   ExpandMore,
   ExpandMore as ExpandMoreIcon,
   ExpandLess,
@@ -77,6 +78,7 @@ import { format, isSameDay, parseISO, addHours, isWithinInterval, differenceInMi
 import { fr } from "date-fns/locale";
 import config from "../config";
 import io from 'socket.io-client';
+import OrderChat from "../components/OrderChat";
 
 // Sound notification
 const notificationSound = new Audio("/notification.mp3");
@@ -112,10 +114,20 @@ export default function AdminOrders() {
   const [notification, setNotification] = useState({ open: false, message: "", severity: "info" });
   const [expandedItems, setExpandedItems] = useState({});
   const [modalExpandedSections, setModalExpandedSections] = useState({});
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOrderId, setChatOrderId] = useState(null);
   
   // Socket.io connection
   const socket = useMemo(() => {
-    const newSocket = io(config.API_URL);
+    const newSocket = io(config.WS_URL, {
+      path: config.WS_PATH,
+      forceNew: false,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      timeout: 5000,
+      transports: ['websocket', 'polling'],
+    });
     
     newSocket.on('connect', () => {
       console.log('Connected to WebSocket server');
@@ -125,6 +137,13 @@ export default function AdminOrders() {
       newSocket.emit('join-admin', { token });
     });
     
+    newSocket.on('admin-connected', (response) => {
+      if (!response.success) {
+        console.error('Admin connection failed:', response.error);
+        setSocketConnected(false);
+      }
+    });
+
     newSocket.on('disconnect', () => {
       console.log('Disconnected from WebSocket server');
       setSocketConnected(false);
@@ -1259,6 +1278,16 @@ export default function AdminOrders() {
                   <IconButton size="small" onClick={() => handleStatusEdit(selectedOrder)}>
                     <EditIcon fontSize="small" />
                   </IconButton>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => {
+                      setChatOrderId(selectedOrder.id);
+                      setChatOpen(true);
+                    }}
+                    sx={{ color: '#2196f3' }}
+                  >
+                    <ChatIcon fontSize="small" />
+                  </IconButton>
                 </Box>
               </Box>
 
@@ -1534,6 +1563,15 @@ export default function AdminOrders() {
           {notification.message}
         </Alert>
       </Snackbar>
+
+      {/* Order Chat Dialog */}
+      <OrderChat
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        orderId={chatOrderId}
+        userId={token ? JSON.parse(atob(token.split('.')[1])).userId : null}
+        userType="shop"
+      />
     </Container>
   );
 }

@@ -76,6 +76,13 @@ services:
       - "traefik.http.routers.backend-api-secure.service=backend"
       - "traefik.http.routers.backend-api-secure.middlewares=api-stripprefix,cors"
       - "traefik.http.routers.backend-api-secure.priority=3"
+      # WebSocket routes for domain (HTTPS)
+      - "traefik.http.routers.backend-ws-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/socket.io`)"
+      - "traefik.http.routers.backend-ws-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-ws-secure.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend-ws-secure.service=backend"
+      - "traefik.http.routers.backend-ws-secure.middlewares=cors"
+      - "traefik.http.routers.backend-ws-secure.priority=3"
       # API routes for IP (HTTP) - no redirect
       - "traefik.http.routers.backend-api-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend-api-ip.entrypoints=web"

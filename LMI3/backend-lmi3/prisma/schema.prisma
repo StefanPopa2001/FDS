@@ -19,6 +19,7 @@ model User {
   enabled   Boolean     @default(true)
   orders    Order[]
   chatMessages OrderChat[]
+  notifications Notification[]
 }
 
 model Sauce {
@@ -237,4 +238,20 @@ model Settings {
 
   @@index([key])
   @@index([category])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String   // "chat", "order_status", "general"
+  title     String
+  message   String
+  data      Json?    // Additional data like orderId, chatMessageId, etc.
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }

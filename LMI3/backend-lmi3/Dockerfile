@@ -1,22 +1,45 @@
-# Production Dockerfile for Node.js Backend
-FROM node:20.18.0
+# Optimized production Dockerfile for Node.js Backend
+FROM node:20.18.0-alpine AS base
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init curl
+
+# Set working directory
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy package files for dependency caching
 COPY package*.json ./
 
-# Clear npm cache and install dependencies
-RUN npm cache clean --force
-RUN npm install --only=production
+# Install dependencies with optimized caching
+RUN npm ci --only=production --legacy-peer-deps && npm cache clean --force
 
-# Copy the rest of the application
+# Production stage
+FROM base AS production
+
+# Copy package files and install all dependencies (for dev dependencies needed for build)
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps && npm cache clean --force
+
+# Copy application code
 COPY . .
 
 # Generate Prisma Client
 RUN npx prisma generate
 
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Change ownership of the app directory
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3001/health || exit 1
+
 # Expose the port
 EXPOSE 3001
 
-# Start the application
-CMD ["npm", "start"]
+# Use dumb-init for proper signal handling
+CMD ["dumb-init", "npm", "start"]

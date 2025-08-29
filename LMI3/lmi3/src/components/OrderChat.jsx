@@ -53,7 +53,6 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
       });
 
       socketConnection.on('connect', () => {
-        console.log('Chat socket connected');
         socketConnection.emit('join-order-chat', { 
           orderId, 
           userId, 
@@ -61,9 +60,39 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
         });
       });
 
+      socketConnection.on('connect_error', (error) => {
+        console.error('Chat socket connection error:', error);
+      });
+
+      socketConnection.on('disconnect', (reason) => {
+        console.log('Chat socket disconnected:', reason);
+      });
+
+      // Listen for room join confirmation
+      socketConnection.on('join-order-chat', (data) => {
+        console.log('Joined chat room:', data);
+      });
+
       // Listen for new messages
-      socketConnection.on(`chat-${orderId}`, (message) => {
-        setMessages(prev => [...prev, message]);
+      socketConnection.on('chat-message', (message) => {
+        if (message.orderId === parseInt(orderId)) {
+          setMessages(prev => {
+            // Check if message already exists (avoid duplicates)
+            const messageExists = prev.some(m => m.id === message.id);
+            if (!messageExists) {
+              // Replace temporary message if it exists
+              const tempMessageIndex = prev.findIndex(m => m.isTemporary && m.message === message.message && m.senderId === message.senderId);
+              if (tempMessageIndex !== -1) {
+                const newMessages = [...prev];
+                newMessages[tempMessageIndex] = { ...message, sender: { name: message.senderType === 'shop' ? 'Restaurant' : 'You' } };
+                return newMessages;
+              }
+              // Add new message
+              return [...prev, { ...message, sender: { name: message.senderType === 'shop' ? 'Restaurant' : 'You' } }];
+            }
+            return prev;
+          });
+        }
       });
 
       setSocket(socketConnection);
@@ -80,10 +109,18 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
 
   const fetchMessages = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/orders/${orderId}/chat`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${config.API_URL}/orders/${orderId}/chat`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
       if (response.ok) {
         const messages = await response.json();
         setMessages(messages);
+      } else {
+        const error = await response.json();
+        console.error('Error fetching messages:', error);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -91,25 +128,55 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !socket) return;
+    if (!newMessage.trim()) return;
+
+    const messageToSend = newMessage.trim();
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
+    const tempMessage = {
+      id: tempId,
+      message: messageToSend,
+      senderId: userId,
+      senderType: userType,
+      timestamp: new Date().toISOString(),
+      sender: { name: userType === 'shop' ? 'Restaurant' : 'You' },
+      isTemporary: true
+    };
+
+    // Add message to UI immediately for instant feedback
+    setMessages(prev => [...prev, tempMessage]);
+    setNewMessage('');
 
     try {
+      const token = localStorage.getItem('authToken');
       const response = await fetch(`${config.API_URL}/orders/${orderId}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          message: newMessage.trim(),
+          message: messageToSend,
           senderId: userId,
           senderType: userType
         })
       });
 
       if (response.ok) {
-        setNewMessage('');
+        const sentMessage = await response.json();
+        // The socket listener will handle replacing the temporary message
+        // Just remove the temporary message if it still exists
+        setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      } else {
+        // Remove the temporary message if sending failed
+        setMessages(prev => prev.filter(msg => msg.id !== tempId));
+        setNewMessage(messageToSend);
+        const error = await response.json();
+        console.error('Error sending message:', error);
       }
     } catch (error) {
+      // Remove the temporary message if sending failed
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      setNewMessage(messageToSend);
       console.error('Error sending message:', error);
     }
   };

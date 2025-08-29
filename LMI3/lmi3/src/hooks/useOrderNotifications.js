@@ -74,8 +74,9 @@ export const useOrderNotifications = (userId, orderId = null) => {
 
       // Listen for chat messages
       if (orderId) {
-        socketRef.current.on(`chat-${orderId}`, (chatMessage) => {
-          if (chatMessage.senderType === 'shop') {
+        socketRef.current.on(`chat-message`, (chatMessage) => {
+          // Only show notification if the message is for this order and from the other party
+          if (chatMessage.orderId === parseInt(orderId) && chatMessage.senderType === 'shop') {
             const notification = {
               id: Date.now(),
               orderId,

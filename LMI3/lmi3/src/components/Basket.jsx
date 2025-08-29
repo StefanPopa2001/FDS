@@ -36,6 +36,10 @@ import {
   CreditCard as CreditCardIcon,
   AccountBalance as BankIcon,
   Money as CashIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  Clear as ClearIcon,
+  Message as MessageIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useBasket } from '../contexts/BasketContext';
@@ -44,7 +48,9 @@ import OrderConfirmation from './OrderConfirmation';
 import config from '../config.js';
 
 const BasketItem = ({ item }) => {
-  const { updateQuantity, removeFromBasket, getItemDisplayName, getItemDescription, calculateItemPrice } = useBasket();
+  const { updateQuantity, removeFromBasket, getItemDisplayName, getItemDescription, calculateItemPrice, updateMessage } = useBasket();
+  const [isEditingMessage, setIsEditingMessage] = useState(false);
+  const [messageText, setMessageText] = useState(item.message || "");
   
   const handleQuantityChange = (newQuantity) => {
     if (newQuantity <= 0) {
@@ -52,6 +58,16 @@ const BasketItem = ({ item }) => {
     } else {
       updateQuantity(item.id, newQuantity);
     }
+  };
+  
+  const handleMessageSave = () => {
+    updateMessage(item.id, messageText);
+    setIsEditingMessage(false);
+  };
+  
+  const handleMessageCancel = () => {
+    setMessageText(item.message || "");
+    setIsEditingMessage(false);
   };
   
   return (
@@ -80,6 +96,78 @@ const BasketItem = ({ item }) => {
                 {getItemDescription(item)}
               </Typography>
             )}
+            
+            {/* Message Display/Edit */}
+            {item.type === 'plat' && (
+              <Box sx={{ mb: 1.5 }}>
+                {isEditingMessage ? (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      size="small"
+                      placeholder="Message spécial (optionnel)"
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          fontSize: '0.8rem',
+                        }
+                      }}
+                    />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <IconButton
+                        size="small"
+                        onClick={handleMessageSave}
+                        sx={{
+                          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                          '&:hover': { backgroundColor: 'rgba(76, 175, 80, 0.2)' }
+                        }}
+                      >
+                        <CheckIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={handleMessageCancel}
+                        sx={{
+                          backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                          '&:hover': { backgroundColor: 'rgba(244, 67, 54, 0.2)' }
+                        }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {item.message ? (
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#ff9800', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                          <MessageIcon sx={{ fontSize: '0.8rem', mr: 0.5, verticalAlign: 'middle' }} />
+                          {item.message}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem', fontStyle: 'italic', flex: 1 }}>
+                        Aucun message
+                      </Typography>
+                    )}
+                    <IconButton
+                      size="small"
+                      onClick={() => setIsEditingMessage(true)}
+                      sx={{
+                        backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                        '&:hover': { backgroundColor: 'rgba(255, 152, 0, 0.2)' }
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+              </Box>
+            )}
+            
             <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
               €{calculateItemPrice(item).toFixed(2)}
             </Typography>

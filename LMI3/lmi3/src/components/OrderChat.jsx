@@ -53,6 +53,7 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
       });
 
       socketConnection.on('connect', () => {
+        console.log('Chat socket connected:', socketConnection.id);
         socketConnection.emit('join-order-chat', { 
           orderId, 
           userId, 
@@ -75,19 +76,13 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
 
       // Listen for new messages
       socketConnection.on('chat-message', (message) => {
+        console.log('Received chat message:', message);
         if (message.orderId === parseInt(orderId)) {
           setMessages(prev => {
             // Check if message already exists (avoid duplicates)
             const messageExists = prev.some(m => m.id === message.id);
             if (!messageExists) {
-              // Replace temporary message if it exists
-              const tempMessageIndex = prev.findIndex(m => m.isTemporary && m.message === message.message && m.senderId === message.senderId);
-              if (tempMessageIndex !== -1) {
-                const newMessages = [...prev];
-                newMessages[tempMessageIndex] = { ...message, sender: { name: message.senderType === 'shop' ? 'Restaurant' : 'You' } };
-                return newMessages;
-              }
-              // Add new message
+              // Since we now replace temporary messages immediately, just add new messages
               return [...prev, { ...message, sender: { name: message.senderType === 'shop' ? 'Restaurant' : 'You' } }];
             }
             return prev;
@@ -163,9 +158,13 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
 
       if (response.ok) {
         const sentMessage = await response.json();
-        // The socket listener will handle replacing the temporary message
-        // Just remove the temporary message if it still exists
-        setMessages(prev => prev.filter(msg => msg.id !== tempId));
+        console.log('Message sent successfully:', sentMessage);
+        // Replace the temporary message with the real message immediately
+        setMessages(prev => prev.map(msg => 
+          msg.id === tempId 
+            ? { ...sentMessage, sender: { name: sentMessage.senderType === 'shop' ? 'Restaurant' : 'You' } }
+            : msg
+        ));
       } else {
         // Remove the temporary message if sending failed
         setMessages(prev => prev.filter(msg => msg.id !== tempId));

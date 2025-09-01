@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -45,6 +45,7 @@ import { useNavigate } from 'react-router-dom';
 import { useBasket } from '../contexts/BasketContext';
 import { useAuth } from '../contexts/AuthContext';
 import OrderConfirmation from './OrderConfirmation';
+import OrderStatusModal from './OrderStatusModal';
 import config from '../config.js';
 
 const BasketItem = ({ item }) => {
@@ -247,7 +248,11 @@ const BasketDialog = ({ open, onClose }) => {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showOrderConfirmation, setShowOrderConfirmation] = useState(false);
   const [showTakeoutModal, setShowTakeoutModal] = useState(false);
+  const [showOrderStatusModal, setShowOrderStatusModal] = useState(false);
+  const [orderStatusData, setOrderStatusData] = useState({ orderId: null, status: 0 });
   const [settings, setSettings] = useState({});
+  const [orderHours, setOrderHours] = useState([]);
+  const [loadingHours, setLoadingHours] = useState(false);
 
   // Fetch settings
   useEffect(() => {
@@ -270,6 +275,30 @@ const BasketDialog = ({ open, onClose }) => {
       fetchSettings();
     }
   }, [open]);
+
+  // Fetch order hours
+  useEffect(() => {
+    const fetchOrderHours = async () => {
+      try {
+        setLoadingHours(true);
+        const response = await fetch(`${config.API_URL}/order-hours`);
+        if (response.ok) {
+          const data = await response.json();
+          setOrderHours(data);
+        } else {
+          console.error('Failed to fetch order hours');
+          setOrderHours([]);
+        }
+      } catch (error) {
+        console.error('Error fetching order hours:', error);
+        setOrderHours([]);
+      } finally {
+        setLoadingHours(false);
+      }
+    };
+
+    fetchOrderHours();
+  }, []);
   
   const handleDelivery = () => {
     if (settings.enableOnlineDelivery === "false") {
@@ -342,8 +371,9 @@ const BasketDialog = ({ open, onClose }) => {
 
       const result = await response.json();
       
-      // Show success message
-      alert(`Commande confirmée pour emporter! Numéro de commande: #${result.order.id}`);
+      // Show order status modal instead of alert
+      setOrderStatusData({ orderId: result.order.id, status: result.order.status });
+      setShowOrderStatusModal(true);
       
       // Clear basket and close dialogs
       clearBasket();
@@ -420,8 +450,9 @@ const BasketDialog = ({ open, onClose }) => {
       
       localStorage.setItem('userDeliveryData', JSON.stringify(userDeliveryData));
       
-      // Show success message
-      alert(`Commande confirmée! Numéro de commande: #${result.order.id}`);
+      // Show order status modal instead of alert
+      setOrderStatusData({ orderId: result.order.id, status: result.order.status });
+      setShowOrderStatusModal(true);
       
       // Clear basket and close dialogs
       clearBasket();
@@ -800,13 +831,24 @@ const BasketDialog = ({ open, onClose }) => {
         onConfirm={handleTakeoutConfirm}
         items={items}
         totalPrice={totalPrice}
+  orderHours={orderHours}
+  loadingHours={loadingHours}
+  settings={settings}
+      />
+
+      {/* Order Status Modal */}
+      <OrderStatusModal
+        open={showOrderStatusModal}
+        onClose={() => setShowOrderStatusModal(false)}
+        orderId={orderStatusData.orderId}
+        status={orderStatusData.status}
       />
     </>
   );
 };
 
 // Takeout Modal Component
-const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice }) => {
+const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours = [], loadingHours = false, settings = {} }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { getItemDisplayName, getItemDescription, calculateItemPrice } = useBasket();
@@ -817,40 +859,58 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice }) => {
     notes: ''
   });
 
-  // Generate time slots from 18:00 to 21:00 (every 15 minutes) + ASAP option
+  // Generate time slots from configured order hours + ASAP option
   const generateTimeSlots = () => {
     const slots = [];
-    
+
     // Add ASAP option first
     slots.push({
       value: null, // null value means ASAP
       label: 'Dès que possible',
       isAsap: true
     });
-    
-    const start = 18; // 18:00
-    const end = 21; // 21:00
-    
-    for (let hour = start; hour <= end; hour++) {
-      for (let minute = 0; minute < 60; minute += 15) {
-        if (hour === end && minute > 0) break; // Stop at 21:00
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        
+
+    // Add configured order hours
+    if (orderHours.length > 0) {
+      orderHours.forEach(hour => {
         // Create a date object for today with this time
+        const [hours, minutes] = hour.time.split(':').map(Number);
         const today = new Date();
-        const slotDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hour, minute);
-        
+        const slotDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+
         slots.push({
           value: slotDate.toISOString(),
-          label: timeString,
+          label: hour.time,
           isAsap: false
         });
+      });
+    } else {
+      // Fallback to default hours if no order hours configured
+      const start = 18; // 18:00
+      const end = 21; // 21:00
+
+      for (let hour = start; hour <= end; hour++) {
+        for (let minute = 0; minute < 60; minute += 15) {
+          if (hour === end && minute > 0) break; // Stop at 21:00
+          const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+          // Create a date object for today with this time
+          const today = new Date();
+          const slotDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hour, minute);
+
+          slots.push({
+            value: slotDate.toISOString(),
+            label: timeString,
+            isAsap: false
+          });
+        }
       }
     }
+
     return slots;
   };
 
-  const timeSlots = generateTimeSlots();
+  const timeSlots = useMemo(() => generateTimeSlots(), [orderHours]);
 
   const handleSubmit = () => {
     // Allow takeoutTime to be null (ASAP) or a valid time
@@ -951,20 +1011,30 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice }) => {
           </Typography>
           <FormControl fullWidth>
             <FormLabel sx={{ color: 'text.primary', mb: 1 }}>
-              Choisissez votre heure de retrait (Dès que possible ou 18h00 - 21h00)
+              Choisissez votre heure de retrait
             </FormLabel>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 1, mt: 1 }}>
-              {timeSlots.map((slot) => (
-                <Button
-                  key={slot.value || 'asap'}
-                  variant={takeoutData.takeoutTime === slot.value ? 'contained' : 'outlined'}
-                  onClick={() => setTakeoutData(prev => ({ ...prev, takeoutTime: slot.value }))}
+              {loadingHours ? (
+                <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 2 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Chargement des horaires...
+                  </Typography>
+                </Box>
+              ) : (
+                timeSlots.map((slot) => {
+                  const isAsap = slot.isAsap;
+                  const hourEnabled = isAsap ? (settings.enableASAP !== 'false') : (orderHours.find(h => h.time === slot.label)?.enabled !== false);
+                  return (
+                  <Button
+                    key={slot.value || 'asap'}
+                    variant={takeoutData.takeoutTime === slot.value ? 'contained' : 'outlined'}
+                    onClick={() => hourEnabled && setTakeoutData(prev => ({ ...prev, takeoutTime: slot.value }))}
                   sx={{
                     borderColor: takeoutData.takeoutTime === slot.value ? '#ff9800' : 'rgba(255, 152, 0, 0.3)',
-                    color: takeoutData.takeoutTime === slot.value ? '#fff' : '#ff9800',
+                    color: takeoutData.takeoutTime === slot.value ? '#fff' : (hourEnabled ? '#ff9800' : '#666'),
                     backgroundColor: takeoutData.takeoutTime === slot.value ? '#ff9800' : 'transparent',
                     '&:hover': {
-                      backgroundColor: takeoutData.takeoutTime === slot.value ? '#f57c00' : 'rgba(255, 152, 0, 0.1)',
+                      backgroundColor: hourEnabled ? (takeoutData.takeoutTime === slot.value ? '#f57c00' : 'rgba(255, 152, 0, 0.1)') : 'transparent',
                       borderColor: '#ff9800',
                     },
                     minHeight: '40px',
@@ -976,19 +1046,23 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice }) => {
                     textOverflow: 'ellipsis',
                     // Make ASAP button use normal styling but with green color
                     ...(slot.isAsap && {
-                      backgroundColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : 'rgba(76, 175, 80, 0.1)',
-                      borderColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : 'rgba(76, 175, 80, 0.5)',
-                      color: takeoutData.takeoutTime === slot.value ? '#fff' : '#4caf50',
+                      backgroundColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : (hourEnabled ? 'rgba(76, 175, 80, 0.1)' : 'transparent'),
+                      borderColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : (hourEnabled ? 'rgba(76, 175, 80, 0.5)' : 'rgba(255,255,255,0.06)'),
+                      color: takeoutData.takeoutTime === slot.value ? '#fff' : (hourEnabled ? '#4caf50' : '#666'),
                       '&:hover': {
-                        backgroundColor: takeoutData.takeoutTime === slot.value ? '#388e3c' : 'rgba(76, 175, 80, 0.2)',
+                        backgroundColor: takeoutData.takeoutTime === slot.value ? '#388e3c' : (hourEnabled ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
                         borderColor: '#4caf50',
                       },
                     }),
+                    opacity: hourEnabled ? 1 : 0.5,
+                    pointerEvents: hourEnabled ? 'auto' : 'none',
                   }}
                 >
                   {slot.label}
                 </Button>
-              ))}
+              )}
+              )
+              )}
             </Box>
           </FormControl>
         </Box>

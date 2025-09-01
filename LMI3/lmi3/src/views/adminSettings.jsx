@@ -34,6 +34,8 @@ import {
   Restaurant as RestaurantIcon,
   Message as MessageIcon,
   Visibility as VisibilityIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
 } from "@mui/icons-material";
 import config from "../config";
 
@@ -118,6 +120,7 @@ const darkTheme = createTheme({
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState({});
+  const [orderHours, setOrderHours] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -139,6 +142,13 @@ const AdminSettings = () => {
       type: "boolean",
       category: "orders",
       description: "Permettre les commandes à emporter en ligne",
+      defaultValue: "true",
+    },
+    {
+      key: "enableASAP",
+      type: "boolean",
+      category: "orders",
+  description: 'Permettre l\'option ASAP pour les retraits',
       defaultValue: "true",
     },
     {
@@ -201,7 +211,25 @@ const AdminSettings = () => {
 
   useEffect(() => {
     fetchSettings();
+    fetchOrderHours();
   }, []);
+
+  const fetchOrderHours = async () => {
+    try {
+      const response = await fetch(`${config.API_URL}/order-hours`, {
+        headers: getAuthHeaders(),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setOrderHours(data);
+      } else {
+        console.error("Erreur lors du chargement des heures de commande");
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des heures de commande:", error);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -244,10 +272,71 @@ const AdminSettings = () => {
     }
   };
 
+  const addOrderHour = async (time) => {
+    try {
+      const response = await fetch(`${config.API_URL}/order-hours`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ time, enabled: true }),
+      });
+
+      if (response.ok) {
+        const newHour = await response.json();
+        setOrderHours(prev => [...prev, newHour].sort((a, b) => a.time.localeCompare(b.time)));
+        setMessage({ type: "success", text: "Heure ajoutée avec succès" });
+        setOpenSnackbar(true);
+      } else {
+        const error = await response.json();
+        setMessage({ type: "error", text: error.error || "Erreur lors de l'ajout" });
+        setOpenSnackbar(true);
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'ajout de l'heure:", error);
+      setMessage({ type: "error", text: "Erreur lors de l'ajout de l'heure" });
+      setOpenSnackbar(true);
+    }
+  };
+
+  const deleteOrderHour = async (id) => {
+    try {
+      const response = await fetch(`${config.API_URL}/order-hours/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (response.ok) {
+        setOrderHours(prev => prev.filter(hour => hour.id !== id));
+        setMessage({ type: "success", text: "Heure supprimée avec succès" });
+        setOpenSnackbar(true);
+      } else {
+        const error = await response.json();
+        setMessage({ type: "error", text: error.error || "Erreur lors de la suppression" });
+        setOpenSnackbar(true);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression de l'heure:", error);
+      setMessage({ type: "error", text: "Erreur lors de la suppression de l'heure" });
+      setOpenSnackbar(true);
+    }
+  };
+
   const handleSettingChange = (key, value, type) => {
+    // Validate time format for time type settings
+    if (type === "time" && value) {
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(value)) {
+        setMessage({ type: "error", text: `Format d'heure invalide pour ${key === 'heureOuverture' ? "l'heure d'ouverture" : "l'heure de fermeture"}. Utilisez HH:MM (ex: 14:30)` });
+        setOpenSnackbar(true);
+        return;
+      }
+    }
+    
     setSettings(prev => ({
       ...prev,
-      [key]: type === "boolean" ? value.toString() : value
+      [key]: value
     }));
   };
 
@@ -293,7 +382,7 @@ const AdminSettings = () => {
   const renderSettingsByCategory = (category) => {
     const categorySettings = defaultSettings.filter(s => s.category === category);
     
-    return categorySettings.map(setting => {
+    const settingsElements = categorySettings.map(setting => {
       const value = settings[setting.key] || setting.defaultValue;
       
       return (
@@ -318,10 +407,14 @@ const AdminSettings = () => {
               ) : setting.type === "time" ? (
                 <TextField
                   fullWidth
-                  type="time"
+                  placeholder="HH:MM"
                   value={value}
                   onChange={(e) => handleSettingChange(setting.key, e.target.value, "time")}
-                  InputLabelProps={{ shrink: true }}
+                  inputProps={{
+                    pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$",
+                    title: "Format: HH:MM (ex: 14:30)"
+                  }}
+                  helperText={`Format 24h: HH:MM (ex: 14:30) - Actuellement: ${value || 'Non défini'}`}
                 />
               ) : setting.type === "number" ? (
                 <TextField
@@ -345,6 +438,104 @@ const AdminSettings = () => {
         </Grid>
       );
     });
+
+    // Add order hours management for hours category
+    if (category === "hours") {
+      settingsElements.push(
+        <Grid item xs={12} key="order-hours">
+          <Card>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom color="primary.main">
+                Heures d'ouverture pour les commandes
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
+                Heures d'ouverture pour les commandes (format HHMM ou HH:MM)
+              </Typography>
+              <Box 
+                sx={{ 
+                  display: "grid", 
+                  gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
+                  gap: 1, 
+                  mb: 2,
+                  maxHeight: "120px",
+                  overflowY: "auto",
+                  p: 1,
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: 1,
+                  backgroundColor: "rgba(0, 0, 0, 0.05)"
+                }}
+              >
+                {orderHours.map((hour) => (
+                  <Box key={hour.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip
+                      label={hour.time}
+                      onDelete={() => deleteOrderHour(hour.id)}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                      sx={{ 
+                        "& .MuiChip-deleteIcon": {
+                          color: "error.main",
+                        },
+                        fontSize: "0.75rem",
+                        height: "28px"
+                      }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+              <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                <TextField
+                  placeholder="HHMM ou HH:MM"
+                  size="small"
+                  sx={{ flex: 1, minWidth: "120px" }}
+                  inputRef={(ref) => {
+                    if (ref) window.orderHourRef = ref;
+                  }}
+                  inputProps={{
+                    pattern: "^([0-1]?[0-9]|2[0-3])([0-5][0-9])$|^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$",
+                    title: "Format: HHMM (ex: 1430) ou HH:MM (ex: 14:30)"
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  sx={{ minWidth: "100px" }}
+                  onClick={() => {
+                    const input = window.orderHourRef?.value;
+                    if (input) {
+                      let formattedHour = input;
+                      
+                      // Convert HHMM to HH:MM format
+                      if (/^([0-1]?[0-9]|2[0-3])([0-5][0-9])$/.test(input)) {
+                        formattedHour = input.slice(0, 2) + ':' + input.slice(2, 4);
+                      }
+                      
+                      // Validate format
+                      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+                      if (!timeRegex.test(formattedHour)) {
+                        setMessage({ type: "error", text: "Format invalide. Utilisez HHMM (ex: 1430) ou HH:MM (ex: 14:30)" });
+                        setOpenSnackbar(true);
+                        return;
+                      }
+                      
+                      addOrderHour(formattedHour);
+                      window.orderHourRef.value = "";
+                    }
+                  }}
+                >
+                  Ajouter
+                </Button>
+              </Box>
+              {/* ASAP toggle removed from Settings per user request */}
+            </CardContent>
+          </Card>
+        </Grid>
+      );
+    }
+
+    return settingsElements;
   };
 
   const getCategoryIcon = (category) => {

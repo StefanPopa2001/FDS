@@ -4,7 +4,9 @@ const CryptoJS = require('crypto-js');
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const sharp = require("sharp");
 const validator = require('validator');
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const rateLimit = require('express-rate-limit');
 const http = require('http');
@@ -122,6 +124,14 @@ io.on('connection', (socket) => {
     const { orderId, userId, userType } = data;
     if (orderId) {
       socket.join(`order-chat-${orderId}`);
+      console.log(`User ${userId} (${userType}) joined chat room for order ${orderId}`);
+      
+      // Emit confirmation back to the client
+      socket.emit('join-order-chat', { 
+        success: true, 
+        orderId, 
+        message: `Joined chat room for order ${orderId}` 
+      });
     }
   });
 
@@ -207,7 +217,6 @@ const authLimiter = rateLimit({
 });
 
 //Middleware for authentication
-const jwt = require("jsonwebtoken");
 const SECRET_KEY = process.env.SECRET_KEY || "your-secret-key-change-this-in-production";
 
 // Configure multer for file uploads
@@ -217,17 +226,71 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    const ext = path.extname(file.originalname)
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext)
+    // Always use .jpg extension as we'll convert all images to JPEG
+    cb(null, file.fieldname + '-' + uniqueSuffix + '.jpg')
   }
 });
 
 const fileFilter = (req, file, cb) => {
-  // Accept only image files
-  if (file.mimetype.startsWith('image/')) {
+  // Accept various image formats including iPhone HEIC
+  const allowedMimes = [
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    'image/heic', 'image/heif', 'image/bmp', 'image/tiff', 'image/svg+xml'
+  ];
+  
+  // Check mimetype
+  if (allowedMimes.includes(file.mimetype.toLowerCase())) {
     cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed!'), false);
+    // Also check file extension as fallback
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tiff', '.svg'];
+    const fileExt = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedExtensions.includes(fileExt)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file format. Allowed formats: ${allowedExtensions.join(', ')}`), false);
+    }
+  }
+};
+
+// Middleware to process uploaded images with Sharp
+const processImage = async (req, res, next) => {
+  if (!req.file) {
+    return next();
+  }
+
+  try {
+    const inputPath = req.file.path;
+    const outputPath = req.file.path; // Keep the same path since we named it .jpg already
+    
+    // Process the image with Sharp (convert to JPEG, resize if needed, optimize)
+    await sharp(inputPath)
+      .jpeg({ 
+        quality: 85, // Good quality compression
+        progressive: true 
+      })
+      .resize(1200, 1200, { 
+        fit: 'inside', // Maintain aspect ratio
+        withoutEnlargement: true // Don't upscale small images
+      })
+      .toFile(outputPath + '.temp');
+    
+    // Replace the original file with the processed one
+    fs.unlinkSync(inputPath);
+    fs.renameSync(outputPath + '.temp', outputPath);
+    
+    next();
+  } catch (error) {
+    console.error('Image processing error:', error);
+    // Clean up files on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    if (fs.existsSync(req.file.path + '.temp')) {
+      fs.unlinkSync(req.file.path + '.temp');
+    }
+    return res.status(400).json({ error: 'Failed to process image. Please try with a different image.' });
   }
 };
 
@@ -235,7 +298,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 10 * 1024 * 1024 // 10MB limit for HEIC and other formats
   }
 });
 
@@ -1423,7 +1486,7 @@ app.get('/sauces', async (req, res) => {
 });
 
 // Create sauce
-app.post("/sauces", upload.single('image'), async (req, res) => {
+app.post("/sauces", upload.single('image'), processImage, async (req, res) => {
   try {
     const { name, price, description, available, ordre, tags } = req.body;
     
@@ -1481,12 +1544,19 @@ app.post("/sauces", upload.single('image'), async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({ error: "A sauce with this name already exists" });
     }
+    // Handle multer errors
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+    }
+    if (error.message && error.message.includes('Unsupported file format')) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // Update sauce
-app.put("/sauces/:id", upload.single('image'), async (req, res) => {
+app.put("/sauces/:id", upload.single('image'), processImage, async (req, res) => {
   const { id } = req.params;
   const { name, price, description, keepExistingImage, available, ordre, tags } = req.body;
   try {
@@ -1576,6 +1646,13 @@ app.put("/sauces/:id", upload.single('image'), async (req, res) => {
     }
     if (error.code === 'P2025') {
       return res.status(404).json({ error: "Sauce not found" });
+    }
+    // Handle multer errors
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+    }
+    if (error.message && error.message.includes('Unsupported file format')) {
+      return res.status(400).json({ error: error.message });
     }
     res.status(500).json({ error: "Internal server error" });
   }
@@ -1814,7 +1891,7 @@ app.get('/plats', async (req, res) => {
 });
 
 // Create plat
-app.post("/plats", upload.single('image'), async (req, res) => {
+app.post("/plats", upload.single('image'), processImage, async (req, res) => {
   try {
     const { 
       name, 
@@ -1909,12 +1986,19 @@ app.post("/plats", upload.single('image'), async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({ error: "A plat with this name already exists" });
     }
+    // Handle multer errors
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+    }
+    if (error.message && error.message.includes('Unsupported file format')) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // Update plat
-app.put("/plats/:id", upload.single('image'), async (req, res) => {
+app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => {
   const { id } = req.params;
   const { 
     name, 
@@ -2053,6 +2137,13 @@ app.put("/plats/:id", upload.single('image'), async (req, res) => {
     }
     if (error.code === 'P2025') {
       return res.status(404).json({ error: "Plat not found" });
+    }
+    // Handle multer errors
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: "File too large. Maximum size is 10MB." });
+    }
+    if (error.message && error.message.includes('Unsupported file format')) {
+      return res.status(400).json({ error: error.message });
     }
     res.status(500).json({ error: "Internal server error" });
   }
@@ -2687,8 +2778,8 @@ app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
       data: {
         orderId: parseInt(orderId),
         senderId: req.user.userId,
-        senderType: sanitizeInput(senderType),
-        message: sanitizeInput(message)
+        senderType: senderType.trim(),
+        message: message.trim()
       },
       include: {
         sender: {
@@ -2696,28 +2787,6 @@ app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
         }
       }
     });
-    
-    // Create notification for the recipient (opposite of sender type)
-    if (order && order.userId) {
-      const recipientType = senderType === 'client' ? 'shop' : 'client';
-      const notificationTitle = senderType === 'client' ? 'Nouveau message client' : 'Nouveau message restaurant';
-      const notificationMessage = `Nouveau message concernant la commande #${orderId}`;
-      
-      await prisma.notification.create({
-        data: {
-          userId: order.userId,
-          type: 'chat',
-          title: notificationTitle,
-          message: notificationMessage,
-          data: {
-            orderId: parseInt(orderId),
-            chatMessageId: chatMessage.id,
-            senderType: senderType,
-            message: message
-          }
-        }
-      });
-    }
     
     // Broadcast the new message via Socket.IO to specific room
     io.to(`order-chat-${orderId}`).emit(`chat-message`, chatMessage);

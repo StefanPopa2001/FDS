@@ -30,7 +30,11 @@ RUN npx prisma generate
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Change ownership of the app directory
+# Ensure uploads directory exists and has correct ownership
+RUN mkdir -p /app/public/uploads && \
+    chown -R nodejs:nodejs /app/public/uploads
+
+# Change ownership of the entire app directory
 RUN chown -R nodejs:nodejs /app
 USER nodejs
 

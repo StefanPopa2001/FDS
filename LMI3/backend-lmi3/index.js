@@ -941,7 +941,23 @@ app.get("/users/orders", authenticate, async (req, res) => {
     
     // Add status filter if provided
     if (status !== undefined && status !== 'all') {
-      whereClause.status = parseInt(status);
+      if (status === 'active') {
+        // Active orders: awaiting confirmation (0), confirmed (1), in preparation (2), ready (3), in delivery (4)
+        whereClause.status = { in: [0, 1, 2, 3, 4] };
+      } else if (status === 'archived') {
+        // Archived orders: delivered (5), finished (6), canceled (7) - but only from today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        whereClause.AND = [
+          { status: { in: [5, 6, 7] } },
+          { createdAt: { gte: today, lt: tomorrow } }
+        ];
+      } else {
+        whereClause.status = parseInt(status);
+      }
     }
     
     // Get orders with full details
@@ -1083,7 +1099,7 @@ app.get("/users/orders/:orderId", authenticate, async (req, res) => {
 // Helper function to get status text
 function getStatusText(status) {
   const statusMap = {
-    0: 'En attente',
+    0: 'En attente de confirmation',
     1: 'Confirmée',
     2: 'En préparation',
     3: 'Prête',
@@ -1276,6 +1292,43 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Update specific order item readiness (admin only)
+app.put("/admin/orders/:orderId/items/:itemId/ready", authenticate, async (req, res) => {
+  try {
+    const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!requestingUser || requestingUser.type !== 1) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
+    const { orderId, itemId } = req.params;
+    const { isReady } = req.body;
+
+    if (typeof isReady !== 'boolean') {
+      return res.status(400).json({ error: 'isReady must be a boolean' });
+    }
+
+    // Ensure the item belongs to the order
+    const orderItem = await prisma.orderItem.findUnique({ where: { id: parseInt(itemId) } });
+    if (!orderItem || orderItem.orderId !== parseInt(orderId)) {
+      return res.status(404).json({ error: 'Order item not found for this order' });
+    }
+
+    const updatedItem = await prisma.orderItem.update({
+      where: { id: parseInt(itemId) },
+      data: { isReady }
+    });
+
+    // Broadcast the change to admin room and order chat room
+    io.to('admin-room').emit('order-item-updated', { orderId: parseInt(orderId), item: updatedItem });
+    io.to(`order-chat-${orderId}`).emit('order-item-updated', { orderId: parseInt(orderId), item: updatedItem });
+
+    res.json({ message: 'Item readiness updated', item: updatedItem });
+  } catch (error) {
+    console.error('Error updating order item readiness:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -2918,6 +2971,157 @@ app.get('/notifications/unread-count', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Get unread count error:', error);
     res.status(500).json({ error: 'Failed to get unread count' });
+  }
+});
+
+// ORDER HOURS ROUTES
+
+// Get all order hours
+app.get('/order-hours', async (req, res) => {
+  try {
+    // Return all hours (enabled and disabled) so clients can display disabled slots as greyed out
+    const orderHours = await prisma.orderHours.findMany({
+      orderBy: { time: 'asc' }
+    });
+    res.json(orderHours);
+  } catch (error) {
+    console.error('Get order hours error:', error);
+    res.status(500).json({ error: 'Failed to fetch order hours' });
+  }
+});
+
+// Create order hour
+app.post('/order-hours', authenticate, async (req, res) => {
+  try {
+    const { time, enabled } = req.body;
+    
+    if (!time) {
+      return res.status(400).json({ error: 'Time is required' });
+    }
+
+    // Validate time format (HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(time)) {
+      return res.status(400).json({ error: 'Invalid time format. Use HH:MM format' });
+    }
+
+    const orderHour = await prisma.orderHours.create({
+      data: {
+        time,
+        enabled: enabled !== false
+      }
+    });
+    
+    res.status(201).json(orderHour);
+  } catch (error) {
+    console.error('Create order hour error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'An order hour with this time already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create order hour' });
+  }
+});
+
+// Update order hour
+app.put('/order-hours/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { time, enabled } = req.body;
+    
+    if (!time) {
+      return res.status(400).json({ error: 'Time is required' });
+    }
+
+    // Validate time format (HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(time)) {
+      return res.status(400).json({ error: 'Invalid time format. Use HH:MM format' });
+    }
+
+    const orderHour = await prisma.orderHours.update({
+      where: { id: parseInt(id) },
+      data: {
+        time,
+        enabled: enabled !== false
+      }
+    });
+    
+    res.json(orderHour);
+  } catch (error) {
+    console.error('Update order hour error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Order hour not found' });
+    }
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'An order hour with this time already exists' });
+    }
+    res.status(500).json({ error: 'Failed to update order hour' });
+  }
+});
+
+// Delete order hour
+app.delete('/order-hours/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await prisma.orderHours.delete({
+      where: { id: parseInt(id) }
+    });
+    
+    res.json({ message: 'Order hour deleted successfully' });
+  } catch (error) {
+    console.error('Delete order hour error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Order hour not found' });
+    }
+    res.status(500).json({ error: 'Failed to delete order hour' });
+  }
+});
+
+// Bulk create order hours
+app.post('/order-hours/bulk', authenticate, async (req, res) => {
+  try {
+    const { hours } = req.body;
+    
+    if (!Array.isArray(hours)) {
+      return res.status(400).json({ error: 'Hours must be an array' });
+    }
+
+    const createdHours = [];
+    
+    for (const hour of hours) {
+      const { time, enabled } = hour;
+      
+      if (!time) {
+        return res.status(400).json({ error: 'Time is required for all hours' });
+      }
+
+      // Validate time format (HH:MM)
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(time)) {
+        return res.status(400).json({ error: `Invalid time format for ${time}. Use HH:MM format` });
+      }
+
+      const orderHour = await prisma.orderHours.create({
+        data: {
+          time,
+          enabled: enabled !== false
+        }
+      });
+      
+      createdHours.push(orderHour);
+    }
+    
+    res.status(201).json({ 
+      message: `${createdHours.length} order hours created successfully`,
+      hours: createdHours
+    });
+  } catch (error) {
+    console.error('Bulk create order hours error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'One or more order hours with these times already exist' });
+    }
+    res.status(500).json({ error: 'Failed to create order hours' });
   }
 });
 

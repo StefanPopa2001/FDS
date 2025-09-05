@@ -79,6 +79,8 @@ const io = new Server(server, {
 
 // Store admin socket connections
 const adminSockets = new Map();
+// Store client socket connections 
+const clientSockets = new Map();
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -115,6 +117,49 @@ io.on('connection', (socket) => {
         error: 'Invalid token' 
       });
     }
+  });
+
+  // Handle client joining
+  socket.on('join-client', async (data) => {
+    const { token } = data;
+    console.log('=== CLIENT JOIN REQUEST ===');
+    console.log('Socket ID:', socket.id);
+    console.log('Token received:', token ? 'YES' : 'NO');
+    
+    try {
+      // Verify the JWT token
+      const decoded = jwt.verify(token, SECRET_KEY);
+      console.log('Token decoded successfully. User ID:', decoded.userId);
+      
+      // Check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId }
+      });
+
+      if (user) {
+        clientSockets.set(socket.id, { socket, userId: user.id });
+        socket.join(`user-${user.id}`);
+        console.log('Client joined successfully. User ID:', user.id, 'Email:', user.email);
+        console.log('Client joined room:', `user-${user.id}`);
+        console.log('Total client sockets:', clientSockets.size);
+        
+        // Send confirmation
+        socket.emit('client-connected', { success: true });
+      } else {
+        console.log('User not found in database');
+        socket.emit('client-connected', { 
+          success: false, 
+          error: 'User not found' 
+        });
+      }
+    } catch (error) {
+      console.error('Client join error:', error.message);
+      socket.emit('client-connected', { 
+        success: false, 
+        error: 'Invalid token' 
+      });
+    }
+    console.log('=== CLIENT JOIN REQUEST END ===');
   });
 
   // Handle joining order chat room
@@ -154,6 +199,7 @@ io.on('connection', (socket) => {
   // Handle disconnection
   socket.on('disconnect', () => {
     adminSockets.delete(socket.id);
+    clientSockets.delete(socket.id);
     console.log('Client disconnected:', socket.id);
   });
 });
@@ -910,6 +956,7 @@ app.get("/users/orders", authenticate, async (req, res) => {
             },
             sauce: true,
             extra: true,
+            platSauce: true,
             removedIngredients: {
               include: {
                 ingredient: true
@@ -1163,11 +1210,17 @@ app.get("/admin/orders", authenticate, async (req, res) => {
 // Update order status (admin only)
 app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
   try {
+    console.log('=== ORDER STATUS UPDATE STARTED ===');
+    console.log('Order ID:', req.params.orderId);
+    console.log('New status:', req.body.status);
+    console.log('Notes:', req.body.notes);
+    
     const requestingUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
     });
 
     if (!requestingUser || requestingUser.type !== 1) {
+      console.log('Unauthorized access attempt');
       return res.status(403).json({ error: "Unauthorized access" });
     }
 
@@ -1176,6 +1229,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
 
     // Validate status
     if (status < 0 || status > 7) {
+      console.log('Invalid status value:', status);
       return res.status(400).json({ error: "Invalid status value" });
     }
 
@@ -1185,10 +1239,12 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       updateData.restaurantMessage = notes.trim();
     }
     
+    console.log('Updating order with data:', updateData);
     const updatedOrder = await prisma.order.update({
       where: { id: parseInt(orderId) },
       data: updateData
     });
+    console.log('Order updated successfully');
 
     // Add status history entry
     await prisma.orderStatusHistory.create({
@@ -1199,6 +1255,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
         notes: notes || null
       }
     });
+    console.log('Status history created');
 
     res.json({
       message: "Status updated successfully",
@@ -1209,7 +1266,54 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       }
     });
 
+    // Get the order with user information
+    console.log('Fetching order with user information...');
+    const orderWithUser = await prisma.order.findUnique({
+      where: { id: parseInt(orderId) },
+      include: { user: true }
+    });
+    console.log('Order with user:', orderWithUser ? { id: orderWithUser.id, userId: orderWithUser.userId, userEmail: orderWithUser.user?.email } : 'Not found');
+
+    // Create notification for the client if the order has a user
+    if (orderWithUser && orderWithUser.userId) {
+      console.log('Creating notification for user:', orderWithUser.userId);
+      const notification = await prisma.notification.create({
+        data: {
+          userId: orderWithUser.userId,
+          type: 'order_status',
+          title: 'Mise à jour de commande',
+          message: `Votre commande #${orderId} est maintenant: ${getStatusText(updatedOrder.status)}`,
+          data: {
+            orderId: parseInt(orderId),
+            status: updatedOrder.status,
+            statusText: getStatusText(updatedOrder.status),
+            notes: notes || null
+          },
+          isRead: false
+        }
+      });
+      console.log('Notification created:', notification.id);
+
+      // Send notification via websocket to the specific user
+      console.log('Emitting notification via websocket to user room:', `user-${orderWithUser.userId}`);
+      const notificationData = {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        data: notification.data,
+        isRead: notification.isRead,
+        createdAt: notification.createdAt
+      };
+      console.log('Notification data to emit:', notificationData);
+      io.to(`user-${orderWithUser.userId}`).emit('new-notification', notificationData);
+      console.log('Notification emitted via websocket');
+    } else {
+      console.log('No user associated with order, skipping notification');
+    }
+
     // Broadcast order status update to admin clients
+    console.log('Broadcasting to admin clients...');
     broadcastOrderUpdate({
       type: 'statusUpdate',
       orderId: updatedOrder.id,
@@ -1219,6 +1323,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
     }, 'orderStatusUpdate');
 
     // Emit to the specific order chat room for real-time client notification
+    console.log('Emitting to order chat room:', `order-chat-${updatedOrder.id}`);
     io.to(`order-chat-${updatedOrder.id}`).emit('order-status-update', {
       orderId: updatedOrder.id,
       status: updatedOrder.status,
@@ -1226,6 +1331,8 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       message: updateData.restaurantMessage || null,
       timestamp: new Date()
     });
+    
+    console.log('=== ORDER STATUS UPDATE COMPLETED ===');
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ error: "Internal server error" });
@@ -2756,7 +2863,7 @@ app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
       const notificationTitle = senderType === 'client' ? 'Nouveau message client' : 'Nouveau message restaurant';
       const notificationMessage = `Nouveau message concernant la commande #${orderId}`;
       
-      await prisma.notification.create({
+      const notification = await prisma.notification.create({
         data: {
           userId: order.userId,
           type: 'chat',
@@ -2770,6 +2877,19 @@ app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
           }
         }
       });
+
+      // Send notification via websocket to the specific user (if not admin sending to client)
+      if (senderType === 'shop') {
+        io.to(`user-${order.userId}`).emit('new-notification', {
+          id: notification.id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+          isRead: notification.isRead,
+          createdAt: notification.createdAt
+        });
+      }
     }
     
     // Broadcast the new message via Socket.IO to specific room
@@ -2902,6 +3022,45 @@ app.get('/notifications/unread-count', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Get unread count error:', error);
     res.status(500).json({ error: 'Failed to get unread count' });
+  }
+});
+
+// Delete a specific notification
+app.delete('/notifications/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const notification = await prisma.notification.deleteMany({
+      where: {
+        id: parseInt(id),
+        userId: req.user.userId
+      }
+    });
+    
+    if (notification.count === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    
+    res.json({ message: 'Notification deleted successfully' });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
+// Delete all notifications for a user
+app.delete('/notifications', authenticate, async (req, res) => {
+  try {
+    await prisma.notification.deleteMany({
+      where: {
+        userId: req.user.userId
+      }
+    });
+    
+    res.json({ message: 'All notifications deleted successfully' });
+  } catch (error) {
+    console.error('Delete all notifications error:', error);
+    res.status(500).json({ error: 'Failed to delete all notifications' });
   }
 });
 

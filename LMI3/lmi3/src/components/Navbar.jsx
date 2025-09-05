@@ -179,6 +179,7 @@ const Navbar = () => {
 
   const userMenuItems = [
     { text: "Mon Panier", icon: <ShoppingCartIcon />, onClick: () => { toggleBasket(); handleCloseUserMenu(); } },
+    { text: "Menu", icon: <FastfoodIcon />, path: "/menu" },
     { text: "Profil", icon: <PersonIcon />, path: "/profile" },
     { text: "Mes Commandes", icon: <ReceiptIcon />, path: "/orders" },
     ...(isAdmin() ? [

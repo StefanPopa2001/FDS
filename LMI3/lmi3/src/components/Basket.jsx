@@ -99,7 +99,7 @@ const BasketItem = ({ item }) => {
             )}
             
             {/* Message Display/Edit */}
-            {item.type === 'plat' && (
+            {(item.type === 'plat' || item.type === 'sauce' || item.type === 'extra') && (
               <Box sx={{ mb: 1.5 }}>
                 {isEditingMessage ? (
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
@@ -343,7 +343,7 @@ const BasketDialog = ({ open, onClose }) => {
           platSauceId: item.platSauce?.id,
           addedExtras: item.extras?.map(e => e.id) || [],
           removedIngredients: item.removedIngredients?.map(r => r.id) || [],
-          notes: item.notes
+          message: item.message
         })),
         OrderType: 'takeout',
         takeoutTime: takeoutData.takeoutTime,
@@ -404,7 +404,7 @@ const BasketDialog = ({ open, onClose }) => {
           platSauceId: item.platSauce?.id,
           addedExtras: item.extras?.map(e => e.id) || [],
           removedIngredients: item.removedIngredients?.map(r => r.id) || [],
-          notes: item.notes
+          message: item.message
         })),
         deliveryAddress: {
           street: orderData.address?.street,

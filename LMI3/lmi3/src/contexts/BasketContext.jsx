@@ -54,8 +54,14 @@ const generateItemId = (item) => {
     }
   } else if (item.type === 'sauce') {
     id = `sauce-${item.sauce.id || item.sauce.name}`;
+    if (item.message) {
+      id += `-message-${item.message.replace(/\s+/g, '-').toLowerCase()}`;
+    }
   } else if (item.type === 'extra') {
     id = `extra-${item.extra.id || item.extra.nom}`;
+    if (item.message) {
+      id += `-message-${item.message.replace(/\s+/g, '-').toLowerCase()}`;
+    }
   }
   
   return id;
@@ -423,9 +429,7 @@ export const BasketProvider = ({ children }) => {
       if (item.removedIngredients && item.removedIngredients.length > 0) {
         description.push(`Sans: ${item.removedIngredients.map(i => i.name).join(', ')}`);
       }
-      if (item.message) {
-        description.push(`Note: ${item.message}`);
-      }
+      // Removed message from description to avoid duplication
     }
     
     return description.join(' | ');

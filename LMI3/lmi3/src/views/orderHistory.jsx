@@ -47,6 +47,7 @@ import {
 import OrderChat from "../components/OrderChat"
 import config from "../config.js"
 import { useBasket } from '../contexts/BasketContext';
+import { useNotifications } from '../contexts/NotificationContext';
 
 // Format price for display
 const formatPrice = (price) => {
@@ -185,6 +186,16 @@ export default function OrderHistory() {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
   const { getItemDisplayName: _getItemDisplayName } = useBasket()
+  
+  // Get notification refresh function
+  let refreshNotifications;
+  try {
+    const notifications = useNotifications();
+    refreshNotifications = notifications.refreshNotifications;
+  } catch (error) {
+    // Context not available, notifications won't be refreshed
+    console.log('Notification context not available in OrderHistory');
+  }
 
   const getOrderItemName = useCallback((item) => {
     // Prefer explicit fields returned by the API
@@ -232,6 +243,22 @@ export default function OrderHistory() {
   useEffect(() => {
     fetchAllOrders()
   }, [activePage, archivedPage])
+
+  // Refresh notifications when component mounts and when orders are fetched
+  useEffect(() => {
+    if (refreshNotifications) {
+      console.log('OrderHistory: Refreshing notifications');
+      refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  // Also refresh notifications after fetching orders
+  useEffect(() => {
+    if (refreshNotifications && !loading) {
+      console.log('OrderHistory: Orders loaded, refreshing notifications');
+      refreshNotifications();
+    }
+  }, [refreshNotifications, loading]);
 
   const fetchAllOrders = async () => {
     setLoading(true)
@@ -404,6 +431,11 @@ export default function OrderHistory() {
     if (item.removedIngredients && item.removedIngredients.length > 0) {
       const removed = item.removedIngredients.map((r) => r.ingredient.name).join(", ")
       details.push(`Sans: ${removed}`)
+    }
+
+    // Add item message if it exists
+    if (item.message && item.message.trim()) {
+      details.push(`💬 Message: ${item.message}`)
     }
 
     return details
@@ -637,6 +669,46 @@ export default function OrderHistory() {
                 </Box>
               )}
 
+              {/* Client Message Section */}
+              {order.clientMessage && order.clientMessage.trim() && (
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    background: `linear-gradient(135deg, ${theme.palette.info.main}10 0%, ${theme.palette.info.main}05 100%)`,
+                    border: `1px solid ${theme.palette.info.main}20`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: theme.palette.info.main, fontSize: "0.85rem" }}>
+                    💬 Message du client:
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.85rem", lineHeight: 1.4, color: "text.primary" }}>
+                    {order.clientMessage}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Restaurant Message Section */}
+              {order.restaurantMessage && order.restaurantMessage.trim() && (
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    background: `linear-gradient(135deg, ${theme.palette.success.main}10 0%, ${theme.palette.success.main}05 100%)`,
+                    border: `1px solid ${theme.palette.success.main}20`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: theme.palette.success.main, fontSize: "0.85rem" }}>
+                    🏪 Message du restaurant:
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.85rem", lineHeight: 1.4, color: "text.primary" }}>
+                    {order.restaurantMessage}
+                  </Typography>
+                </Box>
+              )}
+
               <Divider sx={{ my: 3, backgroundColor: "rgba(255, 255, 255, 0.1)" }} />
 
               {/* Compact Articles Section - Single Expandable */}
@@ -682,9 +754,25 @@ export default function OrderHistory() {
                             </Box>
                           </Box>
                           {itemDetails.length > 0 && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                              {itemDetails.join(" • ")}
-                            </Typography>
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5, color: "text.secondary", fontSize: "0.8rem" }}>
+                                📝 Détails:
+                              </Typography>
+                              {itemDetails.map((detail, index) => (
+                                <Typography
+                                  key={index}
+                                  variant="body2"
+                                  sx={{
+                                    fontWeight: 400,
+                                    mb: 0.3,
+                                    fontSize: "0.8rem",
+                                    color: "text.primary",
+                                  }}
+                                >
+                                  • {detail}
+                                </Typography>
+                              ))}
+                            </Box>
                           )}
                         </Box>
                       );

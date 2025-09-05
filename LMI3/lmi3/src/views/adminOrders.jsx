@@ -371,29 +371,76 @@ export default function AdminOrders() {
     const details = []
 
     if (item.versionSize) {
-      details.push(`Taille: ${item.versionSize}`)
+      details.push(
+        <Box key="version" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.info.main }}>
+            📏 Taille: {item.versionSize}
+          </Typography>
+        </Box>
+      )
     }
 
     if (item.sauce) {
-      details.push(`Sauce: ${item.sauce.name}`)
+      details.push(
+        <Box key="sauce" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.secondary.main }}>
+            🥄 Sauce: {item.sauce.name}
+          </Typography>
+        </Box>
+      )
     }
 
     if (item.extra) {
-      details.push(`Extra: ${item.extra.nom || item.extra.name}`)
+      details.push(
+        <Box key="extra" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.warning.main }}>
+            ➕ Extra: {item.extra.nom || item.extra.name}
+          </Typography>
+        </Box>
+      )
     }
 
     if (item.platSauce) {
-      details.push(`Sauce plat: ${item.platSauce.name}`)
+      details.push(
+        <Box key="platSauce" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.secondary.main }}>
+            🍯 Sauce plat: {item.platSauce.name}
+          </Typography>
+        </Box>
+      )
     }
 
     if (item.addedExtras && item.addedExtras.length > 0) {
       const extras = item.addedExtras.map((e) => `${e.extra.nom || e.extra.name} (+€${e.price.toFixed(2)})`).join(", ")
-      details.push(`Extras ajoutés: ${extras}`)
+      details.push(
+        <Box key="added" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 600, color: theme.palette.success.main }}>
+            ➕ Extras ajoutés: {extras}
+          </Typography>
+        </Box>
+      )
     }
 
     if (item.removedIngredients && item.removedIngredients.length > 0) {
       const removed = item.removedIngredients.map((r) => r.ingredient.name).join(", ")
-      details.push(`Sans: ${removed}`)
+      details.push(
+        <Box key="removed" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 600, color: theme.palette.error.main }}>
+            ❌ Sans: {removed}
+          </Typography>
+        </Box>
+      )
+    }
+
+    // Add item message if it exists
+    if (item.message && item.message.trim()) {
+      details.push(
+        <Box key="message" sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.info.main }}>
+            💬 Message: {item.message}
+          </Typography>
+        </Box>
+      )
     }
 
     return details
@@ -739,20 +786,34 @@ export default function AdminOrders() {
               Articles:
             </Typography>
             <Box sx={{ overflowY: "auto", flex: 1, pr: 1 }}>
-              {order.items.map((item) => (
-                <Box key={item.id} sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: "0.95rem",
-                      color: item.isReady ? theme.palette.success.main : theme.palette.text.secondary,
-                      fontWeight: item.isReady ? 700 : 500,
-                    }}
-                  >
-                    {item.isReady ? "✅" : "⏳"} {item.quantity}× {item.plat ? item.plat.name : item.sauce?.name || "Article"}
-                  </Typography>
-                </Box>
-              ))}
+              {order.items.map((item) => {
+                const hasAdded = item.addedExtras && item.addedExtras.length > 0
+                const hasRemoved = item.removedIngredients && item.removedIngredients.length > 0
+                const hasMessage = item.message && item.message.trim()
+                const hasMod = hasAdded || hasRemoved || hasMessage
+
+                return (
+                  <Box key={item.id} sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontSize: "0.95rem",
+                        color: item.isReady ? theme.palette.success.main : theme.palette.text.secondary,
+                        fontWeight: item.isReady ? 700 : 500,
+                      }}
+                    >
+                      {item.isReady ? "✅" : "⏳"} {item.quantity}× {item.plat ? item.plat.name : item.sauce?.name || "Article"}
+                    </Typography>
+                    {hasMod && (
+                      <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
+                        {hasAdded && <Typography variant="caption" sx={{ color: theme.palette.success.main, fontSize: '0.7rem' }}>➕</Typography>}
+                        {hasRemoved && <Typography variant="caption" sx={{ color: theme.palette.error.main, fontSize: '0.7rem' }}>❌</Typography>}
+                        {hasMessage && <Typography variant="caption" sx={{ color: theme.palette.info.main, fontSize: '0.7rem' }}>💬</Typography>}
+                      </Box>
+                    )}
+                  </Box>
+                )
+              })}
             </Box>
           </Box>
 
@@ -1374,10 +1435,10 @@ export default function AdminOrders() {
                           }}
                         >
                           <MenuItem value={0}>⏳ En attente</MenuItem>
-                          <MenuItem value={1}>✅ Confirmée</MenuItem>
-                          <MenuItem value={2}>�‍🍳 En préparation</MenuItem>
-                          <MenuItem value={3}>� Prête</MenuItem>
-                          <MenuItem value={4}>� En livraison</MenuItem>
+                          <MenuItem value={1}>✅​ Confirmée</MenuItem>
+                          <MenuItem value={2}>👨‍🍳​ En préparation</MenuItem>
+                          <MenuItem value={3}>📦​ Prête</MenuItem>
+                          <MenuItem value={4}>🚗​ En livraison</MenuItem>
                           <MenuItem value={5}>🏠 Livrée</MenuItem>
                           <MenuItem value={6}>🎉 Terminée</MenuItem>
                           <MenuItem value={7}>❌ Annulée</MenuItem>
@@ -1386,6 +1447,13 @@ export default function AdminOrders() {
                     </Grid>
                   </Grid>
                 </Box>
+
+                {/* Simple Message Line */}
+                {selectedOrder.clientMessage && selectedOrder.clientMessage.trim() && (
+                  <Typography variant="body2" sx={{ mt: 1, fontSize: "0.9rem", color: "text.secondary" }}>
+                    Message client: {selectedOrder.clientMessage}
+                  </Typography>
+                )}
               </DialogTitle>
 
               <DialogContent dividers sx={{ p: 4, overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -1490,23 +1558,16 @@ export default function AdminOrders() {
                                   mt: 1,
                                   p: 2,
                                   borderRadius: 2,
-                                  backgroundColor: "rgba(255, 152, 0, 0.1)",
-                                  border: "1px solid rgba(255, 152, 0, 0.18)",
+                                  backgroundColor: "rgba(255, 152, 0, 0.08)",
+                                  border: "1px solid rgba(255, 152, 0, 0.15)",
                                 }}
                               >
-                                {itemDetails.map((detail, index) => (
-                                  <Typography
-                                    key={index}
-                                    variant="body2"
-                                    sx={{
-                                      fontWeight: 600,
-                                      mb: 0.5,
-                                      fontSize: "0.9rem",
-                                    }}
-                                  >
-                                    • {detail}
-                                  </Typography>
-                                ))}
+                                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: "text.secondary", fontSize: "0.8rem" }}>
+                                  📝 Détails de la commande:
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                  {itemDetails}
+                                </Box>
                               </Box>
                             )}
                           </Box>

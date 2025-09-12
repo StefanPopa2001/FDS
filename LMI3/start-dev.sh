@@ -1,100 +1,70 @@
 #!/bin/bash
 
-# Start script for local development environment
-# This script starts both the frontend and backend servers
+# Simple development startup script
+# Just runs npm run dev for both frontend and backend
 
 # Exit on error
 set -e
 
-echo "Setting up environment for local development..."
+# Colors for better output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-# Update the main .env file for reference
+echo -e "${BLUE}[DEV]${NC} Starting development environment..."
+
+# Create/update .env files
+echo -e "${GREEN}[DEV]${NC} Setting up environment files..."
 cat > .env << EOF
-# Google Maps API Key
 GOOGLE_MAPS_API_KEY=AIzaSyDu-sJV3QBGJYzWXBZkpBFBRrv4wGKoSfA
-
-# API URL for the backend service
 REACT_APP_API_URL=http://localhost:3001
-
-# Frontend API URL
 REACT_APP_API_URL_FRONTEND=http://localhost:3000
-
-# Local Database URL
 DATABASE_URL="postgresql://admin:admin@localhost:5432/fds"
-
-# JWT Secret Key
 SECRET_KEY="ubuntumybeloved"
-
-# Environment
 NODE_ENV=development
 EOF
 
-# Copy the .env file to the backend and frontend directories
-echo "Copying .env files to appropriate directories..."
 cp .env backend-lmi3/.env
 cp .env lmi3/.env
 
-# Check if there's a PostgreSQL database running
-echo "Checking if PostgreSQL is running..."
-if ! pg_isready -h localhost -p 5432 -U admin > /dev/null 2>&1; then
-  echo "Warning: PostgreSQL might not be running or credentials might be incorrect."
-  echo "Make sure PostgreSQL is running and accessible with the credentials in your .env file."
-  echo "You might need to run: docker-compose up db"
-fi
+# Create log files
+touch backend.log frontend.log
 
-# Start the backend and frontend processes in the background
-echo "Starting the backend server..."
+# Start backend with integrated migration and hot reloading
+echo -e "${GREEN}[DEV]${NC} Starting backend (with auto-migration)..."
 cd backend-lmi3
-# Create backend-specific .env with sudo to avoid permission issues
-sudo bash -c "cat > .env << EOF
-# Database configuration
-DATABASE_URL=\"postgresql://admin:admin@localhost:5432/fds\"
-
-# JWT Secret Key
-SECRET_KEY=\"ubuntumybeloved\"
-
-# Environment
-NODE_ENV=development
-EOF"
-sudo npx nodemon index.js > ../backend.log 2>&1 &
+npm run dev > ../backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
 
-echo "Starting the frontend server..."
+# Wait for backend to start
+sleep 3
+
+# Start frontend with hot reloading
+echo -e "${GREEN}[DEV]${NC} Starting frontend..."
 cd lmi3
-# Create frontend-specific .env
-cat > .env << EOF
-# Google Maps API Key
-GOOGLE_MAPS_API_KEY=AIzaSyDu-sJV3QBGJYzWXBZkpBFBRrv4wGKoSfA
-
-# API URL for the backend service (full URL is needed)
-REACT_APP_API_URL=http://localhost:3001
-
-# Frontend URL
-REACT_APP_API_URL_FRONTEND=http://localhost:3000
-EOF
-npm start > ../frontend.log 2>&1 &
+BROWSER=none npm start > ../frontend.log 2>&1 &
 FRONTEND_PID=$!
 cd ..
 
-echo "Development environment started!"
-echo "Backend running at: http://localhost:3001"
-echo "Frontend running at: http://localhost:3000"
-echo ""
-echo "Backend logs: tail -f backend.log"
-echo "Frontend logs: tail -f frontend.log"
-echo ""
-echo "To stop the servers, press Ctrl+C"
+echo
+echo -e "${GREEN}[DEV]${NC} 🚀 Development environment ready!"
+echo -e "${GREEN}[DEV]${NC}    Backend:  http://localhost:3001 (with auto-migration & hot reload)"
+echo -e "${GREEN}[DEV]${NC}    Frontend: http://localhost:3000 (with hot reload)"
+echo
+echo -e "${YELLOW}[DEV]${NC} 📝 View logs: tail -f backend.log frontend.log"
+echo -e "${YELLOW}[DEV]${NC} ⛔ Stop servers: Press Ctrl+C"
 
-# Function to kill processes when the script exits
+# Cleanup function
 function cleanup {
-  echo "Stopping servers..."
-  kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    echo
+    echo -e "${YELLOW}[DEV]${NC} Stopping development servers..."
+    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+    pkill -f "node dev-start.js" 2>/dev/null || true
+    pkill -f "react-scripts start" 2>/dev/null || true
+    echo -e "${GREEN}[DEV]${NC} Development environment stopped"
 }
 
-# Register the cleanup function to be called on exit
-trap cleanup EXIT
-
-# Wait for user to press Ctrl+C
-echo "Press Ctrl+C to stop all servers"
+trap cleanup EXIT INT TERM
 wait

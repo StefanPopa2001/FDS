@@ -251,6 +251,11 @@ app.use(cors({
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
+// Health endpoint for readiness/liveness checks
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 //Works
 //Rate limiting configuration (anti brute force)
 const authLimiter = rateLimit({
@@ -2040,7 +2045,8 @@ app.get('/plats', async (req, res) => {
     const plats = await prisma.plat.findMany({
       include: {
         versions: {
-          orderBy: { size: 'asc' }
+          orderBy: { size: 'asc' },
+          include: { tags: true }
         },
         tags: {
           include: {
@@ -2082,7 +2088,8 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
       IncludesSauce,
       saucePrice,
       versions, // Array of version objects: [{ size: "M", extraPrice: 0.0 }, ...]
-      tags // Array of tag IDs: [1, 2, 3]
+      tags, // Array of tag IDs: [1, 2, 3]
+      versionTags // Optional: mapping { [size]: [tagId, ...] }
     } = req.body;
     
     // Validate required fields
@@ -2111,8 +2118,21 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
       }
     }
 
-    // Parse tags if provided
+  // Parse tags if provided
     let parsedTags = [];
+    // Parse versionTags if provided
+    let parsedVersionTags = {};
+    if (versionTags) {
+      try {
+        parsedVersionTags = typeof versionTags === 'string' ? JSON.parse(versionTags) : versionTags;
+      } catch (e) {
+        console.error('Invalid versionTags format:', e);
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(400).json({ error: "Invalid versionTags format" });
+      }
+    }
     if (tags) {
       try {
         parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
@@ -2142,7 +2162,8 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
         versions: {
           create: parsedVersions.map(version => ({
             size: version.size,
-            extraPrice: parseFloat(version.extraPrice || 0)
+            extraPrice: parseFloat(version.extraPrice || 0),
+            // tags will be attached after create in a follow-up step
           }))
         },
         tags: parsedTags.length > 0 ? {
@@ -2154,7 +2175,25 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
         tags: true
       }
     });
-    res.status(201).json(plat);
+    // Attach tags to versions if provided
+    if (plat && plat.versions && Object.keys(parsedVersionTags).length > 0) {
+      for (const v of plat.versions) {
+        const vTags = parsedVersionTags[v.size];
+        if (Array.isArray(vTags) && vTags.length > 0) {
+          await prisma.platVersion.update({
+            where: { id: v.id },
+            data: {
+              tags: { set: vTags.map(id => ({ id: parseInt(id) })) }
+            }
+          });
+        }
+      }
+    }
+    const createdPlat = await prisma.plat.findUnique({
+      where: { id: plat.id },
+      include: { versions: { include: { tags: true }, orderBy: { size: 'asc' } }, tags: true }
+    });
+    res.status(201).json(createdPlat);
   } catch (error) {
     console.error('Create plat error:', error);
     // Delete the uploaded file if it exists
@@ -2190,7 +2229,8 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
     IncludesSauce,
     saucePrice,
     versions,
-    tags // Add tags to destructuring
+    tags, // Add tags to destructuring
+    versionTags // Optional mapping { [size]: [tagIds] }
   } = req.body;
   try {
     // Validate required fields
@@ -2269,15 +2309,10 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
       }
     }
 
-    // Update plat using transaction to handle versions
-    const updatedPlat = await prisma.$transaction(async (prisma) => {
-      // Delete existing versions
-      await prisma.platVersion.deleteMany({
-        where: { platId: parseInt(id) }
-      });
-
-      // Update plat with new versions
-      return await prisma.plat.update({
+    // Update plat using transaction to handle versions (preserve existing to keep images)
+    const updatedPlat = await prisma.$transaction(async (tx) => {
+      // Update main plat fields first
+      const platUpdated = await tx.plat.update({
         where: { id: parseInt(id) },
         data: {
           name,
@@ -2290,20 +2325,74 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
           speciality: speciality === 'true' || speciality === true,
           IncludesSauce: IncludesSauce === 'true' || IncludesSauce === true,
           saucePrice: saucePrice ? parseFloat(saucePrice) : 0.0,
-          versions: {
-            create: parsedVersions.map(version => ({
-              size: version.size,
-              extraPrice: parseFloat(version.extraPrice || 0)
-            }))
-          },
           tags: {
             set: parsedTags // This replaces all existing tag connections
           }
-        },
-        include: {
-          versions: true,
-          tags: true
         }
+      });
+
+      // Sync versions: delete removed, update existing, create new
+      const existingVersions = await tx.platVersion.findMany({ where: { platId: platUpdated.id } });
+      const incomingSizes = (parsedVersions || []).map(v => v.size);
+
+  // Delete versions not present anymore (and remove their images from FS)
+      const toDelete = existingVersions.filter(v => !incomingSizes.includes(v.size));
+      const toDeleteIds = toDelete.map(v => v.id);
+      for (const v of toDelete) {
+        if (v.image && v.image.startsWith('/uploads/')) {
+          const oldPath = path.join(__dirname, 'public', v.image);
+          if (fs.existsSync(oldPath)) {
+            try { fs.unlinkSync(oldPath); } catch (e) { console.warn('Failed to delete version image:', oldPath, e.message); }
+          }
+        }
+      }
+      if (toDeleteIds.length > 0) {
+        await tx.platVersion.deleteMany({ where: { id: { in: toDeleteIds } } });
+      }
+
+      // Upsert remaining/new versions by size
+      for (const v of (parsedVersions || [])) {
+        const match = existingVersions.find(ev => ev.size === v.size);
+        if (match) {
+          await tx.platVersion.update({
+            where: { id: match.id },
+            data: { extraPrice: parseFloat(v.extraPrice || 0) }
+          });
+        } else {
+          await tx.platVersion.create({
+            data: {
+              platId: platUpdated.id,
+              size: v.size,
+              extraPrice: parseFloat(v.extraPrice || 0)
+            }
+          });
+        }
+      }
+
+      // Update tags on versions based on versionTags mapping
+      if (versionTags) {
+        let parsedVersionTags = {};
+        try {
+          parsedVersionTags = typeof versionTags === 'string' ? JSON.parse(versionTags) : versionTags;
+        } catch (e) {
+          throw new Error('Invalid versionTags format');
+        }
+        const updatedVersions = await tx.platVersion.findMany({ where: { platId: platUpdated.id } });
+        for (const v of updatedVersions) {
+          const vTags = parsedVersionTags[v.size];
+          if (Array.isArray(vTags)) {
+            await tx.platVersion.update({
+              where: { id: v.id },
+              data: { tags: { set: vTags.map(id => ({ id: parseInt(id) })) } }
+            });
+          }
+        }
+      }
+
+      // Return plat with relations
+      return await tx.plat.findUnique({
+        where: { id: platUpdated.id },
+  include: { versions: { orderBy: { size: 'asc' }, include: { tags: true } }, tags: true }
       });
     });
 
@@ -2334,6 +2423,7 @@ app.delete("/plats/:id", async (req, res) => {
     // Get the plat to check if it has an image to delete
     const plat = await prisma.plat.findUnique({
       where: { id: parseInt(id) },
+      include: { versions: true }
     });
 
     if (!plat) {
@@ -2352,11 +2442,80 @@ app.delete("/plats/:id", async (req, res) => {
         fs.unlinkSync(imagePath);
       }
     }
+    // Delete version images from filesystem
+    if (plat.versions && plat.versions.length > 0) {
+      for (const v of plat.versions) {
+        if (v.image && v.image.startsWith('/uploads/')) {
+          const vPath = path.join(__dirname, 'public', v.image);
+          if (fs.existsSync(vPath)) {
+            try { fs.unlinkSync(vPath); } catch (e) { console.warn('Failed to delete version image:', vPath, e.message); }
+          }
+        }
+      }
+    }
     
     res.status(204).send();
   } catch (error) {
     console.error('Delete plat error:', error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ===============================
+// PLAT VERSION IMAGE ENDPOINTS
+// ===============================
+
+// Upload/replace image for a plat version
+app.post('/plat-versions/:id/image', upload.single('image'), processImage, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const version = await prisma.platVersion.findUnique({ where: { id: parseInt(id) } });
+    if (!version) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Plat version not found' });
+    }
+
+    let imageUrl = version.image;
+    if (req.file) {
+      // Remove old image if any
+      if (version.image && version.image.startsWith('/uploads/')) {
+        const oldPath = path.join(__dirname, 'public', version.image);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      imageUrl = `/uploads/${req.file.filename}`;
+    } else {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    const updated = await prisma.platVersion.update({
+      where: { id: parseInt(id) },
+      data: { image: imageUrl }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Update plat version image error:', error);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Remove image from a plat version
+app.delete('/plat-versions/:id/image', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const version = await prisma.platVersion.findUnique({ where: { id: parseInt(id) } });
+    if (!version) return res.status(404).json({ error: 'Plat version not found' });
+
+    if (version.image && version.image.startsWith('/uploads/')) {
+      const oldPath = path.join(__dirname, 'public', version.image);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    await prisma.platVersion.update({ where: { id: parseInt(id) }, data: { image: null } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete plat version image error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

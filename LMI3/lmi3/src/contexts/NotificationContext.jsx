@@ -14,14 +14,15 @@ export const useNotifications = () => {
 
 export const NotificationProvider = ({ children }) => {
   const { user } = useAuth();
-  const notifications = useOrderNotifications(user?.userId);
+  // use the correct user id field from AuthContext
+  const notifications = useOrderNotifications(user?.id);
 
   const refreshNotifications = useCallback(() => {
-    if (notifications.refreshNotifications && user?.userId) {
-      console.log('Refreshing notifications for user:', user.userId);
+    if (notifications.refreshNotifications && user?.id) {
+      console.log('Refreshing notifications for user:', user.id);
       notifications.refreshNotifications();
     }
-  }, [notifications.refreshNotifications, user?.userId]);
+  }, [notifications.refreshNotifications, user?.id]);
 
   const value = {
     ...notifications,

@@ -433,9 +433,9 @@ const MenuView = () => {
                       overflow: 'hidden',
                     }}>
                       <Box sx={{ position: 'relative' }}>
-                        {plat.image && !imageErrors[plat.id] ? (
+            {(plat.image || plat.versions?.find(v => v.image)?.image) && !imageErrors[plat.id] ? (
                           <LazyImage
-                            src={`${config.API_URL}${plat.image}`}
+              src={`${config.API_URL}${plat.image || plat.versions?.find(v => v.image)?.image}`}
                             alt={plat.name}
                             sx={{
                               width: '100%',

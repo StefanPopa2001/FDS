@@ -144,6 +144,8 @@ io.on('connection', (socket) => {
         console.log('Client joined successfully. User ID:', user.id, 'Email:', user.email);
         console.log('Client joined room:', `user-${user.id}`);
         console.log('Total client sockets:', clientSockets.size);
+        console.log('All client sockets:', Array.from(clientSockets.entries()).map(([id, data]) => ({ socketId: id, userId: data.userId })));
+        console.log('Socket rooms for this socket:', Array.from(socket.rooms));
         
         // Send confirmation
         socket.emit('client-connected', { success: true });
@@ -1359,6 +1361,9 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
 
       // Send notification via websocket to the specific user
       console.log('Emitting notification via websocket to user room:', `user-${orderWithUser.userId}`);
+      console.log('Available socket rooms:', Array.from(io.sockets.adapter.rooms.keys()));
+      console.log('Sockets in user room:', io.sockets.adapter.rooms.get(`user-${orderWithUser.userId}`));
+      
       const notificationData = {
         id: notification.id,
         type: notification.type,
@@ -1369,8 +1374,21 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
         createdAt: notification.createdAt
       };
       console.log('Notification data to emit:', notificationData);
+      
+      // Emit to the user room
       io.to(`user-${orderWithUser.userId}`).emit('new-notification', notificationData);
       console.log('Notification emitted via websocket');
+      
+      // Also try emitting to all connected client sockets as a fallback
+      let notificationSent = false;
+      for (const [socketId, clientData] of clientSockets) {
+        if (clientData.userId === orderWithUser.userId) {
+          console.log('Sending notification directly to client socket:', socketId);
+          clientData.socket.emit('new-notification', notificationData);
+          notificationSent = true;
+        }
+      }
+      console.log('Direct socket notification sent:', notificationSent);
     } else {
       console.log('No user associated with order, skipping notification');
     }

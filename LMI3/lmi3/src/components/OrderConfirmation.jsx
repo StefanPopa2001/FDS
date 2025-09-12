@@ -57,6 +57,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
       postalCode: '',
       instructions: '',
     },
+    deliveryTime: '',
     paymentMethod: 'card', // 'card', 'cash', 'payconic', 'bancontact'
     paymentDetails: {},
     message: '',
@@ -69,7 +70,10 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
     restaurantAddress: null
   });
 
-  const steps = ['Adresse de livraison', 'Frais de livraison', 'Paiement', 'Confirmation'];
+  const [orderHours, setOrderHours] = useState([]);
+  const [loadingHours, setLoadingHours] = useState(false);
+
+  const steps = ['Adresse de livraison', 'Heure de livraison', 'Frais de livraison', 'Paiement', 'Confirmation'];
 
   // Load saved delivery data when component opens
   useEffect(() => {
@@ -94,6 +98,32 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
           localStorage.removeItem('userDeliveryData');
         }
       }
+    }
+  }, [open]);
+
+  // Fetch order hours
+  useEffect(() => {
+    const fetchOrderHours = async () => {
+      try {
+        setLoadingHours(true);
+        const response = await fetch(`${config.API_URL}/order-hours`);
+        if (response.ok) {
+          const data = await response.json();
+          setOrderHours(data);
+        } else {
+          console.error('Failed to fetch order hours');
+          setOrderHours([]);
+        }
+      } catch (error) {
+        console.error('Error fetching order hours:', error);
+        setOrderHours([]);
+      } finally {
+        setLoadingHours(false);
+      }
+    };
+
+    if (open) {
+      fetchOrderHours();
     }
   }, [open]);
 
@@ -218,10 +248,12 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
       case 0:
         return orderData.address.street && orderData.address.city && orderData.address.postalCode && orderData.phone;
       case 1:
-        return true; // Always valid for delivery fee step
+        return orderData.deliveryTime !== '';
       case 2:
-        return orderData.paymentMethod !== '';
+        return true; // Always valid for delivery fee step
       case 3:
+        return orderData.paymentMethod !== '';
+      case 4:
         return true;
       default:
         return false;
@@ -357,6 +389,93 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
         return (
           <Box sx={{ py: 2 }}>
             <Typography variant="h6" sx={{ mb: 3, color: '#ff9800' }}>
+              Heure de livraison
+            </Typography>
+            
+            <FormControl component="fieldset" sx={{ width: '100%' }}>
+              <FormLabel component="legend" sx={{ mb: 2, color: 'text.primary', fontWeight: 600 }}>
+                Choisissez votre heure de livraison préférée
+              </FormLabel>
+              <RadioGroup
+                value={orderData.deliveryTime}
+                onChange={(e) => handleSimpleInputChange('deliveryTime', e.target.value)}
+                sx={{ gap: 1 }}
+              >
+                {/* ASAP Option */}
+                <FormControlLabel
+                  value=""
+                  control={<Radio sx={{ color: '#ff9800', '&.Mui-checked': { color: '#ff9800' } }} />}
+                  label={
+                    <Box>
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                        Dès que possible
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        Livraison dans les plus brefs délais
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{
+                    border: '1px solid rgba(255, 152, 0, 0.3)',
+                    borderRadius: 2,
+                    p: 2,
+                    m: 0,
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 152, 0, 0.05)',
+                      border: '1px solid rgba(255, 152, 0, 0.5)',
+                    },
+                    '& .MuiFormControlLabel-label': { width: '100%' }
+                  }}
+                />
+                
+                {/* Configured delivery hours */}
+                {orderHours.map((hour) => {
+                  const [hours, minutes] = hour.time.split(':').map(Number);
+                  const now = new Date();
+                  const currentHour = now.getHours();
+                  const currentMinute = now.getMinutes();
+                  const isPastTime = (hours < currentHour) || (hours === currentHour && minutes <= currentMinute);
+                  
+                  return (
+                    <FormControlLabel
+                      key={hour.id}
+                      value={hour.time}
+                      control={<Radio sx={{ color: '#ff9800', '&.Mui-checked': { color: '#ff9800' } }} />}
+                      label={
+                        <Box>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                            {hour.time}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                            Livraison programmée
+                          </Typography>
+                        </Box>
+                      }
+                      disabled={!hour.enabled || isPastTime}
+                      sx={{
+                        border: '1px solid rgba(255, 152, 0, 0.3)',
+                        borderRadius: 2,
+                        p: 2,
+                        m: 0,
+                        opacity: (!hour.enabled || isPastTime) ? 0.5 : 1,
+                        '&:hover': {
+                          backgroundColor: (!hour.enabled || isPastTime) ? 'transparent' : 'rgba(255, 152, 0, 0.05)',
+                          border: (!hour.enabled || isPastTime) ? '1px solid rgba(255, 152, 0, 0.3)' : '1px solid rgba(255, 152, 0, 0.5)',
+                        },
+                        '& .MuiFormControlLabel-label': { width: '100%' }
+                      }}
+                    />
+                  );
+                })}
+              </RadioGroup>
+            </FormControl>
+          </Box>
+        );
+
+      case 2:
+        return (
+          <Box sx={{ py: 2 }}>
+            <Typography variant="h6" sx={{ mb: 3, color: '#ff9800' }}>
               Frais de livraison
             </Typography>
             
@@ -456,7 +575,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
           </Box>
         );
 
-      case 2:
+      case 3:
         return (
           <Box sx={{ py: 2 }}>
             <Typography variant="h6" sx={{ mb: 3, color: '#ff9800' }}>
@@ -531,7 +650,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
           </Box>
         );
 
-      case 3:
+      case 4:
         return (
           <Box sx={{ py: 2 }}>
             <Typography variant="h6" sx={{ mb: 3, color: '#ff9800', textAlign: 'center' }}>
@@ -553,6 +672,9 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
                             {getItemDescription(item)}
                           </Typography>
                         )}
+                        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          €{(calculateItemPrice(item) / item.quantity).toFixed(2)} / unité
+                        </Typography>
                       </Box>
                       <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
                         €{calculateItemPrice(item).toFixed(2)}

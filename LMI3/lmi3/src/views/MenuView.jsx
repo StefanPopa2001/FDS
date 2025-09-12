@@ -251,6 +251,18 @@ const MenuView = () => {
       )
     }
 
+    // Sort by ordre (ascending), then by name alphabetically
+    filtered.sort((a, b) => {
+      const ordreA = a.ordre ? parseInt(a.ordre, 10) : 999
+      const ordreB = b.ordre ? parseInt(b.ordre, 10) : 999
+      
+      if (ordreA !== ordreB) {
+        return ordreA - ordreB
+      }
+      
+      return a.name.localeCompare(b.name)
+    })
+
     return filtered.filter(sauce => sauce.available)
   }, [sauces, selectedTagFilter, debouncedSearchTerm])
 
@@ -278,6 +290,18 @@ const MenuView = () => {
         plat.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
       )
     }
+
+    // Sort by ordre (ascending), then by name alphabetically
+    filtered.sort((a, b) => {
+      const ordreA = a.ordre ? parseInt(a.ordre, 10) : 999
+      const ordreB = b.ordre ? parseInt(b.ordre, 10) : 999
+      
+      if (ordreA !== ordreB) {
+        return ordreA - ordreB
+      }
+      
+      return a.name.localeCompare(b.name)
+    })
 
     return filtered.filter(plat => plat.available)
   }, [plats, selectedTagFilter, settings, debouncedSearchTerm])

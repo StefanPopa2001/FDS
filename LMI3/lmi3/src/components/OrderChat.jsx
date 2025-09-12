@@ -22,14 +22,13 @@ import {
   Store as StoreIcon,
   Person as PersonIcon
 } from '@mui/icons-material';
-import io from 'socket.io-client';
 import config from '../config';
 
 const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [socket, setSocket] = useState(null);
   const messagesEndRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,63 +40,27 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
 
   useEffect(() => {
     if (open && orderId && userId) {
-      // Initialize socket connection
-      const socketConnection = io(config.WS_URL, {
-        path: config.WS_PATH,
-        forceNew: false,
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
-        timeout: 5000,
-        transports: ['websocket', 'polling'],
-      });
-
-      socketConnection.on('connect', () => {
-        console.log('Chat socket connected:', socketConnection.id);
-        socketConnection.emit('join-order-chat', { 
-          orderId, 
-          userId, 
-          userType 
-        });
-      });
-
-      socketConnection.on('connect_error', (error) => {
-        console.error('Chat socket connection error:', error);
-      });
-
-      socketConnection.on('disconnect', (reason) => {
-        console.log('Chat socket disconnected:', reason);
-      });
-
-      // Listen for room join confirmation
-      socketConnection.on('join-order-chat', (data) => {
-        console.log('Joined chat room:', data);
-      });
-
-      // Listen for new messages
-      socketConnection.on('chat-message', (message) => {
-        console.log('Received chat message:', message);
-        if (message.orderId === parseInt(orderId)) {
-          setMessages(prev => {
-            // Check if message already exists (avoid duplicates)
-            const messageExists = prev.some(m => m.id === message.id);
-            if (!messageExists) {
-              // Since we now replace temporary messages immediately, just add new messages
-              return [...prev, { ...message, sender: { name: message.senderType === 'shop' ? 'Restaurant' : 'You' } }];
-            }
-            return prev;
-          });
-        }
-      });
-
-      setSocket(socketConnection);
-
-      // Load existing messages
+      // Load initial messages
       fetchMessages();
 
+      // Set up polling for new messages every 5 seconds when chat is open
+      const startPolling = () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+        
+        pollingIntervalRef.current = setInterval(() => {
+          console.log('Polling chat messages...');
+          fetchMessages();
+        }, 5000); // 5 seconds for more responsive chat
+      };
+
+      startPolling();
+
       return () => {
-        socketConnection.emit('leave-order-chat', { orderId });
-        socketConnection.disconnect();
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
       };
     }
   }, [open, orderId, userId, userType]);
@@ -111,8 +74,14 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
         }
       });
       if (response.ok) {
-        const messages = await response.json();
-        setMessages(messages);
+        const fetchedMessages = await response.json();
+        setMessages(prev => {
+          // Only update if there are changes to avoid unnecessary re-renders
+          if (JSON.stringify(prev) !== JSON.stringify(fetchedMessages)) {
+            return fetchedMessages;
+          }
+          return prev;
+        });
       } else {
         const error = await response.json();
         console.error('Error fetching messages:', error);
@@ -165,6 +134,8 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
             ? { ...sentMessage, sender: { name: sentMessage.senderType === 'shop' ? 'Restaurant' : 'You' } }
             : msg
         ));
+        // Refresh messages to get any new ones
+        setTimeout(() => fetchMessages(), 1000);
       } else {
         // Remove the temporary message if sending failed
         setMessages(prev => prev.filter(msg => msg.id !== tempId));

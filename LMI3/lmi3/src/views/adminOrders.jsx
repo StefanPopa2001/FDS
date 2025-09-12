@@ -50,7 +50,6 @@ import {
 import { useAuth } from "../contexts/AuthContext"
 import { format, isSameDay, differenceInMinutes } from "date-fns"
 import config from "../config"
-import io from "socket.io-client"
 import OrderChat from "../components/OrderChat"
 
 // Sound notification
@@ -85,7 +84,6 @@ export default function AdminOrders() {
   const [editingOrderId, setEditingOrderId] = useState(null)
   const [newStatus, setNewStatus] = useState("")
   const [statusNotes, setStatusNotes] = useState("")
-  const [socketConnected, setSocketConnected] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [notification, setNotification] = useState({ open: false, message: "", severity: "info" })
   const [expandedItems, setExpandedItems] = useState({})
@@ -93,90 +91,6 @@ export default function AdminOrders() {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatOrderId, setChatOrderId] = useState(null)
   const [modalTab, setModalTab] = useState(0)
-
-  // Socket.io connection
-  const socket = useMemo(() => {
-    const newSocket = io(config.WS_URL, {
-      path: config.WS_PATH,
-      forceNew: false,
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-      timeout: 5000,
-      transports: ["websocket", "polling"],
-    })
-
-    newSocket.on("connect", () => {
-      console.log("Connected to WebSocket server")
-      setSocketConnected(true)
-
-      // Join admin room
-      newSocket.emit("join-admin", { token })
-    })
-
-    newSocket.on("admin-connected", (response) => {
-      if (!response.success) {
-        console.error("Admin connection failed:", response.error)
-        setSocketConnected(false)
-      }
-    })
-
-    newSocket.on("disconnect", () => {
-      console.log("Disconnected from WebSocket server")
-      setSocketConnected(false)
-    })
-
-    return newSocket
-  }, [token])
-
-  // Listen for new orders and updates
-  useEffect(() => {
-    if (!socket) return
-
-    // Handle new order notification
-    const handleNewOrder = (data) => {
-      console.log("New order received:", data)
-      // Play notification sound
-      notificationSound.play().catch((err) => console.error("Error playing notification:", err))
-
-      // Show notification
-      setNotification({
-        open: true,
-        message: `Nouvelle commande #${data.order.id} reçue!`,
-        severity: "success",
-      })
-
-      // Fetch fresh data
-      fetchOrders()
-    }
-
-    // Handle order status update
-    const handleOrderUpdate = (data) => {
-      console.log("Order update received:", data)
-
-      // Update the order in the local state
-      setOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.id === data.orderId ? { ...order, status: data.status, statusText: data.statusText } : order,
-        ),
-      )
-    }
-
-    // Register event listeners
-    socket.on("newOrder", handleNewOrder)
-    socket.on("orderStatusUpdate", handleOrderUpdate)
-
-    // Cleanup on unmount
-    return () => {
-      socket.off("newOrder", handleNewOrder)
-      socket.off("orderStatusUpdate", handleOrderUpdate)
-    }
-  }, [socket])
-
-  // Save viewed orders to localStorage
-  useEffect(() => {
-    localStorage.setItem("viewedOrders", JSON.stringify(viewedOrders))
-  }, [viewedOrders])
 
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
@@ -210,12 +124,44 @@ export default function AdminOrders() {
     }
   }, [token, statusFilter])
 
-  // Initial fetch
+  // Initial fetch and auto-refresh setup
   useEffect(() => {
-    if (token) {
+    if (!token) return
+
+    // Initial fetch
+    fetchOrders()
+
+    // Set up polling interval
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing orders...')
       fetchOrders()
+    }, 30000) // 30 seconds
+
+    // Cleanup interval on unmount
+    return () => {
+      clearInterval(interval)
     }
-  }, [fetchOrders, token])
+  }, [token, statusFilter]) // Remove fetchOrders from dependencies to avoid circular dependency
+
+  // Refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && token) {
+        console.log('Page became visible, refreshing orders')
+        fetchOrders()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [token]) // Remove fetchOrders from dependencies to avoid circular dependency
+
+  // Save viewed orders to localStorage
+  useEffect(() => {
+    localStorage.setItem("viewedOrders", JSON.stringify(viewedOrders))
+  }, [viewedOrders])
 
   // Fetch order hours and settings for admin controls
   useEffect(() => {
@@ -1003,25 +949,14 @@ export default function AdminOrders() {
           </Typography>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {socketConnected ? (
-              <Chip
-                label="Connecté"
-                sx={{
-                  backgroundColor: theme.palette.success.main,
-                  color: theme.palette.getContrastText(theme.palette.success.main),
-                  fontWeight: 600,
-                }}
-              />
-            ) : (
-              <Chip
-                label="Déconnecté"
-                sx={{
-                  backgroundColor: theme.palette.error.main,
-                  color: theme.palette.getContrastText(theme.palette.error.main),
-                  fontWeight: 600,
-                }}
-              />
-            )}
+            <Chip
+              label="Auto-actualisation activée"
+              sx={{
+                backgroundColor: theme.palette.success.main,
+                color: theme.palette.getContrastText(theme.palette.success.main),
+                fontWeight: 600,
+              }}
+            />
 
             <Button
               variant="contained"

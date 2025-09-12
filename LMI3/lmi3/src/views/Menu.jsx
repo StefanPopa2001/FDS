@@ -399,6 +399,18 @@ const Menu = () => {
       filteredSauceData = filteredSauceData.filter((sauce) => sauce.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
 
+    // Sort by ordre (ascending), then by name alphabetically
+    filteredSauceData.sort((a, b) => {
+      const ordreA = a.ordre ? parseInt(a.ordre, 10) : 999
+      const ordreB = b.ordre ? parseInt(b.ordre, 10) : 999
+      
+      if (ordreA !== ordreB) {
+        return ordreA - ordreB
+      }
+      
+      return a.name.localeCompare(b.name)
+    })
+
     return filteredSauceData
   }, [sauces, selectedTagFilter, filterType, searchTerm])
 
@@ -437,6 +449,18 @@ const Menu = () => {
     if (searchTerm) {
       filteredPlatData = filteredPlatData.filter((plat) => plat.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
+
+    // Sort by ordre (ascending), then by name alphabetically
+    filteredPlatData.sort((a, b) => {
+      const ordreA = a.ordre ? parseInt(a.ordre, 10) : 999
+      const ordreB = b.ordre ? parseInt(b.ordre, 10) : 999
+      
+      if (ordreA !== ordreB) {
+        return ordreA - ordreB
+      }
+      
+      return a.name.localeCompare(b.name)
+    })
 
     return filteredPlatData
   }, [plats, selectedTagFilter, settings, filterType, searchTerm])
@@ -639,8 +663,8 @@ const Menu = () => {
                 {settings.menuMessage || "Découvrez notre sélection de spécialités"}
               </Typography>
               
-              {/* Warning messages for disabled services */}
-              {(settings.enableOnlinePickup === "false" || settings.enableOnlineDelivery === "false") && (
+              {/* Warning messages for disabled services - REMOVED */}
+              {/* {(settings.enableOnlinePickup === "false" || settings.enableOnlineDelivery === "false") && (
                 <Alert 
                   severity="warning" 
                   sx={{ 
@@ -659,7 +683,7 @@ const Menu = () => {
                       : "🚫 Les commandes en livraison en ligne sont temporairement désactivées."
                   }
                 </Alert>
-              )}
+              )} */}
             </Box>
           </Fade>
 
@@ -808,211 +832,9 @@ const Menu = () => {
               mb: 4,
             }}
           >
-            {/* Render Sauces */}
-            {filteredSauces.map((sauce, index) => (
-              <Zoom in timeout={300 + index * 50} key={`sauce-${sauce.id}`}>
-                <Card
-                  sx={{
-                    width: { xs: 160, md: 220 },
-                    height: { xs: 200, md: 280 },
-                    display: "flex",
-                    flexDirection: "column",
-                    cursor: "pointer",
-                    position: "relative",
-                    overflow: "hidden",
-                    opacity: sauce.available ? 1 : 0.6,
-                    transition: isMobile ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    "&:hover": isMobile ? {} : {
-                      transform: "translateY(-8px) scale(1.02)",
-                      boxShadow: "0 20px 40px rgba(255, 152, 0, 0.15), 0 0 0 1px rgba(255, 152, 0, 0.1)",
-                      border: "1px solid rgba(255, 152, 0, 0.2)",
-                    },
-                  }}
-                  onClick={() => handleSauceClick(sauce)}
-                >
-                  {/* Image Section */}
-                  <Box
-                    sx={{
-                      position: "relative",
-                      width: "100%",
-                      height: { xs: 120, md: 160 }, // Fixed image height
-                      flexShrink: 0,
-                    }}
-                  >
-                    {/* Centered chip for unavailable */}
-                    {!sauce.available && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: "50%",
-                          left: "50%",
-                          transform: "translate(-50%, -50%)",
-                          zIndex: 3,
-                          bgcolor: "rgba(244, 67, 54, 0.85)",
-                          px: { xs: 1.5, md: 3 },
-                          py: { xs: 0.5, md: 1 },
-                          borderRadius: 2,
-                          boxShadow: 4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: { xs: "0.95rem", md: "1.15rem" },
-                            textAlign: "center",
-                            letterSpacing: 0.5,
-                          }}
-                        >
-                          Victime de son succès
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {/* Top right: Truck for delivery */}
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        zIndex: 2,
-                        bgcolor: !sauce.available
-                          ? "rgba(244, 67, 54, 0.85)" // red if not available
-                          : sauce.deliveryAvailable
-                            ? "rgba(76, 175, 80, 0.85)" // green if available for delivery
-                            : "rgba(244, 67, 54, 0.85)", // red if not available for delivery
-                        borderRadius: "50%",
-                        p: 0.5,
-                        boxShadow: 2,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {!sauce.available ? (
-                        // Red truck with cross if not available
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
-                          <BlockIcon sx={{
-                            color: "#fff",
-                            fontSize: { xs: 18, md: 22 },
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            opacity: 0.8,
-                          }} />
-                        </Box>
-                      ) : sauce.deliveryAvailable ? (
-                        // Green truck if available for delivery
-                        <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 } }} />
-                      ) : (
-                        // Red truck with cross if not available for delivery
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
-                          <BlockIcon sx={{
-                            color: "#fff",
-                            fontSize: { xs: 18, md: 22 },
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            opacity: 0.8,
-                          }} />
-                        </Box>
-                      )}
-                    </Box>
-
-                    {sauce.image && !imageErrors[sauce.id] ? (
-                      <LazyImage
-                        src={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
-                        alt={sauce.name}
-                        onError={() => handleImageError(sauce.id)}
-                        placeholder={
-                          <PlaceholderImage
-                            alt={sauce.name}
-                            sx={{
-                              width: "100%",
-                              height: "100%",
-                            }}
-                          />
-                        }
-                        sx={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "fill",
-                        }}
-                      />
-                    ) : (
-                      <PlaceholderImage
-                        alt={sauce.name}
-                        sx={{
-                          width: "100%",
-                          height: "100%",
-                        }}
-                      />
-                    )}
-                  </Box>
-
-                  {/* Content Section */}
-                  <CardContent
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      p: { xs: 1.5, md: 2 },
-                      height: { xs: 80, md: 120 }, // Fixed content height
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography
-                        variant="h6"
-                        component="h2"
-                        sx={{
-                          fontWeight: 700,
-                          fontSize: { xs: "0.9rem", md: "1.1rem" },
-                          mb: 1,
-                          lineHeight: 1.3,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {sauce.name}
-                      </Typography>
-                    </Box>
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mt: "auto",
-                      }}
-                    >
-                      <Typography
-                        variant="h6"
-                        color="primary"
-                        sx={{
-                          fontWeight: 800,
-                          fontSize: { xs: "1rem", md: "1.2rem" },
-                        }}
-                      >
-                        €{sauce.price.toFixed(2)}
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Zoom>
-            ))}
-
             {/* Render Plats */}
             {filteredPlats.map((plat, index) => (
-              <Zoom in timeout={300 + (filteredSauces.length + index) * 50} key={`plat-${plat.id}`}>
+              <Zoom in timeout={300 + index * 50} key={`plat-${plat.id}`}>
                 <Card
                   sx={cardStyles}
                   onClick={() => handlePlatClick(plat)}
@@ -1211,10 +1033,212 @@ const Menu = () => {
                           fontSize: { xs: "1rem", md: "1.2rem" },
                         }}
                       >
-                        {plat.versions && plat.versions.length > 1 
+                        {plat.versions && plat.versions.length > 1
                           ? `À partir de €${plat.price.toFixed(2)}`
                           : `€${plat.price.toFixed(2)}`
                         }
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Zoom>
+            ))}
+
+            {/* Render Sauces */}
+            {filteredSauces.map((sauce, index) => (
+              <Zoom in timeout={300 + (filteredPlats.length + index) * 50} key={`sauce-${sauce.id}`}>
+                <Card
+                  sx={{
+                    width: { xs: 160, md: 220 },
+                    height: { xs: 200, md: 280 },
+                    display: "flex",
+                    flexDirection: "column",
+                    cursor: "pointer",
+                    position: "relative",
+                    overflow: "hidden",
+                    opacity: sauce.available ? 1 : 0.6,
+                    transition: isMobile ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    "&:hover": isMobile ? {} : {
+                      transform: "translateY(-8px) scale(1.02)",
+                      boxShadow: "0 20px 40px rgba(255, 152, 0, 0.15), 0 0 0 1px rgba(255, 152, 0, 0.1)",
+                      border: "1px solid rgba(255, 152, 0, 0.2)",
+                    },
+                  }}
+                  onClick={() => handleSauceClick(sauce)}
+                >
+                  {/* Image Section */}
+                  <Box
+                    sx={{
+                      position: "relative",
+                      width: "100%",
+                      height: { xs: 120, md: 160 }, // Fixed image height
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* Centered chip for unavailable */}
+                    {!sauce.available && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          zIndex: 3,
+                          bgcolor: "rgba(244, 67, 54, 0.85)",
+                          px: { xs: 1.5, md: 3 },
+                          py: { xs: 0.5, md: 1 },
+                          borderRadius: 2,
+                          boxShadow: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            color: "#fff",
+                            fontWeight: 700,
+                            fontSize: { xs: "0.95rem", md: "1.15rem" },
+                            textAlign: "center",
+                            letterSpacing: 0.5,
+                          }}
+                        >
+                          Victime de son succès
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {/* Top right: Truck for delivery */}
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        zIndex: 2,
+                        bgcolor: !sauce.available
+                          ? "rgba(244, 67, 54, 0.85)" // red if not available
+                          : sauce.deliveryAvailable
+                            ? "rgba(76, 175, 80, 0.85)" // green if available for delivery
+                            : "rgba(244, 67, 54, 0.85)", // red if not available for delivery
+                        borderRadius: "50%",
+                        p: 0.5,
+                        boxShadow: 2,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {!sauce.available ? (
+                        // Red truck with cross if not available
+                        <Box sx={{ position: "relative", display: "inline-flex" }}>
+                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
+                          <BlockIcon sx={{
+                            color: "#fff",
+                            fontSize: { xs: 18, md: 22 },
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            opacity: 0.8,
+                          }} />
+                        </Box>
+                      ) : sauce.deliveryAvailable ? (
+                        // Green truck if available for delivery
+                        <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 } }} />
+                      ) : (
+                        // Red truck with cross if not available for delivery
+                        <Box sx={{ position: "relative", display: "inline-flex" }}>
+                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
+                          <BlockIcon sx={{
+                            color: "#fff",
+                            fontSize: { xs: 18, md: 22 },
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            opacity: 0.8,
+                          }} />
+                        </Box>
+                      )}
+                    </Box>
+
+                    {sauce.image && !imageErrors[sauce.id] ? (
+                      <LazyImage
+                        src={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
+                        alt={sauce.name}
+                        onError={() => handleImageError(sauce.id)}
+                        placeholder={
+                          <PlaceholderImage
+                            alt={sauce.name}
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                            }}
+                          />
+                        }
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "fill",
+                        }}
+                      />
+                    ) : (
+                      <PlaceholderImage
+                        alt={sauce.name}
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                        }}
+                      />
+                    )}
+                  </Box>
+
+                  {/* Content Section */}
+                  <CardContent
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      p: { xs: 1.5, md: 2 },
+                      height: { xs: 80, md: 120 }, // Fixed content height
+                      overflow: "hidden",
+                    }}
+                  >
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography
+                        variant="h6"
+                        component="h2"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: { xs: "0.9rem", md: "1.1rem" },
+                          mb: 1,
+                          lineHeight: 1.3,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {sauce.name}
+                      </Typography>
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mt: "auto",
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
+                        color="primary"
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: { xs: "1rem", md: "1.2rem" },
+                        }}
+                      >
+                        €{sauce.price.toFixed(2)}
                       </Typography>
                     </Box>
                   </CardContent>

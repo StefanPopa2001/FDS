@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import io from 'socket.io-client';
 import config from '../config';
 
 export const useOrderNotifications = (userId, orderId = null) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const socketRef = useRef(null);
   const audioRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
 
   // Function to show browser notification
   const showBrowserNotification = useCallback((notification) => {
@@ -293,107 +292,61 @@ export const useOrderNotifications = (userId, orderId = null) => {
     audioRef.current.preload = 'auto';
 
     // Fetch initial notifications
-    fetchNotifications();
-
-    // Set up periodic refresh every 30 seconds
-    const intervalId = setInterval(() => {
-      if (userId) {
-        fetchNotifications();
-      }
-    }, 30000);
-
-    // Connect to socket
     if (userId) {
-      const token = localStorage.getItem('authToken');
-      if (!token) return;
-
-      socketRef.current = io(config.WS_URL, {
-        path: config.WS_PATH,
-        forceNew: false,
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
-        timeout: 5000,
-        transports: ['websocket', 'polling'],
-      });
-
-      socketRef.current.on('connect', () => {
-        console.log('Client socket connected for notifications');
-        
-        // Join as client to receive notifications
-        socketRef.current.emit('join-client', { token });
-        
-        // Join order-specific room if orderId is provided
-        if (orderId) {
-          socketRef.current.emit('join-order-chat', { 
-            orderId, 
-            userId, 
-            userType: 'client' 
-          });
-        }
-      });
-
-      // Listen for new notifications from server
-      socketRef.current.on('new-notification', (notification) => {
-        console.log('New notification received via websocket:', notification);
-        setNotifications(prev => [notification, ...prev]);
-        
-        if (!notification.isRead) {
-          setUnreadCount(prev => prev + 1);
-        }
-
-        // Play audio notification
-        if (audioRef.current) {
-          audioRef.current.play().catch(e => 
-            console.log('Audio play failed:', e)
-          );
-        }
-
-        // Show browser notification
-        showBrowserNotification(notification);
-      });
-
-      // Listen for order status updates (legacy support)
-      socketRef.current.on('order-status-update', (data) => {
-        const { orderId: updateOrderId, status, statusText, message, timestamp } = data;
-        
-        // This will be handled by the new notification system
-        // but we keep it for backwards compatibility
-        console.log('Order status update received:', data);
-        
-        // Also refresh notifications to make sure we have the latest
-        setTimeout(() => fetchNotifications(), 1000);
-      });
-
-      // Listen for chat messages
-      if (orderId) {
-        socketRef.current.on(`chat-message`, (chatMessage) => {
-          // Only show notification if the message is for this order and from the other party
-          if (chatMessage.orderId === parseInt(orderId) && chatMessage.senderType === 'shop') {
-            // Chat notifications are now handled by the backend notification system
-            console.log('Chat message received:', chatMessage);
-            
-            // Refresh notifications to get the new chat notification
-            setTimeout(() => fetchNotifications(), 1000);
-          }
-        });
-      }
-
-      return () => {
-        clearInterval(intervalId);
-        if (socketRef.current) {
-          if (orderId) {
-            socketRef.current.emit('leave-order-chat', { orderId });
-          }
-          socketRef.current.disconnect();
-        }
-      };
+      fetchNotifications();
     }
 
-    return () => {
-      clearInterval(intervalId);
+    // Set up periodic refresh every 30 seconds
+    const startPolling = () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+      
+      pollingIntervalRef.current = setInterval(() => {
+        if (userId) {
+          console.log('Polling notifications...');
+          fetchNotifications();
+        }
+      }, 30000); // 30 seconds
     };
-  }, [userId, orderId, fetchNotifications]);
+
+    // Start polling if user is logged in
+    if (userId) {
+      startPolling();
+    }
+
+    // Cleanup interval on unmount or userId change
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [userId, fetchNotifications]);
+
+  // Refresh notifications when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && userId) {
+        console.log('Page became visible, refreshing notifications');
+        fetchNotifications();
+      }
+    };
+
+    const handleFocus = () => {
+      if (userId) {
+        console.log('Window focused, refreshing notifications');
+        fetchNotifications();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [userId, fetchNotifications]);
 
   // Request notification permission and setup
   useEffect(() => {
@@ -421,7 +374,6 @@ export const useOrderNotifications = (userId, orderId = null) => {
     deleteNotification,
     clearNotifications,
     markAllAsRead,
-    refreshNotifications: fetchNotifications,
-    socket: socketRef.current
+    refreshNotifications: fetchNotifications
   };
 };

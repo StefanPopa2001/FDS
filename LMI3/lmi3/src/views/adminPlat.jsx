@@ -359,7 +359,7 @@ export default function AdminPlat() {
       speciality: false,
       IncludesSauce: true,
       saucePrice: "",
-      versions: [{ size: "Standard", extraPrice: 0 }],
+  versions: [{ size: "Standard", extraPrice: 0, tagId: null }],
       selectedTags: [],
       selectedIngredients: []
     })
@@ -415,6 +415,12 @@ export default function AdminPlat() {
     setNewPlat({ ...newPlat, versions: updatedVersions })
   }
 
+  const handleVersionTagChange = (index, tagId) => {
+    const updatedVersions = [...newPlat.versions]
+    updatedVersions[index] = { ...updatedVersions[index], tagId: tagId || null }
+    setNewPlat({ ...newPlat, versions: updatedVersions })
+  }
+
   const addVersion = () => {
     setNewPlat({
       ...newPlat,
@@ -464,6 +470,13 @@ export default function AdminPlat() {
       formData.append("IncludesSauce", field === "IncludesSauce" ? value : plat.IncludesSauce)
       formData.append("saucePrice", plat.saucePrice || "0")
       formData.append("versions", JSON.stringify(plat.versions || []))
+      // Include versionTags mapping from current plat versions
+      const versionTags = {}
+      ;(plat.versions || []).forEach(v => {
+        const t = (v.tags && v.tags[0]) ? v.tags[0].id : null
+        versionTags[v.size] = t ? [t] : []
+      })
+      formData.append("versionTags", JSON.stringify(versionTags))
       formData.append("keepExistingImage", "true")
 
       const response = await fetch(`${config.API_URL}/plats/${id}`, {
@@ -507,6 +520,13 @@ export default function AdminPlat() {
       formData.append("IncludesSauce", newPlat.IncludesSauce)
       formData.append("saucePrice", newPlat.saucePrice || "0")
       formData.append("versions", JSON.stringify(newPlat.versions))
+      // Build versionTags mapping keyed by size -> [tagIds]
+      const versionTags = {}
+      ;(newPlat.versions || []).forEach(v => {
+        const tagId = v.tagId != null ? parseInt(v.tagId) : null
+        versionTags[v.size] = tagId ? [tagId] : []
+      })
+      formData.append("versionTags", JSON.stringify(versionTags))
       formData.append("tags", JSON.stringify(newPlat.selectedTags))
 
       if (newPlat.image) {
@@ -772,7 +792,9 @@ export default function AdminPlat() {
           ingredientId: pi.ingredientId,
           removable: pi.removable,
         })) : [],
-        versions: plat.versions && plat.versions.length > 0 ? plat.versions : [{ size: "Standard", extraPrice: 0 }]
+        versions: plat.versions && plat.versions.length > 0 
+          ? plat.versions.map(v => ({ ...v, tagId: (v.tags && v.tags[0]) ? v.tags[0].id : null }))
+          : [{ size: "Standard", extraPrice: 0, tagId: null }]
       })
       if (plat.image) {
         setImagePreview(`${config.API_URL}${plat.image}`)
@@ -786,16 +808,26 @@ export default function AdminPlat() {
   }
 
   return (
-    <Box sx={{ padding: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 6rem)' }}>
+    <Box sx={{
+      p: { xs: 1, md: 2 },
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      justifyContent: 'flex-start',
+      minHeight: '100vh',
+      width: '100%',
+      overflowX: 'hidden', // prevent page horizontal scroll
+    }}>
       <Fade in={true} timeout={800}>
         <Paper
           elevation={24}
           sx={{
-            padding: 4,
+            p: { xs: 2, md: 3 },
             borderRadius: 3,
-            width: '100%',
-            maxWidth: '95%',
-            margin: "0 auto",
+            width: { xs: '98vw', md: '90vw' },
+            maxWidth: '90vw',
+            mx: 'auto',
+            my: 1,
             background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
             backdropFilter: "blur(20px)",
             border: "1px solid rgba(255, 152, 0, 0.1)",
@@ -860,8 +892,12 @@ export default function AdminPlat() {
               </Button>
             </Box>
           </Box>
-
-          <Box sx={{ height: 600, width: "100%" }}>
+          {/* Grid container: internal scroll area with sticky headers and horizontal scroll confined to the grid */}
+          <Box sx={{
+            height: { xs: '65vh', md: '70vh', lg: '75vh' },
+            width: '100%',
+            overflowX: 'auto',
+          }}>
             <DataGrid
               rows={plats}
               columns={columns}
@@ -879,6 +915,11 @@ export default function AdminPlat() {
                 },
               }}
               sx={{
+                // Ensure grid manages its own vertical scroll and keeps headers visible
+                '&.MuiDataGrid-root': {
+                  border: '1px solid rgba(255, 152, 0, 0.2)',
+                  borderRadius: 12,
+                },
                 "& .MuiDataGrid-toolbarContainer": {
                   backgroundColor: "rgba(255, 152, 0, 0.05)",
                   borderRadius: "12px 12px 0 0",
@@ -907,11 +948,11 @@ export default function AdminPlat() {
                 "& .MuiCheckbox-root": {
                   color: "rgba(255, 152, 0, 0.7)",
                 },
-                border: "1px solid rgba(255, 152, 0, 0.2)",
-                borderRadius: 3,
                 "& .MuiDataGrid-virtualScroller": {
                   backgroundColor: "rgba(0, 0, 0, 0.1)",
                 },
+                // Avoid grid forcing page scrollbars
+                overflow: 'hidden',
               }}
             />
           </Box>
@@ -1255,6 +1296,100 @@ export default function AdminPlat() {
                         >
                           <DeleteIcon />
                         </IconButton>
+                        <FormControl size="small" sx={{ gridColumn: '1 / -1' }}>
+                          <InputLabel id={`version-tag-${index}`}>Tag de la version</InputLabel>
+                          <Select
+                            labelId={`version-tag-${index}`}
+                            value={version.tagId || ""}
+                            label="Tag de la version"
+                            onChange={(e) => handleVersionTagChange(index, e.target.value || null)}
+                          >
+                            <MenuItem value=""><em>Aucun</em></MenuItem>
+                            {tags.map(tag => (
+                              <MenuItem key={tag.id} value={tag.id}>{tag.emoji} {tag.nom}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+
+                        {editingPlat && (
+                          <Box sx={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Button
+                              variant="outlined"
+                              component="label"
+                              size="small"
+                            >
+                              {version.image ? 'Remplacer image version' : 'Ajouter image version'}
+                              <input
+                                type="file"
+                                hidden
+                                accept="image/*"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  try {
+                                    // Find version id by size from editingPlat versions
+                                    const existing = editingPlat?.versions?.find(v => v.size === version.size);
+                                    if (!existing) {
+                                      showAlert("Enregistrez d'abord le plat pour créer cette version", "warning");
+                                      return;
+                                    }
+                                    const fd = new FormData();
+                                    fd.append('image', file);
+                                    const resp = await fetch(`${config.API_URL}/plat-versions/${existing.id}/image`, { method: 'POST', body: fd });
+                                    if (resp.ok) {
+                                      await fetchPlats();
+                                      // refresh dialog state from latest plats
+                                      const updated = (await (await fetch(`${config.API_URL}/plats`)).json()).find(p => p.id === editingPlat.id);
+                                      setEditingPlat(updated);
+                                      setNewPlat(n => ({ ...n, versions: updated.versions.map(v => ({ ...v, tagId: (v.tags && v.tags[0]) ? v.tags[0].id : null })) }));
+                                      showAlert('Image de version mise à jour');
+                                    } else {
+                                      const err = await resp.json();
+                                      showAlert(err.error || 'Erreur lors du téléchargement', 'error');
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                    showAlert('Erreur lors du téléchargement', 'error');
+                                  } finally {
+                                    e.target.value = '';
+                                  }
+                                }}
+                              />
+                            </Button>
+                            {version.image && (
+                              <>
+                                <img src={`${config.API_URL}${version.image}`} alt={`version ${version.size}`} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }} />
+                                <Button
+                                  variant="text"
+                                  color="error"
+                                  size="small"
+                                  onClick={async () => {
+                                    try {
+                                      const existing = editingPlat?.versions?.find(v => v.size === version.size);
+                                      if (!existing) return;
+                                      const resp = await fetch(`${config.API_URL}/plat-versions/${existing.id}/image`, { method: 'DELETE' });
+                                      if (resp.ok || resp.status === 204) {
+                                        await fetchPlats();
+                                        const updated = (await (await fetch(`${config.API_URL}/plats`)).json()).find(p => p.id === editingPlat.id);
+                                        setEditingPlat(updated);
+                                        setNewPlat(n => ({ ...n, versions: updated.versions.map(v => ({ ...v, tagId: (v.tags && v.tags[0]) ? v.tags[0].id : null })) }));
+                                        showAlert('Image de version supprimée');
+                                      } else {
+                                        const err = await resp.json();
+                                        showAlert(err.error || 'Erreur lors de la suppression', 'error');
+                                      }
+                                    } catch (err) {
+                                      console.error(err);
+                                      showAlert('Erreur lors de la suppression', 'error');
+                                    }
+                                  }}
+                                >
+                                  Supprimer l'image de cette version
+                                </Button>
+                              </>
+                            )}
+                          </Box>
+                        )}
                       </Box>
                     ))}
                     <Button

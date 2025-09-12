@@ -759,7 +759,7 @@ const BasketDialog = ({ open, onClose }) => {
               Vous devez être connecté pour passer commande
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-              Connectez-vous à votre compte pour finaliser votre commande et profiter d'une expérience personnalisée.
+              Connectez-vous à votre compte pour finaliser votre commande.
             </Typography>
             <Box
               sx={{
@@ -1025,43 +1025,43 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
                   const isAsap = slot.isAsap;
                   const hourEnabled = isAsap ? (settings.enableASAP !== 'false') : (orderHours.find(h => h.time === slot.label)?.enabled !== false);
                   return (
-                  <Button
-                    key={slot.value || 'asap'}
-                    variant={takeoutData.takeoutTime === slot.value ? 'contained' : 'outlined'}
-                    onClick={() => hourEnabled && setTakeoutData(prev => ({ ...prev, takeoutTime: slot.value }))}
-                  sx={{
-                    borderColor: takeoutData.takeoutTime === slot.value ? '#ff9800' : 'rgba(255, 152, 0, 0.3)',
-                    color: takeoutData.takeoutTime === slot.value ? '#fff' : (hourEnabled ? '#ff9800' : '#666'),
-                    backgroundColor: takeoutData.takeoutTime === slot.value ? '#ff9800' : 'transparent',
-                    '&:hover': {
-                      backgroundColor: hourEnabled ? (takeoutData.takeoutTime === slot.value ? '#f57c00' : 'rgba(255, 152, 0, 0.1)') : 'transparent',
-                      borderColor: '#ff9800',
-                    },
-                    minHeight: '40px',
-                    maxHeight: '40px',
-                    fontSize: '0.75rem',
-                    fontWeight: slot.isAsap ? 600 : 400,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    // Make ASAP button use normal styling but with green color
-                    ...(slot.isAsap && {
-                      backgroundColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : (hourEnabled ? 'rgba(76, 175, 80, 0.1)' : 'transparent'),
-                      borderColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : (hourEnabled ? 'rgba(76, 175, 80, 0.5)' : 'rgba(255,255,255,0.06)'),
-                      color: takeoutData.takeoutTime === slot.value ? '#fff' : (hourEnabled ? '#4caf50' : '#666'),
-                      '&:hover': {
-                        backgroundColor: takeoutData.takeoutTime === slot.value ? '#388e3c' : (hourEnabled ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
-                        borderColor: '#4caf50',
-                      },
-                    }),
-                    opacity: hourEnabled ? 1 : 0.5,
-                    pointerEvents: hourEnabled ? 'auto' : 'none',
-                  }}
-                >
-                  {slot.label}
-                </Button>
-              )}
-              )
+                    <Button
+                      key={slot.value || 'asap'}
+                      variant={takeoutData.takeoutTime === slot.value ? 'contained' : 'outlined'}
+                      onClick={() => hourEnabled && setTakeoutData(prev => ({ ...prev, takeoutTime: slot.value }))}
+                      sx={{
+                        borderColor: takeoutData.takeoutTime === slot.value ? '#ff9800' : 'rgba(255, 152, 0, 0.3)',
+                        color: takeoutData.takeoutTime === slot.value ? '#fff' : (hourEnabled ? '#ff9800' : '#666'),
+                        backgroundColor: takeoutData.takeoutTime === slot.value ? '#ff9800' : 'transparent',
+                        '&:hover': {
+                          backgroundColor: hourEnabled ? (takeoutData.takeoutTime === slot.value ? '#f57c00' : 'rgba(255, 152, 0, 0.1)') : 'transparent',
+                          borderColor: '#ff9800',
+                        },
+                        minHeight: '40px',
+                        maxHeight: '40px',
+                        fontSize: '0.75rem',
+                        fontWeight: slot.isAsap ? 600 : 400,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        // Make ASAP button use normal styling but with green color
+                        ...(slot.isAsap && {
+                          backgroundColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : (hourEnabled ? 'rgba(76, 175, 80, 0.1)' : 'transparent'),
+                          borderColor: takeoutData.takeoutTime === slot.value ? '#4caf50' : (hourEnabled ? 'rgba(76, 175, 80, 0.5)' : 'rgba(255,255,255,0.06)'),
+                          color: takeoutData.takeoutTime === slot.value ? '#fff' : (hourEnabled ? '#4caf50' : '#666'),
+                          '&:hover': {
+                            backgroundColor: takeoutData.takeoutTime === slot.value ? '#388e3c' : (hourEnabled ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
+                            borderColor: '#4caf50',
+                          },
+                        }),
+                        opacity: hourEnabled ? 1 : 0.5,
+                        pointerEvents: hourEnabled ? 'auto' : 'none',
+                      }}
+                    >
+                      {slot.label}
+                    </Button>
+                  );
+                })
               )}
             </Box>
           </FormControl>

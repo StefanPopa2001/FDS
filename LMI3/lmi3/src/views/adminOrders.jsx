@@ -46,6 +46,7 @@ import {
   ExpandLess as ExpandLessIcon,
   Refresh as RefreshIcon,
   Close as CloseIcon,
+  PhotoCamera as PhotoCameraIcon,
 } from "@mui/icons-material"
 import { useAuth } from "../contexts/AuthContext"
 import { format, isSameDay, differenceInMinutes } from "date-fns"
@@ -493,6 +494,41 @@ export default function AdminOrders() {
     }
   }
 
+  // Determine if an item has any associated image (plat image or selected version image)
+  const itemHasAnyImage = (item) => {
+    // Only plat items are relevant for this check
+    if (!item || !item.plat) return false
+
+    const platImage = item.plat.image
+    if (platImage) return true
+
+    const versions = Array.isArray(item.plat.versions) ? item.plat.versions : []
+
+    // Try to match the selected version using likely keys
+    let selectedVersion = null
+    if (item.versionId) {
+      selectedVersion = versions.find((v) => v.id === item.versionId)
+    }
+    if (!selectedVersion && item.versionSize) {
+      const target = String(item.versionSize).toLowerCase()
+      selectedVersion = versions.find((v) => {
+        const candidates = [v?.size, v?.name, v?.label, v?.taille]
+          .filter(Boolean)
+          .map((x) => String(x).toLowerCase())
+        return candidates.includes(target)
+      })
+    }
+
+    const versionImage = selectedVersion?.image
+    return Boolean(versionImage)
+  }
+
+  // Show a small camera icon when both plat image and the ordered version image are missing
+  const shouldShowMissingImageIcon = (item) => {
+    if (!item?.plat) return false
+    return !itemHasAnyImage(item)
+  }
+
   // Status options for dropdown
   const statusOptions = [
     { value: 0, label: "⏳ En attente" },
@@ -804,6 +840,9 @@ export default function AdminOrders() {
                     >
                       {item.isReady ? "✅" : "⏳"} {item.quantity}× {item.plat ? item.plat.name : item.sauce?.name || "Article"}
                     </Typography>
+                    {shouldShowMissingImageIcon(item) && (
+                      <PhotoCameraIcon fontSize="small" sx={{ color: theme.palette.text.secondary, opacity: 0.7 }} />
+                    )}
                     {hasMod && (
                       <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
                         {hasAdded && <Typography variant="caption" sx={{ color: theme.palette.success.main, fontSize: '0.7rem' }}>➕</Typography>}
@@ -1525,19 +1564,24 @@ export default function AdminOrders() {
                           />
 
                           <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                              <Typography
-                                component="span"
-                                sx={{
-                                  color: getStatusColor(selectedOrder.status),
-                                  fontSize: "1.3rem",
-                                  mr: 1,
-                                }}
-                              >
-                                {item.quantity}×
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    color: getStatusColor(selectedOrder.status),
+                                    fontSize: "1.3rem",
+                                    mr: 1,
+                                  }}
+                                >
+                                  {item.quantity}×
+                                </Typography>
+                                {item.plat ? item.plat.name : item.sauce.name}
                               </Typography>
-                              {item.plat ? item.plat.name : item.sauce.name}
-                            </Typography>
+                              {shouldShowMissingImageIcon(item) && (
+                                <PhotoCameraIcon fontSize="small" sx={{ color: theme.palette.text.secondary, opacity: 0.7 }} />
+                              )}
+                            </Box>
 
                             {item.versionSize && (
                               <Chip

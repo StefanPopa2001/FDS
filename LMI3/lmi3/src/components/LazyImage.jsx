@@ -7,11 +7,15 @@ const LazyImage = ({
   sx = {}, 
   onError, 
   placeholder = null,
+  priority = false, // above-the-fold hints
+  reduceMotion = false, // disable shimmer on mobile
+  sizes, // responsive sizes hint (optional)
   ...props 
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isInView, setIsInView] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [prefersReduced, setPrefersReduced] = useState(false);
   const imgRef = useRef();
 
   useEffect(() => {
@@ -24,7 +28,8 @@ const LazyImage = ({
       },
       {
         threshold: 0.1,
-        rootMargin: '50px'
+        // Start loading a bit earlier on small screens to mask latency
+        rootMargin: typeof window !== 'undefined' && window.innerWidth < 900 ? '200px' : '100px'
       }
     );
 
@@ -33,6 +38,18 @@ const LazyImage = ({
     }
 
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      setPrefersReduced(mq.matches);
+      const onChange = (e) => setPrefersReduced(e.matches);
+      mq.addEventListener?.('change', onChange);
+      return () => mq.removeEventListener?.('change', onChange);
+    } catch (_) {
+      // no-op on SSR or unsupported
+    }
   }, []);
 
   const handleLoad = () => {
@@ -54,6 +71,7 @@ const LazyImage = ({
         position: 'relative',
         width: '100%',
         height: '100%',
+        contain: 'layout paint size',
         ...sx
       }}
       {...props}
@@ -63,7 +81,7 @@ const LazyImage = ({
           variant="rectangular"
           width="100%"
           height="100%"
-          animation="wave"
+          animation={reduceMotion || prefersReduced ? false : 'wave'}
           sx={{
             bgcolor: 'rgba(255, 255, 255, 0.1)'
           }}
@@ -77,7 +95,7 @@ const LazyImage = ({
               variant="rectangular"
               width="100%"
               height="100%"
-              animation="wave"
+              animation={reduceMotion || prefersReduced ? false : 'wave'}
               sx={{
                 position: 'absolute',
                 top: 0,
@@ -91,6 +109,10 @@ const LazyImage = ({
             component="img"
             src={src}
             alt={alt}
+            loading={priority ? 'eager' : 'lazy'}
+            decoding="async"
+            fetchPriority={priority ? 'high' : 'low'}
+            sizes={sizes}
             onLoad={handleLoad}
             onError={handleError}
             sx={{

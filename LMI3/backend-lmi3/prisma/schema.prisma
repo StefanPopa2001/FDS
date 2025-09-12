@@ -48,6 +48,7 @@ model Tags {
   extras       Extra[] @relation("ExtraToTags")
   plats        Plat[]  @relation("PlatToTags")
   sauces       Sauce[] @relation("SauceToTags")
+  platVersions PlatVersion[] @relation("PlatVersionToTags")
 }
 
 model Ingredient {
@@ -114,6 +115,8 @@ model PlatVersion {
   extraPrice           Float
   platId               Int
   plat                 Plat    @relation(fields: [platId], references: [id], onDelete: Cascade)
+  image                String?
+  tags                 Tags[]  @relation("PlatVersionToTags")
 
   @@unique([platId, size])
   @@index([size])

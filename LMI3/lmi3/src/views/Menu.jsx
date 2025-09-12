@@ -51,6 +51,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   ExpandMore as ExpandMoreIcon,
+  ArrowBackIosNew as ArrowBackIosNewIcon,
+  ArrowForwardIos as ArrowForwardIosIcon,
 } from "@mui/icons-material"
 import { useBasket } from '../contexts/BasketContext'
 import LazyImage from '../components/LazyImage'
@@ -152,9 +154,9 @@ const Menu = () => {
   const [selectedSauce, setSelectedSauce] = useState(null)
   const [selectedPlat, setSelectedPlat] = useState(null)
   const [selectedVersion, setSelectedVersion] = useState(null)
-  const [selectedIngredients, setSelectedIngredients] = useState([]) // Track removed ingredients
+  const [selectedIngredients, setSelectedIngredients] = useState([])
   const [quantity, setQuantity] = useState(1)
-  const [itemMessage, setItemMessage] = useState("") // Message for individual items
+  const [itemMessage, setItemMessage] = useState("")
   // Throttle search input for better mobile performance
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
@@ -166,7 +168,7 @@ const Menu = () => {
   
   // New state for tag filtering
   const [searchableTags, setSearchableTags] = useState([])
-  const [selectedTagFilter, setSelectedTagFilter] = useState("all") // Single selection: "all" or tag id
+  const [selectedTagFilter, setSelectedTagFilter] = useState("all")
 
   // Settings state
   const [settings, setSettings] = useState({})
@@ -196,13 +198,50 @@ const Menu = () => {
     cursor: "pointer",
     position: "relative",
     overflow: "hidden",
-    transition: isMobile ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", // Disable transitions on mobile for better performance
-    "&:hover": isMobile ? {} : {
+  // Reduce paints on mobile
+  contain: isMobile ? "layout paint size style" : undefined,
+  willChange: isMobile ? undefined : "transform",
+  boxShadow: isMobile ? "none" : undefined,
+  transition: isMobile ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+  "&:hover": isMobile ? {} : {
       transform: "translateY(-8px) scale(1.02)",
       boxShadow: "0 20px 40px rgba(255, 152, 0, 0.15), 0 0 0 1px rgba(255, 152, 0, 0.1)",
       border: "1px solid rgba(255, 152, 0, 0.2)",
     },
   }), [isMobile])
+
+  // Normalized, less-restrictive search
+  const normalizeText = useCallback((str) => {
+    if (!str) return "";
+    // NFD split accents, remove diacritics, lowercase
+    let s = String(str)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    // Map ligatures
+    s = s.replace(/œ/g, 'oe').replace(/æ/g, 'ae');
+    // Apostrophes/dashes/underscores → space
+    s = s.replace(/[’'`´^~¨]/g, ' ') // apostrophes and similar
+         .replace(/[-–—_]/g, ' ');   // hyphen-like chars
+    // Collapse other punctuation to space, collapse spaces
+    s = s.replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return s;
+  }, []);
+
+  const searchMatch = useCallback((candidate, query) => {
+    const c = normalizeText(candidate);
+    const q = normalizeText(query);
+    if (!q) return true; // empty query -> no filter
+    if (c.includes(q)) return true;
+    const tokens = q.split(' ').filter(Boolean);
+    const significant = tokens.filter(t => t.length >= 2);
+    // If user typed only tiny tokens (like a single letter), fall back to includes on full q
+    if (significant.length === 0) {
+      return c.includes(q);
+    }
+    // AND semantics: all tokens must be present to avoid returning everything on whitespace
+    return significant.every(t => c.includes(t));
+  }, [normalizeText]);
 
   // Helper function to check if ordering is allowed
   const isOrderingDisabled = () => {
@@ -215,7 +254,6 @@ const Menu = () => {
       try {
         // Fetch all sauces without tag filtering (we'll filter client-side)
         let url = `${config.API_URL}/sauces`
-        
         const response = await fetch(url)
         if (response.ok) {
           let data = await response.json()
@@ -229,7 +267,12 @@ const Menu = () => {
       } catch (error) {
         console.error("Failed to fetch sauces:", error)
         // Mock data for demo purposes
-       
+        const mockData = [
+          { id: 1, name: "Ketchup", price: 0.5, available: true, deliveryAvailable: true, image: null, tags: [] },
+          { id: 2, name: "Mayonnaise", price: 0.5, available: true, deliveryAvailable: true, image: null, tags: [] },
+          { id: 3, name: "Barbecue", price: 0.8, available: true, deliveryAvailable: true, image: null, tags: [] },
+        ]
+        setSauces(mockData)
       }
     }
     fetchSauces()
@@ -395,12 +438,18 @@ const Menu = () => {
       filteredSauceData = filteredSauceData.filter((sauce) => sauce.available && sauce.deliveryAvailable)
     }
 
-    if (searchTerm) {
-      filteredSauceData = filteredSauceData.filter((sauce) => sauce.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    if (debouncedSearchTerm) {
+      filteredSauceData = filteredSauceData.filter((sauce) => {
+        const haystack = [
+          sauce.name,
+          ...(Array.isArray(sauce.tags) ? sauce.tags.map(t => t.nom || t.name || '') : []),
+        ].join(' ');
+        return searchMatch(haystack, debouncedSearchTerm);
+      })
     }
 
     return filteredSauceData
-  }, [sauces, selectedTagFilter, filterType, searchTerm])
+  }, [sauces, selectedTagFilter, filterType, debouncedSearchTerm])
 
   const filteredPlats = useMemo(() => {
     let filteredPlatData = [...plats]
@@ -408,12 +457,11 @@ const Menu = () => {
     // Tag filtering: Show items if they match the selected tag, or show all if "all" is selected
     if (selectedTagFilter !== "all") {
       filteredPlatData = filteredPlatData.filter((plat) => {
-        // If plat has no tags, hide it when a specific tag filter is active
-        if (!plat.tags || plat.tags.length === 0) {
-          return false
-        }
-        // Show plat if it has the selected tag
-        return plat.tags.some(tag => tag.id === parseInt(selectedTagFilter))
+        const tagId = Number(selectedTagFilter)
+        // Match if the plat itself has the tag OR any of its versions has the tag
+        const platHas = Array.isArray(plat.tags) && plat.tags.some(tag => tag.id === tagId)
+        const versionHas = Array.isArray(plat.versions) && plat.versions.some(v => Array.isArray(v.tags) && v.tags.some(t => t.id === tagId))
+        return platHas || versionHas
       })
     }
 
@@ -434,12 +482,17 @@ const Menu = () => {
       filteredPlatData = filteredPlatData.filter((plat) => plat.speciality)
     }
 
-    if (searchTerm) {
-      filteredPlatData = filteredPlatData.filter((plat) => plat.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    if (debouncedSearchTerm) {
+      filteredPlatData = filteredPlatData.filter((plat) => {
+        const tagTexts = Array.isArray(plat.tags) ? plat.tags.map(t => t.nom || t.name || '') : [];
+        const versionTexts = Array.isArray(plat.versions) ? plat.versions.map(v => v.size || '') : [];
+        const haystack = [plat.name, ...tagTexts, ...versionTexts].join(' ');
+        return searchMatch(haystack, debouncedSearchTerm);
+      })
     }
 
     return filteredPlatData
-  }, [plats, selectedTagFilter, settings, filterType, searchTerm])
+  }, [plats, selectedTagFilter, settings, filterType, debouncedSearchTerm])
 
   const handleSauceClick = (sauce) => {
     setSelectedSauce(sauce)
@@ -448,12 +501,16 @@ const Menu = () => {
 
   const handlePlatClick = (plat) => {
     setSelectedPlat(plat)
-    // Auto-select the first version if there's only one, otherwise set to null
-    if (plat.versions && plat.versions.length === 1) {
-      setSelectedVersion(plat.versions[0])
-    } else {
-      setSelectedVersion(null)
+    // Preselect version by active tag if available; otherwise if single version, select it
+    let initialVersion = null
+    if (selectedTagFilter !== "all" && Array.isArray(plat.versions)) {
+      const tagId = Number(selectedTagFilter)
+      initialVersion = plat.versions.find(v => Array.isArray(v.tags) && v.tags.some(t => t.id === tagId)) || null
     }
+    if (!initialVersion && plat.versions && plat.versions.length === 1) {
+      initialVersion = plat.versions[0]
+    }
+    setSelectedVersion(initialVersion)
     setSelectedSauceForPlat(null)
     setSelectedExtras([]) // Reset selected extras
     setSelectedIngredients([]) // Reset removed ingredients
@@ -463,15 +520,475 @@ const Menu = () => {
 
   const [selectedSauceForPlat, setSelectedSauceForPlat] = useState(null)
   const [selectedExtras, setSelectedExtras] = useState([]) // Array of selected extra IDs
+  // Version image carousel state
+  const [currentImageIdx, setCurrentImageIdx] = useState(0)
 
   const handleSauceSelect = (sauceId) => {
     const sauce = sauces.find(s => s.id === sauceId);
     setSelectedSauceForPlat(sauce || null);
   }
 
+  // Build version image list for the selected plat
+  const versionImages = useMemo(() => {
+    if (!selectedPlat) return [];
+    const withImages = (selectedPlat.versions || [])
+      .filter(v => v && v.image)
+      .map(v => ({
+        id: v.id,
+        label: v.size,
+        src: v.image.startsWith("http") ? v.image : `${config.API_URL}${v.image}`,
+      }));
+    if (withImages.length === 0 && selectedPlat.image) {
+      // Fallback to base plat image if no version images exist
+      return [{ id: null, label: "Plat", src: selectedPlat.image.startsWith("http") ? selectedPlat.image : `${config.API_URL}${selectedPlat.image}` }];
+    }
+    return withImages;
+  }, [selectedPlat]);
+
+  // Reset carousel when opening a new plat
+  useEffect(() => {
+    setCurrentImageIdx(0);
+  }, [selectedPlat]);
+
+  // When selecting a version, if it has an image, sync carousel to it
+  useEffect(() => {
+    if (!selectedPlat || !selectedVersion) return;
+    const withImages = (selectedPlat.versions || []).filter(v => v && v.image);
+    const idx = withImages.findIndex(v => v.id === selectedVersion.id);
+    if (idx >= 0) setCurrentImageIdx(idx);
+  }, [selectedVersion, selectedPlat]);
+
+  const showPrevImage = () => {
+    if (versionImages.length <= 1) return;
+    const nextIdx = (currentImageIdx - 1 + versionImages.length) % versionImages.length;
+    setCurrentImageIdx(nextIdx);
+    // If the image corresponds to a version, select it for consistent pricing
+    const target = versionImages[nextIdx];
+    const v = (selectedPlat?.versions || []).find(ver => ver.id === target.id);
+    if (v) handleVersionSelect(v);
+  };
+
+  const showNextImage = () => {
+    if (versionImages.length <= 1) return;
+    const nextIdx = (currentImageIdx + 1) % versionImages.length;
+    setCurrentImageIdx(nextIdx);
+    const target = versionImages[nextIdx];
+    const v = (selectedPlat?.versions || []).find(ver => ver.id === target.id);
+    if (v) handleVersionSelect(v);
+  };
+
   const handleVersionSelect = (version) => {
     setSelectedVersion(version)
   }
+
+  // Render helpers to avoid duplicating card markup and allow conditional animation wrappers
+  const renderSauceCard = useCallback((sauce) => (
+    <Card
+      sx={{ ...cardStyles, opacity: sauce.available ? 1 : 0.6, backdropFilter: isMobile ? "none" : undefined, boxShadow: isMobile ? "none" : undefined }}
+      onClick={() => handleSauceClick(sauce)}
+    >
+      {/* Image Section */}
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          height: { xs: 120, md: 160 },
+          flexShrink: 0,
+        }}
+      >
+        {/* Centered chip for unavailable */}
+        {!sauce.available && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 3,
+              bgcolor: "rgba(244, 67, 54, 0.85)",
+              px: { xs: 1.5, md: 3 },
+              py: { xs: 0.5, md: 1 },
+              borderRadius: 2,
+              boxShadow: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: { xs: "0.95rem", md: "1.15rem" },
+                textAlign: "center",
+                letterSpacing: 0.5,
+              }}
+            >
+              Victime de son succès
+            </Typography>
+          </Box>
+        )}
+
+        {/* Top right: Truck for delivery */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 2,
+            bgcolor: !sauce.available
+              ? "rgba(244, 67, 54, 0.85)"
+              : sauce.deliveryAvailable
+                ? "rgba(76, 175, 80, 0.85)"
+                : "rgba(244, 67, 54, 0.85)",
+            borderRadius: "50%",
+            p: 0.5,
+            boxShadow: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {!sauce.available ? (
+            <Box sx={{ position: "relative", display: "inline-flex" }}>
+              <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
+              <BlockIcon sx={{
+                color: "#fff",
+                fontSize: { xs: 18, md: 22 },
+                position: "absolute",
+                top: 0,
+                left: 0,
+                opacity: 0.8,
+              }} />
+            </Box>
+          ) : sauce.deliveryAvailable ? (
+            <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 } }} />
+          ) : (
+            <Box sx={{ position: "relative", display: "inline-flex" }}>
+              <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
+              <BlockIcon sx={{
+                color: "#fff",
+                fontSize: { xs: 18, md: 22 },
+                position: "absolute",
+                top: 0,
+                left: 0,
+                opacity: 0.8,
+              }} />
+            </Box>
+          )}
+        </Box>
+
+    {sauce.image && !imageErrors[sauce.id] ? (
+          <LazyImage
+            src={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
+            alt={sauce.name}
+      reduceMotion={isMobile || isTablet}
+      sizes={isMobile ? '(max-width: 600px) 50vw' : '(min-width: 600px) 220px'}
+            onError={() => handleImageError(sauce.id)}
+            placeholder={
+              <PlaceholderImage
+                alt={sauce.name}
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                }}
+              />
+            }
+            sx={{
+              width: "100%",
+              height: "100%",
+              objectFit: "fill",
+            }}
+          />
+        ) : (
+          <PlaceholderImage
+            alt={sauce.name}
+            sx={{
+              width: "100%",
+              height: "100%",
+            }}
+          />
+        )}
+      </Box>
+
+      {/* Content Section */}
+      <CardContent
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          p: { xs: 1.5, md: 2 },
+          height: { xs: 80, md: 120 },
+          overflow: "hidden",
+        }}
+      >
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: "0.9rem", md: "1.1rem" },
+              mb: 1,
+              lineHeight: 1.3,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {sauce.name}
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mt: "auto",
+          }}
+        >
+          <Typography
+            variant="h6"
+            color="primary"
+            sx={{
+              fontWeight: 800,
+              fontSize: { xs: "1rem", md: "1.2rem" },
+            }}
+          >
+            €{sauce.price.toFixed(2)}
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  ), [handleSauceClick, imageErrors, isMobile])
+
+  const renderPlatCard = useCallback((plat, index) => (
+    <Card
+      sx={{
+        ...cardStyles,
+        backdropFilter: isMobile ? "none" : undefined,
+        boxShadow: isMobile ? "none" : undefined,
+      }}
+      onClick={() => handlePlatClick(plat)}
+    >
+      {/* Image Section */}
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          height: { xs: 120, md: 160 },
+          flexShrink: 0,
+        }}
+      >
+        {/* Top left: Star for speciality */}
+        {plat.speciality && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 8,
+              left: 8,
+              zIndex: 2,
+              bgcolor: "rgba(255, 152, 0, 0.85)",
+              borderRadius: "50%",
+              p: 0.5,
+              boxShadow: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <StarIcon sx={{ color: "#fff700", fontSize: { xs: 18, md: 22 } }} />
+          </Box>
+        )}
+
+        {/* Centered chip for unavailable */}
+        {!plat.available && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 3,
+              bgcolor: "rgba(244, 67, 54, 0.85)",
+              px: { xs: 1.5, md: 3 },
+              py: { xs: 0.5, md: 1 },
+              borderRadius: 2,
+              boxShadow: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: { xs: "0.95rem", md: "1.15rem" },
+                textAlign: "center",
+                letterSpacing: 0.5,
+              }}
+            >
+              Victime de son succès
+            </Typography>
+          </Box>
+        )}
+
+        {/* Top right: Truck for delivery */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 2,
+            bgcolor: !plat.available
+              ? "rgba(244, 67, 54, 0.85)"
+              : plat.deliveryAvailable
+                ? "rgba(76, 175, 80, 0.85)"
+                : "rgba(244, 67, 54, 0.85)",
+            borderRadius: "50%",
+            p: 0.5,
+            boxShadow: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {!plat.available ? (
+            <Box sx={{ position: "relative", display: "inline-flex" }}>
+              <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
+              <BlockIcon sx={{
+                color: "#fff",
+                fontSize: { xs: 18, md: 22 },
+                position: "absolute",
+                top: 0,
+                left: 0,
+                opacity: 0.8,
+              }} />
+            </Box>
+          ) : plat.deliveryAvailable ? (
+            <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 } }} />
+          ) : (
+            <Box sx={{ position: "relative", display: "inline-flex" }}>
+              <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
+              <BlockIcon sx={{
+                color: "#fff",
+                fontSize: { xs: 18, md: 22 },
+                position: "absolute",
+                top: 0,
+                left: 0,
+                opacity: 0.8,
+              }} />
+            </Box>
+          )}
+        </Box>
+
+        {(() => {
+          let chosen = plat.image || null
+          if (selectedTagFilter !== "all" && Array.isArray(plat.versions)) {
+            const tagId = Number(selectedTagFilter)
+            const tagged = plat.versions.find(v => v.image && Array.isArray(v.tags) && v.tags.some(t => t.id === tagId))
+            if (tagged && tagged.image) chosen = tagged.image
+          }
+          if (!chosen && Array.isArray(plat.versions)) {
+            const firstWithImage = plat.versions.find(v => v.image)
+            if (firstWithImage) chosen = firstWithImage.image
+          }
+          const src = chosen ? (chosen.startsWith("http") ? chosen : `${config.API_URL}${chosen}`) : null
+      return src && !imageErrors[plat.id] ? (
+            <LazyImage
+              src={src}
+              alt={plat.name}
+        reduceMotion={isMobile || isTablet}
+        sizes={isMobile ? '(max-width: 600px) 50vw' : '(min-width: 600px) 220px'}
+              onError={() => handleImageError(plat.id)}
+              placeholder={
+                <PlaceholderImage
+                  alt={plat.name}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                />
+              }
+              sx={{
+                width: "100%",
+                height: "100%",
+                objectFit: "fill",
+              }}
+            />
+          ) : (
+            <PlaceholderImage
+              alt={plat.name}
+              sx={{
+                width: "100%",
+                height: "100%",
+              }}
+            />
+          )
+        })()}
+      </Box>
+
+      {/* Content Section */}
+      <CardContent
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          p: { xs: 1.5, md: 2 },
+          height: { xs: 80, md: 120 },
+          overflow: "hidden",
+        }}
+      >
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: "0.9rem", md: "1.1rem" },
+              mb: 1,
+              lineHeight: 1.3,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {plat.name}
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mt: "auto",
+          }}
+        >
+          <Typography
+            variant="h6"
+            color="primary"
+            sx={{
+              fontWeight: 800,
+              fontSize: { xs: "1rem", md: "1.2rem" },
+            }}
+          >
+            {plat.versions && plat.versions.length > 1 
+              ? `À partir de €${plat.price.toFixed(2)}`
+              : `€${plat.price.toFixed(2)}`
+            }
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  ), [cardStyles, handlePlatClick, imageErrors, isMobile, selectedTagFilter])
 
   // Handle ingredient selection/deselection
   const handleIngredientToggle = (ingredientId) => {
@@ -603,7 +1120,7 @@ const Menu = () => {
       >
         <Container maxWidth="xl" sx={{ py: 4 }}>
           {/* Header */}
-          <Fade in timeout={800}>
+          {isMobile || isTablet ? (
             <Box sx={{ mb: 6, textAlign: "center" }}>
               <Typography
                 variant="h2"
@@ -661,18 +1178,76 @@ const Menu = () => {
                 </Alert>
               )}
             </Box>
-          </Fade>
+          ) : (
+            <Fade in timeout={800}>
+              <Box sx={{ mb: 6, textAlign: "center" }}>
+                <Typography
+                  variant="h2"
+                  component="h1"
+                  gutterBottom
+                  sx={{
+                    fontWeight: 800,
+                    background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                    backgroundClip: "text",
+                    textFillColor: "transparent",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    mb: 2,
+                    fontSize: { xs: "2.5rem", md: "3.5rem" },
+                  }}
+                >
+                  Rudy et Fanny
+                </Typography>
+                <Typography
+                  variant="h5"
+                  color="text.secondary"
+                  sx={{
+                    mb: 4,
+                    fontSize: { xs: "1.2rem", md: "1.5rem" },
+                    fontStyle: "italic",
+                    background: "linear-gradient(45deg, #ffb74d 30%, #ffffff 70%)",
+                    backgroundClip: "text",
+                    textFillColor: "transparent",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  {settings.menuMessage || "Découvrez notre sélection de spécialités"}
+                </Typography>
+                {(settings.enableOnlinePickup === "false" || settings.enableOnlineDelivery === "false") && (
+                  <Alert 
+                    severity="warning" 
+                    sx={{ 
+                      mb: 3, 
+                      maxWidth: 600, 
+                      mx: "auto",
+                      background: "rgba(255, 152, 0, 0.1)",
+                      border: "1px solid rgba(255, 152, 0, 0.3)",
+                      color: "#ffb74d"
+                    }}
+                  >
+                    {settings.enableOnlinePickup === "false" && settings.enableOnlineDelivery === "false" 
+                      ? "🚫 Les commandes en ligne sont temporairement désactivées."
+                      : settings.enableOnlinePickup === "false" 
+                        ? "🚫 Les commandes à emporter en ligne sont temporairement désactivées."
+                        : "🚫 Les commandes en livraison en ligne sont temporairement désactivées."
+                    }
+                  </Alert>
+                )}
+              </Box>
+            </Fade>
+          )}
 
           {/* Filters */}
-          <Fade in timeout={1000}>
+          {(isMobile || isTablet) ? (
             <Paper
               elevation={0}
               sx={{
                 p: 3,
                 mb: 4,
                 borderRadius: 3,
-                background: "rgba(26, 26, 26, 0.8)",
-                backdropFilter: "blur(20px)",
+        background: "rgba(26, 26, 26, 0.9)",
+                backdropFilter: "none",
                 border: "1px solid rgba(255, 255, 255, 0.08)",
               }}
             >
@@ -790,7 +1365,131 @@ const Menu = () => {
                 )}
               </Box>
             </Paper>
-          </Fade>
+          ) : (
+            <Fade in timeout={1000}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3,
+                  mb: 4,
+                  borderRadius: 3,
+                  background: "rgba(26, 26, 26, 0.8)",
+                  backdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                {/* content duplicated from above */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 3,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: isMobile ? "column" : "row",
+                      gap: 2,
+                      alignItems: "stretch",
+                    }}
+                  >
+                    <TextField
+                      fullWidth
+                      placeholder="Rechercher une spécialité..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      InputProps={{
+                        startAdornment: <SearchIcon sx={{ mr: 1, color: "primary.main" }} />,
+                      }}
+                      sx={{
+                        flex: 3,
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 2,
+                          "&:hover fieldset": {
+                            borderColor: "primary.main",
+                          },
+                        },
+                      }}
+                    />
+                    <FormControl sx={{ flex: 1, minWidth: 200 }}>
+                      <InputLabel>Filtrer par</InputLabel>
+                      <Select
+                        value={filterType}
+                        label="Filtrer par"
+                        onChange={(e) => setFilterType(e.target.value)}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        <MenuItem value="all">Tout afficher</MenuItem>
+                        <MenuItem value="available">Disponible</MenuItem>
+                        <MenuItem value="delivery">Disponible en livraison</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  {searchableTags && searchableTags.length > 0 && (
+                    <Box>
+                      <Typography variant="h6" sx={{ mb: 2, color: "primary.main", textAlign: "center" }}>
+                        Filtrer par catégories
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
+                        <Chip
+                          label="Tout"
+                          onClick={() => handleTagFilterSelect("all")}
+                          color={selectedTagFilter === "all" ? "primary" : "default"}
+                          variant={selectedTagFilter === "all" ? "filled" : "outlined"}
+                          sx={{
+                            fontWeight: 600,
+                            borderRadius: 2,
+                            transition: "all 0.3s ease",
+                            minWidth: 120,
+                            height: 40,
+                            "&:hover": {
+                              transform: "scale(1.05)",
+                            },
+                          }}
+                        />
+                        {searchableTags.map((tag) => (
+                          <Chip
+                            key={tag.id}
+                            label={
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    fontSize: "1.1em",
+                                    textShadow: "0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)",
+                                    filter: "drop-shadow(0 0 4px rgba(255,255,255,0.4)) drop-shadow(0 2px 8px rgba(0,0,0,0.8))",
+                                  }}
+                                >
+                                  {tag.emoji}
+                                </Typography>
+                                <Typography component="span">
+                                  {tag.nom}
+                                </Typography>
+                              </Box>
+                            }
+                            onClick={() => handleTagFilterSelect(tag.id)}
+                            color={selectedTagFilter === tag.id ? "primary" : "default"}
+                            variant={selectedTagFilter === tag.id ? "filled" : "outlined"}
+                            sx={{
+                              fontWeight: 600,
+                              borderRadius: 2,
+                              transition: "all 0.3s ease",
+                              minWidth: 120,
+                              height: 40,
+                              "&:hover": {
+                                transform: "scale(1.05)",
+                              },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              </Paper>
+            </Fade>
+          )}
 
           {/* Combined Grid for Sauces and Plats */}
           <Box
@@ -810,418 +1509,32 @@ const Menu = () => {
           >
             {/* Render Sauces */}
             {filteredSauces.map((sauce, index) => (
-              <Zoom in timeout={300 + index * 50} key={`sauce-${sauce.id}`}>
-                <Card
-                  sx={{
-                    width: { xs: 160, md: 220 },
-                    height: { xs: 200, md: 280 },
-                    display: "flex",
-                    flexDirection: "column",
-                    cursor: "pointer",
-                    position: "relative",
-                    overflow: "hidden",
-                    opacity: sauce.available ? 1 : 0.6,
-                    transition: isMobile ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    "&:hover": isMobile ? {} : {
-                      transform: "translateY(-8px) scale(1.02)",
-                      boxShadow: "0 20px 40px rgba(255, 152, 0, 0.15), 0 0 0 1px rgba(255, 152, 0, 0.1)",
-                      border: "1px solid rgba(255, 152, 0, 0.2)",
-                    },
-                  }}
-                  onClick={() => handleSauceClick(sauce)}
-                >
-                  {/* Image Section */}
-                  <Box
-                    sx={{
-                      position: "relative",
-                      width: "100%",
-                      height: { xs: 120, md: 160 }, // Fixed image height
-                      flexShrink: 0,
-                    }}
-                  >
-                    {/* Centered chip for unavailable */}
-                    {!sauce.available && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: "50%",
-                          left: "50%",
-                          transform: "translate(-50%, -50%)",
-                          zIndex: 3,
-                          bgcolor: "rgba(244, 67, 54, 0.85)",
-                          px: { xs: 1.5, md: 3 },
-                          py: { xs: 0.5, md: 1 },
-                          borderRadius: 2,
-                          boxShadow: 4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: { xs: "0.95rem", md: "1.15rem" },
-                            textAlign: "center",
-                            letterSpacing: 0.5,
-                          }}
-                        >
-                          Victime de son succès
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {/* Top right: Truck for delivery */}
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        zIndex: 2,
-                        bgcolor: !sauce.available
-                          ? "rgba(244, 67, 54, 0.85)" // red if not available
-                          : sauce.deliveryAvailable
-                            ? "rgba(76, 175, 80, 0.85)" // green if available for delivery
-                            : "rgba(244, 67, 54, 0.85)", // red if not available for delivery
-                        borderRadius: "50%",
-                        p: 0.5,
-                        boxShadow: 2,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {!sauce.available ? (
-                        // Red truck with cross if not available
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
-                          <BlockIcon sx={{
-                            color: "#fff",
-                            fontSize: { xs: 18, md: 22 },
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            opacity: 0.8,
-                          }} />
-                        </Box>
-                      ) : sauce.deliveryAvailable ? (
-                        // Green truck if available for delivery
-                        <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 } }} />
-                      ) : (
-                        // Red truck with cross if not available for delivery
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
-                          <BlockIcon sx={{
-                            color: "#fff",
-                            fontSize: { xs: 18, md: 22 },
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            opacity: 0.8,
-                          }} />
-                        </Box>
-                      )}
-                    </Box>
-
-                    {sauce.image && !imageErrors[sauce.id] ? (
-                      <LazyImage
-                        src={sauce.image.startsWith("http") ? sauce.image : `${config.API_URL}${sauce.image}`}
-                        alt={sauce.name}
-                        onError={() => handleImageError(sauce.id)}
-                        placeholder={
-                          <PlaceholderImage
-                            alt={sauce.name}
-                            sx={{
-                              width: "100%",
-                              height: "100%",
-                            }}
-                          />
-                        }
-                        sx={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "fill",
-                        }}
-                      />
-                    ) : (
-                      <PlaceholderImage
-                        alt={sauce.name}
-                        sx={{
-                          width: "100%",
-                          height: "100%",
-                        }}
-                      />
-                    )}
-                  </Box>
-
-                  {/* Content Section */}
-                  <CardContent
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      p: { xs: 1.5, md: 2 },
-                      height: { xs: 80, md: 120 }, // Fixed content height
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography
-                        variant="h6"
-                        component="h2"
-                        sx={{
-                          fontWeight: 700,
-                          fontSize: { xs: "0.9rem", md: "1.1rem" },
-                          mb: 1,
-                          lineHeight: 1.3,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {sauce.name}
-                      </Typography>
-                    </Box>
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mt: "auto",
-                      }}
-                    >
-                      <Typography
-                        variant="h6"
-                        color="primary"
-                        sx={{
-                          fontWeight: 800,
-                          fontSize: { xs: "1rem", md: "1.2rem" },
-                        }}
-                      >
-                        €{sauce.price.toFixed(2)}
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Zoom>
+              (isMobile || isTablet)
+                ? (
+                  <React.Fragment key={`sauce-${sauce.id}`}>
+                    {renderSauceCard(sauce)}
+                  </React.Fragment>
+                )
+                : (
+                  <Zoom in timeout={300 + index * 50} key={`sauce-${sauce.id}`}>
+                    {renderSauceCard(sauce)}
+                  </Zoom>
+                )
             ))}
 
             {/* Render Plats */}
             {filteredPlats.map((plat, index) => (
-              <Zoom in timeout={300 + (filteredSauces.length + index) * 50} key={`plat-${plat.id}`}>
-                <Card
-                  sx={cardStyles}
-                  onClick={() => handlePlatClick(plat)}
-                >
-                  {/* Image Section */}
-                  <Box
-                    sx={{
-                      position: "relative",
-                      width: "100%",
-                      height: { xs: 120, md: 160 }, // Fixed image height
-                      flexShrink: 0,
-                    }}
-                  >
-                    {/* Top left: Star for speciality */}
-                    {plat.speciality && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 8,
-                          left: 8,
-                          zIndex: 2,
-                          bgcolor: "rgba(255, 152, 0, 0.85)",
-                          borderRadius: "50%",
-                          p: 0.5,
-                          boxShadow: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <StarIcon sx={{ color: "#fff700", fontSize: { xs: 18, md: 22 } }} />
-                      </Box>
-                    )}
-
-                    {/* Centered chip for unavailable */}
-                    {!plat.available && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: "50%",
-                          left: "50%",
-                          transform: "translate(-50%, -50%)",
-                          zIndex: 3,
-                          bgcolor: "rgba(244, 67, 54, 0.85)",
-                          px: { xs: 1.5, md: 3 },
-                          py: { xs: 0.5, md: 1 },
-                          borderRadius: 2,
-                          boxShadow: 4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: { xs: "0.95rem", md: "1.15rem" },
-                            textAlign: "center",
-                            letterSpacing: 0.5,
-                          }}
-                        >
-                          Victime de son succès
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {/* Top right: Truck for delivery */}
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        zIndex: 2,
-                        bgcolor: !plat.available
-                          ? "rgba(244, 67, 54, 0.85)" // red if not available
-                          : plat.deliveryAvailable
-                            ? "rgba(76, 175, 80, 0.85)" // green if available for delivery
-                            : "rgba(244, 67, 54, 0.85)", // red if not available for delivery
-                        borderRadius: "50%",
-                        p: 0.5,
-                        boxShadow: 2,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {!plat.available ? (
-                        // Red truck with cross if not available
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
-                          <BlockIcon sx={{
-                            color: "#fff",
-                            fontSize: { xs: 18, md: 22 },
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            opacity: 0.8,
-                          }} />
-                        </Box>
-                      ) : plat.deliveryAvailable ? (
-                        // Green truck if available for delivery
-                        <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 } }} />
-                      ) : (
-                        // Red truck with cross if not available for delivery
-                        <Box sx={{ position: "relative", display: "inline-flex" }}>
-                          <TruckIcon sx={{ color: "#fff", fontSize: { xs: 18, md: 22 }, opacity: 0.7 }} />
-                          <BlockIcon sx={{
-                            color: "#fff",
-                            fontSize: { xs: 18, md: 22 },
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            opacity: 0.8,
-                          }} />
-                        </Box>
-                      )}
-                    </Box>
-
-                    {plat.image && !imageErrors[plat.id] ? (
-                      <LazyImage
-                        src={plat.image.startsWith("http") ? plat.image : `${config.API_URL}${plat.image}`}
-                        alt={plat.name}
-                        onError={() => handleImageError(plat.id)}
-                        placeholder={
-                          <PlaceholderImage
-                            alt={plat.name}
-                            sx={{
-                              width: "100%",
-                              height: "100%",
-                            }}
-                          />
-                        }
-                        sx={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "fill",
-                        }}
-                      />
-                    ) : (
-                      <PlaceholderImage
-                        alt={plat.name}
-                        sx={{
-                          width: "100%",
-                          height: "100%",
-                        }}
-                      />
-                    )}
-                  </Box>
-
-                  {/* Content Section */}
-                  <CardContent
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      p: { xs: 1.5, md: 2 },
-                      height: { xs: 80, md: 120 }, // Fixed content height
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography
-                        variant="h6"
-                        component="h2"
-                        sx={{
-                          fontWeight: 700,
-                          fontSize: { xs: "0.9rem", md: "1.1rem" },
-                          mb: 1,
-                          lineHeight: 1.3,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {plat.name}
-                      </Typography>
-                    </Box>
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mt: "auto",
-                      }}
-                    >
-                      <Typography
-                        variant="h6"
-                        color="primary"
-                        sx={{
-                          fontWeight: 800,
-                          fontSize: { xs: "1rem", md: "1.2rem" },
-                        }}
-                      >
-                        {plat.versions && plat.versions.length > 1 
-                          ? `À partir de €${plat.price.toFixed(2)}`
-                          : `€${plat.price.toFixed(2)}`
-                        }
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Zoom>
+              (isMobile || isTablet)
+                ? <React.Fragment key={`plat-${plat.id}`}>{renderPlatCard(plat, index)}</React.Fragment>
+                : (
+                  <Zoom in timeout={300 + (filteredSauces.length + index) * 50} key={`plat-${plat.id}`}>
+                    {renderPlatCard(plat, index)}
+                  </Zoom>
+                )
             ))}
           </Box>
+
+          {/* Removed load-more controls per request */}
 
           {/* Empty State */}
           {filteredSauces.length === 0 && filteredPlats.length === 0 && (
@@ -1423,20 +1736,66 @@ const Menu = () => {
                 </DialogTitle>
 
                 <DialogContent sx={{ pt: 3 }}>
-                  {/* Plat Image */}
-                  {selectedPlat.image && (
-                    <Box sx={{ mb: 3, borderRadius: 2, overflow: "hidden" }}>
-                      <CardMedia
-                        component="img"
-                        image={selectedPlat.image.startsWith("http") ? selectedPlat.image : `${config.API_URL}${selectedPlat.image}`}
-                        alt={selectedPlat.name}
+                  {/* Plat/Version Images with simple navigation */}
+                  {versionImages.length > 0 && (
+                    <>
+                      <Box
                         sx={{
-                          width: "100%",
-                          height: 200,
-                          objectFit: "cover",
+                          position: "relative",
+                          mb: 2,
+                          borderRadius: 2,
+                          overflow: "hidden",
+                          // Responsive aspect ratio so images aren't squished
+                          aspectRatio: { xs: '4 / 3', md: '16 / 9' },
+                          maxHeight: { xs: 260, md: '50vh' },
+                          backgroundColor: 'rgba(255, 255, 255, 0.04)'
                         }}
-                      />
-                    </Box>
+                      >
+                        <CardMedia
+                          component="img"
+                          image={versionImages[currentImageIdx].src}
+                          alt={`${selectedPlat.name} - ${versionImages[currentImageIdx].label}`}
+                          sx={{ width: "100%", height: "100%", objectFit: "cover", display: 'block' }}
+                        />
+                        {versionImages.length > 1 && (
+                          <>
+                            <IconButton
+                              aria-label="previous image"
+                              onClick={showPrevImage}
+                              sx={{
+                                position: "absolute",
+                                top: "50%",
+                                left: 8,
+                                transform: "translateY(-50%)",
+                                backgroundColor: "rgba(0,0,0,0.4)",
+                                color: "#fff",
+                                "&:hover": { backgroundColor: "rgba(0,0,0,0.6)" },
+                              }}
+                            >
+                              <ArrowBackIosNewIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              aria-label="next image"
+                              onClick={showNextImage}
+                              sx={{
+                                position: "absolute",
+                                top: "50%",
+                                right: 8,
+                                transform: "translateY(-50%)",
+                                backgroundColor: "rgba(0,0,0,0.4)",
+                                color: "#fff",
+                                "&:hover": { backgroundColor: "rgba(0,0,0,0.6)" },
+                              }}
+                            >
+                              <ArrowForwardIosIcon fontSize="small" />
+                            </IconButton>
+                          </>
+                        )}
+                      </Box>
+                      <Typography variant="body2" align="center" sx={{ mb: 2, color: "text.secondary" }}>
+                        Version: {versionImages[currentImageIdx]?.label}
+                      </Typography>
+                    </>
                   )}
 
                   {/* Plat Description */}
@@ -1873,7 +2232,7 @@ const Menu = () => {
         </Container>
       </Box>
     </ThemeProvider>
-  )
-}
+  );
+};
 
 export default React.memo(Menu)

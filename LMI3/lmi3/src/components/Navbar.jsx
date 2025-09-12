@@ -314,7 +314,7 @@ const Navbar = () => {
             <Box sx={{ flexGrow: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
               {/* Notifications - Only for logged in users */}
               {isLoggedIn && (
-                <NotificationCenter userId={user?.userId} />
+                <NotificationCenter userId={user?.id} />
               )}
               
               {/* Basket Icon - Always visible */}

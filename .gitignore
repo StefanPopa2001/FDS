@@ -28,3 +28,6 @@ LMI3/backend-lmi3/public/uploads/
 
 ## Local tooling scripts
 LMI3/auto-deploy.sh
+LMI3/auto-deploy.log
+LMI3/start-auto-deploy.sh
+LMI3/stop-auto-deploy.sh

@@ -1531,6 +1531,17 @@ const Menu = () => {
               mb: 4,
             }}
           >
+            {/* Render Plats */}
+            {filteredPlats.map((plat, index) => (
+              (isMobile || isTablet)
+                ? <React.Fragment key={`plat-${plat.id}`}>{renderPlatCard(plat, index)}</React.Fragment>
+                : (
+                  <Zoom in timeout={300 + index * 50} key={`plat-${plat.id}`}>
+                    {renderPlatCard(plat, index)}
+                  </Zoom>
+                )
+            ))}
+
             {/* Render Sauces */}
             {filteredSauces.map((sauce, index) => (
               (isMobile || isTablet)
@@ -1540,19 +1551,8 @@ const Menu = () => {
                   </React.Fragment>
                 )
                 : (
-                  <Zoom in timeout={300 + index * 50} key={`sauce-${sauce.id}`}>
+                  <Zoom in timeout={300 + (filteredPlats.length + index) * 50} key={`sauce-${sauce.id}`}>
                     {renderSauceCard(sauce)}
-                  </Zoom>
-                )
-            ))}
-
-            {/* Render Plats */}
-            {filteredPlats.map((plat, index) => (
-              (isMobile || isTablet)
-                ? <React.Fragment key={`plat-${plat.id}`}>{renderPlatCard(plat, index)}</React.Fragment>
-                : (
-                  <Zoom in timeout={300 + (filteredSauces.length + index) * 50} key={`plat-${plat.id}`}>
-                    {renderPlatCard(plat, index)}
                   </Zoom>
                 )
             ))}

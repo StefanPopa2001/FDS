@@ -21,3 +21,31 @@ The Docker Compose file is configured to use the root `.env` file for both backe
 ### Local Development:
 
 For local development, you can create a `.env.local` file (which should be git-ignored) to override any values from the main `.env` file.
+
+## Auto-deploy watcher
+
+A simple watcher script detects new commits on `origin/main`. When it finds updates, it will:
+
+- Fast-sync the working copy to `origin/main` (discarding local changes in the deployment clone)
+- Ensure the Postgres container is up
+- Run `npx prisma db push` inside the backend service (non-destructive schema sync)
+- Run `./rebuild-containers.sh`
+
+Usage:
+
+```bash
+# Watch every 30s (default)
+./auto-deploy.sh
+
+# Change interval
+WATCH_INTERVAL=120 ./auto-deploy.sh
+
+# One-off check and deploy if needed
+RUN_ONCE=1 ./auto-deploy.sh
+```
+
+Notes:
+
+- Requires either `docker compose` or `docker-compose` in PATH.
+- The script uses only `prisma db push` and never runs migrations.
+- It targets the compose file at `Docker/docker-compose.yaml` and uses the `backend` service to execute Prisma.

@@ -25,3 +25,6 @@ LMI3/backend.log
 
 ## Uploads (ignore entire folder rather than individual files)
 LMI3/backend-lmi3/public/uploads/
+
+## Local tooling scripts
+LMI3/auto-deploy.sh

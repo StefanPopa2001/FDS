@@ -593,12 +593,13 @@ app.put("/users/password", authenticate, async (req, res) => {
     // Update password and salt for the authenticated user
     await prisma.user.update({
       where: { id: req.user.userId },
-      data: { password, salt }
+      data: { password,salt } 
     });
 
     // Optionally, we could invalidate other sessions/tokens if we tracked them
     return res.status(200).json({ success: true });
   } catch (error) {
+
     console.error('Error changing password:', error);
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -671,7 +672,7 @@ app.put("/users/:id", authenticate, async (req, res) => {
         }
       });
       if (existingUserName) {
-        return res.status(409).json({ error: "Username already exists" });
+        return res.status(409).json({ error: "Username already exists." });
       }
     }
 

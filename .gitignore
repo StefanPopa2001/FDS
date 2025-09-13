@@ -1,3 +1,4 @@
+## Project-specific ignores
 Notes webb/notes.txt
 Templates SQL/brSMH22h.html.part
 Templates SQL/eleve.mwb
@@ -10,11 +11,17 @@ Templates SQL/popa_todolist.zip
 Templates SQL/standtir.mwb
 Templates SQL/standtir.mwb.bak
 acme.json
-LMI3/lmi3/.env
-LMI3/lmi3/src/config.js
-LMI3/lmi3/src/config.js
-LMI3/.env
-LMI3/frontend.log
-LMI3/.env
-LMI3/.env
+
+## Secrets and environment files
+# Ignore any .env file anywhere
 .env
+
+## Frontend config that contains secrets
+LMI3/lmi3/src/config.js
+
+## Logs
+LMI3/frontend.log
+LMI3/backend.log
+
+## Uploads (ignore entire folder rather than individual files)
+LMI3/backend-lmi3/public/uploads/

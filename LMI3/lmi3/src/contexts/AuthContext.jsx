@@ -143,6 +143,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const changePassword = async (newPassword) => {
+    try {
+      const storedToken = localStorage.getItem('authToken');
+      if (!storedToken) return { success: false, error: 'Not authenticated' };
+
+      const salt = CryptoJS.lib.WordArray.random(128 / 8);
+      const hashedPassword = CryptoJS.SHA256(newPassword + salt).toString();
+
+      const res = await fetch(`${config.API_URL}/users/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${storedToken}`,
+        },
+        body: JSON.stringify({ password: hashedPassword, salt: salt.toString() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { success: false, error: data.error || 'Failed to change password' };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: 'Network error' };
+    }
+  };
+
   const getUserInitials = () => {
     if (!user || !user.name) return 'U';
     return user.name
@@ -166,6 +193,7 @@ export const AuthProvider = ({ children }) => {
     getUserInitials,
     isAdmin,
     isLoggedIn: !!user,
+    changePassword,
   };
 
   return (

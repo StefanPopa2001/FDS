@@ -35,7 +35,9 @@ import {
   Restaurant as RestaurantIcon,
   Save as SaveIcon,
   Close as CloseIcon,
+  Lock as LockIcon,
 } from "@mui/icons-material"
+import { useAuth } from '../contexts/AuthContext'
 import config from '../config'
 
 const darkTheme = createTheme({
@@ -147,9 +149,13 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
   const [editForm, setEditForm] = useState({
     phone: ''
   })
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const { changePassword } = useAuth()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
@@ -208,6 +214,12 @@ export default function UserProfile() {
     setEditDialogOpen(true)
   }
 
+  const openPasswordDialog = () => {
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordDialogOpen(true)
+  }
+
   const handleSaveChanges = async () => {
     try {
       // Get user token
@@ -255,6 +267,28 @@ export default function UserProfile() {
     } catch (err) {
       console.error('Error updating profile:', err)
       alert(err.message || 'Erreur lors de la mise à jour du profil')
+    }
+  }
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      alert('Veuillez remplir les deux champs de mot de passe')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      alert('Les mots de passe ne correspondent pas')
+      return
+    }
+    if (newPassword.length < 6) {
+      alert('Le mot de passe doit contenir au moins 6 caractères')
+      return
+    }
+    const res = await changePassword(newPassword)
+    if (res.success) {
+      alert('Mot de passe mis à jour avec succès')
+      setPasswordDialogOpen(false)
+    } else {
+      alert(res.error || 'Échec de la mise à jour du mot de passe')
     }
   }
 
@@ -442,21 +476,39 @@ export default function UserProfile() {
                         <PersonIcon />
                         Informations personnelles
                       </Typography>
-                      <Button
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={handleEditClick}
-                        sx={{
-                          borderColor: "primary.main",
-                          color: "primary.main",
-                          "&:hover": {
-                            borderColor: "primary.light",
-                            backgroundColor: "rgba(255, 152, 0, 0.1)",
-                          },
-                        }}
-                      >
-                        Modifier
-                      </Button>
+                      <Box>
+                        <Button
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={handleEditClick}
+                          sx={{
+                            borderColor: "primary.main",
+                            color: "primary.main",
+                            "&:hover": {
+                              borderColor: "primary.light",
+                              backgroundColor: "rgba(255, 152, 0, 0.1)",
+                            },
+                          }}
+                        >
+                          Modifier
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          startIcon={<LockIcon />}
+                          onClick={openPasswordDialog}
+                          sx={{
+                            borderColor: "primary.main",
+                            color: "primary.main",
+                            ml: 1,
+                            "&:hover": {
+                              borderColor: "primary.light",
+                              backgroundColor: "rgba(255, 152, 0, 0.1)",
+                            },
+                          }}
+                        >
+                          Changer le mot de passe
+                        </Button>
+                      </Box>
                     </Box>
 
                     <Box sx={{ space: 2 }}>
@@ -645,6 +697,126 @@ export default function UserProfile() {
             <Button
               variant="contained"
               onClick={handleSaveChanges}
+              startIcon={<SaveIcon />}
+              sx={{
+                background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                "&:hover": {
+                  background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
+                },
+              }}
+            >
+              Sauvegarder
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Change Password Dialog */}
+        <Dialog
+          open={passwordDialogOpen}
+          onClose={() => setPasswordDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
+              backdropFilter: "blur(20px)",
+              border: "1px solid rgba(255, 152, 0, 0.2)",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              color: "primary.main",
+              fontWeight: 700,
+            }}
+          >
+            Changer le mot de passe
+            <IconButton onClick={() => setPasswordDialogOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          
+          <DialogContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 1 }}>
+              <TextField
+                label="Nouveau mot de passe"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                fullWidth
+                variant="outlined"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "rgba(255, 152, 0, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(255, 152, 0, 0.5)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "primary.main",
+                    },
+                  },
+                  "& .MuiInputLabel-root": {
+                    color: "text.secondary",
+                    "&.Mui-focused": {
+                      color: "primary.main",
+                    },
+                  },
+                }}
+              />
+              <TextField
+                label="Confirmer le mot de passe"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                fullWidth
+                variant="outlined"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "rgba(255, 152, 0, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(255, 152, 0, 0.5)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "primary.main",
+                    },
+                  },
+                  "& .MuiInputLabel-root": {
+                    color: "text.secondary",
+                    "&.Mui-focused": {
+                      color: "primary.main",
+                    },
+                  },
+                }}
+              />
+            </Box>
+          </DialogContent>
+          
+          <DialogActions sx={{ p: 3, gap: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setPasswordDialogOpen(false)}
+              sx={{
+                borderColor: "text.secondary",
+                color: "text.secondary",
+                "&:hover": {
+                  borderColor: "text.primary",
+                  backgroundColor: "rgba(255, 255, 255, 0.05)",
+                },
+              }}
+            >
+              Annuler
+            </Button>
+            
+            <Button
+              variant="contained"
+              onClick={handleChangePassword}
               startIcon={<SaveIcon />}
               sx={{
                 background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",

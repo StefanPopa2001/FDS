@@ -568,6 +568,42 @@ app.get("/users", authenticate, async (req, res) => {
   }
 });
 
+// Change password (self, authenticated) - defined BEFORE generic /users/:id
+app.put("/users/password", authenticate, async (req, res) => {
+  try {
+    const { password, salt } = req.body;
+
+    // Validate inputs (expect already-hashed password and a new salt)
+    if (!password || !salt) {
+      return res.status(400).json({ error: "Password and salt are required" });
+    }
+
+    if (typeof password !== 'string' || typeof salt !== 'string') {
+      return res.status(400).json({ error: "Invalid input types" });
+    }
+
+    // Basic length sanity checks (hashed SHA-256 hex is length 64; salt length can vary)
+    if (password.length < 32) {
+      return res.status(400).json({ error: "Invalid password format" });
+    }
+    if (salt.length < 16) {
+      return res.status(400).json({ error: "Invalid salt format" });
+    }
+
+    // Update password and salt for the authenticated user
+    await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { password, salt }
+    });
+
+    // Optionally, we could invalidate other sessions/tokens if we tracked them
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Update user (admin only)
 app.put("/users/:id", authenticate, async (req, res) => {
   try {

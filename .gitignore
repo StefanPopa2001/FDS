@@ -18,3 +18,4 @@ LMI3/frontend.log
 LMI3/.env
 LMI3/.env
 .env
+LMI3/auto-deploy.sh

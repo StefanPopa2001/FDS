@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import config from '../config';
+import { safeNotification } from '../utils/safeNotification';
+import { playNotificationSound, primeNotificationSound } from '../utils/notificationSound';
 
 export const useOrderNotifications = (userId, orderId = null) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const audioRef = useRef(null);
+  const audioRef = useRef(null); // legacy ref (can remove later)
   const pollingIntervalRef = useRef(null);
 
   // Function to show browser notification
   const showBrowserNotification = useCallback((notification) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
+  if (safeNotification.permission() === 'granted') {
       try {
         // Customize notification based on type and status
         let title = notification.title;
@@ -63,7 +65,7 @@ export const useOrderNotifications = (userId, orderId = null) => {
           icon = '/favicon.ico';
         }
 
-        const browserNotif = new Notification(title, {
+        const browserNotif = safeNotification.show(title, {
           body: body,
           icon: icon,
           badge: '/favicon.ico',
@@ -83,29 +85,30 @@ export const useOrderNotifications = (userId, orderId = null) => {
           ? 15000 // 15 seconds for important statuses (ready, delivered)
           : 8000;  // 8 seconds for others
 
-        setTimeout(() => {
-          browserNotif.close();
-        }, autoCloseTime);
+        if (browserNotif) {
+          setTimeout(() => {
+            browserNotif.close();
+          }, autoCloseTime);
+        }
 
         // Handle clicks on the notification
-        browserNotif.onclick = () => {
-          window.focus(); // Focus the window
-          browserNotif.close();
-          
-          // Navigate to order history if it's an order notification
-          if (notification.data && notification.data.orderId) {
-            console.log('Notification clicked for order:', notification.data.orderId);
-            // Optional: you could use react-router's navigate here if available
-            window.location.hash = '#/orders';
-          }
-        };
+        if (browserNotif) {
+          browserNotif.onclick = () => {
+            window.focus(); // Focus the window
+            browserNotif.close();
+            if (notification.data && notification.data.orderId) {
+              console.log('Notification clicked for order:', notification.data.orderId);
+              window.location.hash = '#/orders';
+            }
+          };
+        }
 
         console.log('Browser notification shown:', title);
       } catch (error) {
         console.error('Error showing browser notification:', error);
       }
     } else {
-      console.log('Cannot show browser notification - permission:', Notification.permission);
+      console.log('Cannot show browser notification - permission:', safeNotification.permission());
     }
   }, []);
 
@@ -153,11 +156,7 @@ export const useOrderNotifications = (userId, orderId = null) => {
                 showBrowserNotification(notification);
                 
                 // Play audio for new notifications
-                if (audioRef.current) {
-                  audioRef.current.play().catch(e => 
-                    console.log('Audio play failed:', e)
-                  );
-                }
+                playNotificationSound();
               }
             });
           }
@@ -288,8 +287,8 @@ export const useOrderNotifications = (userId, orderId = null) => {
 
   useEffect(() => {
     // Initialize audio
-    audioRef.current = new Audio('/notification.mp3');
-    audioRef.current.preload = 'auto';
+  // prime sound in case user interacts later (additional auto-prime also in utility)
+  primeNotificationSound();
 
     // Fetch initial notifications
     if (userId) {

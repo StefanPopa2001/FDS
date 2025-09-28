@@ -11,6 +11,7 @@ require("dotenv").config();
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
+const logger = require('./logger');
 
 const { PrismaClient } = require("@prisma/client");
 let prisma;
@@ -18,9 +19,9 @@ try {
   prisma = new PrismaClient({
     log: ['query', 'error', 'warn'],
   });
-  console.log('Prisma Client initialized successfully');
+  logger.info('Prisma Client initialized successfully');
 } catch (error) {
-  console.error('Failed to initialize Prisma Client:', error);
+  logger.error('Failed to initialize Prisma Client:', { message: error?.message, code: error?.code, stack: error?.stack });
   process.exit(1);
 }
 
@@ -86,7 +87,7 @@ const clientSockets = new Map();
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  logger.info('Socket client connected', { socketId: socket.id });
 
   // Handle admin joining
   socket.on('join-admin', async (data) => {
@@ -103,7 +104,7 @@ io.on('connection', (socket) => {
       if (user && user.type === 1) {
         adminSockets.set(socket.id, { socket, userId: user.id });
         socket.join('admin-room');
-        console.log('Admin joined:', socket.id);
+  logger.info('Admin joined', { socketId: socket.id });
         // Send confirmation
         socket.emit('admin-connected', { success: true });
       } else {
@@ -113,7 +114,7 @@ io.on('connection', (socket) => {
         });
       }
     } catch (error) {
-      console.error('Admin join error:', error);
+  logger.error('Admin join error', { message: error?.message, stack: error?.stack });
       socket.emit('admin-connected', { 
         success: false, 
         error: 'Invalid token' 
@@ -124,14 +125,12 @@ io.on('connection', (socket) => {
   // Handle client joining
   socket.on('join-client', async (data) => {
     const { token } = data;
-    console.log('=== CLIENT JOIN REQUEST ===');
-    console.log('Socket ID:', socket.id);
-    console.log('Token received:', token ? 'YES' : 'NO');
+  logger.info('Client join request', { socketId: socket.id, tokenReceived: !!token });
     
     try {
       // Verify the JWT token
       const decoded = jwt.verify(token, SECRET_KEY);
-      console.log('Token decoded successfully. User ID:', decoded.userId);
+  logger.debug('Token decoded successfully', { userId: decoded.userId });
       
       // Check if user exists
       const user = await prisma.user.findUnique({
@@ -141,29 +140,25 @@ io.on('connection', (socket) => {
       if (user) {
         clientSockets.set(socket.id, { socket, userId: user.id });
         socket.join(`user-${user.id}`);
-        console.log('Client joined successfully. User ID:', user.id, 'Email:', user.email);
-        console.log('Client joined room:', `user-${user.id}`);
-        console.log('Total client sockets:', clientSockets.size);
-        console.log('All client sockets:', Array.from(clientSockets.entries()).map(([id, data]) => ({ socketId: id, userId: data.userId })));
-        console.log('Socket rooms for this socket:', Array.from(socket.rooms));
+  logger.info('Client joined successfully', { userId: user.id, email: user.email, room: `user-${user.id}`, totalClientSockets: clientSockets.size });
         
         // Send confirmation
         socket.emit('client-connected', { success: true });
       } else {
-        console.log('User not found in database');
+  logger.warn('Client join: user not found');
         socket.emit('client-connected', { 
           success: false, 
           error: 'User not found' 
         });
       }
     } catch (error) {
-      console.error('Client join error:', error.message);
+  logger.error('Client join error', { message: error?.message });
       socket.emit('client-connected', { 
         success: false, 
         error: 'Invalid token' 
       });
     }
-    console.log('=== CLIENT JOIN REQUEST END ===');
+  logger.debug('Client join request end', { socketId: socket.id });
   });
 
   // Handle joining order chat room
@@ -171,7 +166,7 @@ io.on('connection', (socket) => {
     const { orderId, userId, userType } = data;
     if (orderId) {
       socket.join(`order-chat-${orderId}`);
-      console.log(`User ${userId} (${userType}) joined chat room for order ${orderId}`);
+  logger.info('Joined order chat room', { userId, userType, orderId });
       
       // Emit confirmation back to the client
       socket.emit('join-order-chat', { 
@@ -212,13 +207,54 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     adminSockets.delete(socket.id);
     clientSockets.delete(socket.id);
-    console.log('Client disconnected:', socket.id);
+  logger.info('Socket client disconnected', { socketId: socket.id });
   });
 });
 
 // Function to broadcast order updates to admin clients
 function broadcastOrderUpdate(orderData, type = 'orderUpdate') {
   io.to('admin-room').emit(type, orderData);
+}
+
+// Helper: notify all admins (type=1) with a notification, excluding optional userId
+async function notifyAdmins({ prisma, excludeUserId = null, type, title, message, data }) {
+  try {
+    const admins = await prisma.user.findMany({ where: { type: 1, enabled: true }, select: { id: true } });
+    if (!admins.length) {
+      logger.warn('notifyAdmins: aucun admin trouvé');
+      return [];
+    }
+    const created = [];
+    for (const admin of admins) {
+      if (excludeUserId && admin.id === excludeUserId) continue; // skip self if needed
+      const notification = await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          type,
+          title,
+            message,
+          data,
+          isRead: false
+        }
+      });
+      const payload = {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        data: notification.data,
+        isRead: notification.isRead,
+        createdAt: notification.createdAt
+      };
+      io.to('admin-room').emit('new-notification', payload);
+      created.push(notification.id);
+    }
+    logger.info('notifyAdmins: notifications créées', { count: created.length, ids: created });
+    return created;
+  } catch (err) {
+    logger.error('notifyAdmins: erreur', { message: err?.message, stack: err?.stack });
+    return [];
+  }
 }
 
 // Security middleware
@@ -240,6 +276,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// HTTP request logging
+app.use((req, res, next) => {
+  const start = Date.now();
+  const { method, originalUrl } = req;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('HTTP', { method, url: originalUrl, status: res.statusCode, durationMs: duration, ip });
+  });
+  next();
+});
+
 app.use(express.json());
 app.use(cors({
   origin: ['https://rudyetfanny.be', 'http://168.231.81.212', 'http://localhost:3000'],
@@ -251,8 +299,40 @@ app.use(cors({
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
+// Endpoint for frontend to push anomaly/error logs
+app.post('/client-log', async (req, res) => {
+  try {
+    const { level = 'info', message, context } = req.body || {};
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ ok: false, error: 'Missing message' });
+    }
+    const safeCtx = (context && typeof context === 'object') ? context : {};
+    switch (level) {
+      case 'error':
+        logger.frontendError(message, safeCtx);
+        break;
+      case 'warn':
+        logger.frontendWarn(message, safeCtx);
+        break;
+      case 'debug':
+        logger.frontendDebug(message, safeCtx);
+        break;
+      case 'log':
+        logger.frontendInfo(message, safeCtx);
+        break;
+      default:
+        logger.frontendInfo(message, safeCtx);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error('Failed to record client log', { message: e?.message });
+    res.status(500).json({ ok: false });
+  }
+});
+
 // Health endpoint for readiness/liveness checks
 app.get('/health', (req, res) => {
+  logger.debug('Health check');
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
@@ -824,7 +904,7 @@ app.put("/users/profile", authenticate, async (req, res) => {
 // Create a new order
 app.post("/orders", authenticate, async (req, res) => {
   try {
-    console.log('Received order request:', JSON.stringify(req.body, null, 2));
+  logger.info('Received order request', { body: req.body });
     const { items, deliveryAddress, paymentMethod, notes, OrderType, takeoutTime } = req.body;
 
     // Validate input
@@ -838,6 +918,19 @@ app.post("/orders", authenticate, async (req, res) => {
     const orderItems = [];
 
     for (const item of items) {
+      // Ensure versionSizeStr is always in scope for this item
+      let versionSizeStr = null;
+      // Basic item validation
+      if (!item || typeof item !== 'object') {
+        return res.status(400).json({ error: "Invalid item format" });
+      }
+
+      // Validate quantity
+      const quantity = parseInt(item.quantity, 10);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return res.status(400).json({ error: "Each item must have a valid positive quantity" });
+      }
+
       let itemPrice = 0;
 
       // Check if this is a dish order (has platId)
@@ -852,11 +945,19 @@ app.post("/orders", authenticate, async (req, res) => {
           return res.status(400).json({ error: `Plat with id ${item.platId} not found` });
         }
 
-        // Get the version price
+        // Get the version price and store version size as a string
         let basePrice = plat.price; // Use the plat's base price
         if (plat.versions && plat.versions.length > 0) {
-          const version = plat.versions.find(v => v.size === item.version) || plat.versions[0];
-          basePrice += version.extraPrice; // Add the extra price for the version
+          // Determine requested size from payload (string or object)
+          const requestedSize = (typeof item.version === 'string'
+            ? item.version
+            : (item.version && typeof item.version.size === 'string' ? item.version.size : undefined)) || undefined;
+          // Choose matching version or fallback to first
+          const chosenVersion = (requestedSize
+            ? plat.versions.find(v => v.size === requestedSize)
+            : undefined) || plat.versions[0];
+          basePrice += chosenVersion.extraPrice; // Add the extra price for the version
+          versionSizeStr = chosenVersion.size || null;
         }
 
         itemPrice = basePrice;
@@ -874,28 +975,56 @@ app.post("/orders", authenticate, async (req, res) => {
       }
 
       // Add sauce price if any
+      let validatedSauceId = null;
       if (item.sauceId) {
         const sauce = await prisma.sauce.findUnique({ where: { id: item.sauceId } });
-        if (sauce) itemPrice += sauce.price;
+        if (!sauce) {
+          return res.status(400).json({ error: `Sauce with id ${item.sauceId} not found` });
+        }
+        validatedSauceId = sauce.id;
+        itemPrice += sauce.price;
       }
 
       // Add extra price if any
+      let validatedExtraId = null;
       if (item.extraId) {
         const extra = await prisma.extra.findUnique({ where: { id: item.extraId } });
-        if (extra) itemPrice += extra.price;
+        if (!extra) {
+          return res.status(400).json({ error: `Extra with id ${item.extraId} not found` });
+        }
+        validatedExtraId = extra.id;
+        itemPrice += extra.price;
       }
 
       // Add plat sauce price if any
+      let validatedPlatSauceId = null;
       if (item.platSauceId) {
         const platSauce = await prisma.sauce.findUnique({ where: { id: item.platSauceId } });
-        if (platSauce) itemPrice += platSauce.price;
+        if (!platSauce) {
+          return res.status(400).json({ error: `Plat sauce with id ${item.platSauceId} not found` });
+        }
+        validatedPlatSauceId = platSauce.id;
+        itemPrice += platSauce.price;
       }
 
       // Add prices for added extras
       if (item.addedExtras && item.addedExtras.length > 0) {
         for (const extraId of item.addedExtras) {
           const extra = await prisma.extra.findUnique({ where: { id: extraId } });
-          if (extra) itemPrice += extra.price;
+          if (!extra) {
+            return res.status(400).json({ error: `Added extra with id ${extraId} not found` });
+          }
+          itemPrice += extra.price;
+        }
+      }
+
+      // Validate removed ingredients exist to prevent FK errors later
+      if (item.removedIngredients && item.removedIngredients.length > 0) {
+        for (const ingredientId of item.removedIngredients) {
+          const ingredient = await prisma.ingredient.findUnique({ where: { id: ingredientId } });
+          if (!ingredient) {
+            return res.status(400).json({ error: `Ingredient with id ${ingredientId} not found` });
+          }
         }
       }
 
@@ -904,19 +1033,20 @@ app.post("/orders", authenticate, async (req, res) => {
 
       orderItems.push({
         platId: item.platId || null,
-        quantity: item.quantity,
+        quantity,
         unitPrice: itemPrice,
         totalPrice: itemTotal,
-        versionSize: item.version || null,
-        sauceId: item.sauceId || null,
-        extraId: item.extraId || null,
-        platSauceId: item.platSauceId || null,
+        versionSize: versionSizeStr,
+        sauceId: validatedSauceId,
+        extraId: validatedExtraId,
+        platSauceId: validatedPlatSauceId,
         message: item.message ? sanitizeInput(item.message) : null
       });
     }
 
     // For takeout orders, no delivery fee
-    const deliveryFee = OrderType === 'takeout' ? 0 : (totalPrice >= 25.00 ? 0 : 2.50);
+    const normalizedOrderType = (OrderType === 'delivery' || OrderType === 'takeout') ? OrderType : 'takeout';
+    const deliveryFee = normalizedOrderType === 'takeout' ? 0 : (totalPrice >= 25.00 ? 0 : 2.50);
     const finalTotal = totalPrice + deliveryFee;
 
     // Create the order
@@ -926,7 +1056,7 @@ app.post("/orders", authenticate, async (req, res) => {
         totalPrice: finalTotal,
         status: 0, // En attente
         clientMessage: notes || null,
-        OrderType: OrderType || 'takeout',
+        OrderType: normalizedOrderType,
         takeoutTime: takeoutTime ? new Date(takeoutTime) : null,
         items: {
           create: orderItems
@@ -998,6 +1128,16 @@ app.post("/orders", authenticate, async (req, res) => {
       }
     });
 
+    // Notify admins of new order (French wording)
+    await notifyAdmins({
+      prisma,
+      excludeUserId: order.userId, // avoid self if admin orders
+      type: 'order_new',
+      title: 'Nouvelle commande',
+      message: `Commande #${order.id} créée`,
+      data: { orderId: order.id, totalPrice: order.totalPrice, orderType: order.OrderType }
+    });
+
     // Broadcast new order to admin clients
     broadcastOrderUpdate({
       type: 'newOrder',
@@ -1013,8 +1153,15 @@ app.post("/orders", authenticate, async (req, res) => {
     }, 'newOrder');
 
   } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ error: "Internal server error" });
+    // Provide more context in logs for easier debugging
+    logger.error('Error creating order', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
+    // Avoid leaking details to clients in production
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -1309,7 +1456,7 @@ app.get("/admin/orders", authenticate, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching admin orders:', error);
+    logger.error('Error fetching admin orders', { message: error?.message, stack: error?.stack });
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1317,17 +1464,14 @@ app.get("/admin/orders", authenticate, async (req, res) => {
 // Update order status (admin only)
 app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
   try {
-    console.log('=== ORDER STATUS UPDATE STARTED ===');
-    console.log('Order ID:', req.params.orderId);
-    console.log('New status:', req.body.status);
-    console.log('Notes:', req.body.notes);
+    logger.info('ORDER STATUS UPDATE STARTED', { orderId: req.params.orderId, status: req.body.status, notes: req.body.notes });
     
     const requestingUser = await prisma.user.findUnique({
       where: { id: req.user.userId }
     });
 
     if (!requestingUser || requestingUser.type !== 1) {
-      console.log('Unauthorized access attempt');
+      logger.warn('Unauthorized access attempt on status update');
       return res.status(403).json({ error: "Unauthorized access" });
     }
 
@@ -1336,7 +1480,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
 
     // Validate status
     if (status < 0 || status > 7) {
-      console.log('Invalid status value:', status);
+      logger.warn('Invalid status value', { status });
       return res.status(400).json({ error: "Invalid status value" });
     }
 
@@ -1346,12 +1490,12 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       updateData.restaurantMessage = notes.trim();
     }
     
-    console.log('Updating order with data:', updateData);
+    logger.debug('Updating order with data', updateData);
     const updatedOrder = await prisma.order.update({
       where: { id: parseInt(orderId) },
       data: updateData
     });
-    console.log('Order updated successfully');
+    logger.info('Order updated successfully', { orderId: updatedOrder.id, status: updatedOrder.status });
 
     // Add status history entry
     await prisma.orderStatusHistory.create({
@@ -1362,7 +1506,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
         notes: notes || null
       }
     });
-    console.log('Status history created');
+  logger.debug('Status history created');
 
     res.json({
       message: "Status updated successfully",
@@ -1374,16 +1518,16 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
     });
 
     // Get the order with user information
-    console.log('Fetching order with user information...');
+    logger.debug('Fetching order with user information');
     const orderWithUser = await prisma.order.findUnique({
       where: { id: parseInt(orderId) },
       include: { user: true }
     });
-    console.log('Order with user:', orderWithUser ? { id: orderWithUser.id, userId: orderWithUser.userId, userEmail: orderWithUser.user?.email } : 'Not found');
+    logger.debug('Order with user', orderWithUser ? { id: orderWithUser.id, userId: orderWithUser.userId, userEmail: orderWithUser.user?.email } : 'Not found');
 
     // Create notification for the client if the order has a user
     if (orderWithUser && orderWithUser.userId) {
-      console.log('Creating notification for user:', orderWithUser.userId);
+  logger.info('Creating notification for user', { userId: orderWithUser.userId });
       const notification = await prisma.notification.create({
         data: {
           userId: orderWithUser.userId,
@@ -1399,12 +1543,10 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
           isRead: false
         }
       });
-      console.log('Notification created:', notification.id);
+  logger.info('Notification created', { notificationId: notification.id });
 
       // Send notification via websocket to the specific user
-      console.log('Emitting notification via websocket to user room:', `user-${orderWithUser.userId}`);
-      console.log('Available socket rooms:', Array.from(io.sockets.adapter.rooms.keys()));
-      console.log('Sockets in user room:', io.sockets.adapter.rooms.get(`user-${orderWithUser.userId}`));
+  logger.debug('Emitting notification via websocket', { room: `user-${orderWithUser.userId}` });
       
       const notificationData = {
         id: notification.id,
@@ -1415,28 +1557,28 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
         isRead: notification.isRead,
         createdAt: notification.createdAt
       };
-      console.log('Notification data to emit:', notificationData);
+  logger.debug('Notification data to emit', notificationData);
       
       // Emit to the user room
       io.to(`user-${orderWithUser.userId}`).emit('new-notification', notificationData);
-      console.log('Notification emitted via websocket');
+  logger.debug('Notification emitted via websocket');
       
       // Also try emitting to all connected client sockets as a fallback
       let notificationSent = false;
       for (const [socketId, clientData] of clientSockets) {
         if (clientData.userId === orderWithUser.userId) {
-          console.log('Sending notification directly to client socket:', socketId);
+          logger.debug('Sending notification directly to client socket', { socketId });
           clientData.socket.emit('new-notification', notificationData);
           notificationSent = true;
         }
       }
-      console.log('Direct socket notification sent:', notificationSent);
+      logger.debug('Direct socket notification sent', { sent: notificationSent });
     } else {
-      console.log('No user associated with order, skipping notification');
+      logger.debug('No user associated with order, skipping notification');
     }
 
     // Broadcast order status update to admin clients
-    console.log('Broadcasting to admin clients...');
+  logger.debug('Broadcasting to admin clients');
     broadcastOrderUpdate({
       type: 'statusUpdate',
       orderId: updatedOrder.id,
@@ -1446,7 +1588,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
     }, 'orderStatusUpdate');
 
     // Emit to the specific order chat room for real-time client notification
-    console.log('Emitting to order chat room:', `order-chat-${updatedOrder.id}`);
+  logger.debug('Emitting to order chat room', { room: `order-chat-${updatedOrder.id}` });
     io.to(`order-chat-${updatedOrder.id}`).emit('order-status-update', {
       orderId: updatedOrder.id,
       status: updatedOrder.status,
@@ -1455,9 +1597,9 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       timestamp: new Date()
     });
     
-    console.log('=== ORDER STATUS UPDATE COMPLETED ===');
+    logger.info('ORDER STATUS UPDATE COMPLETED', { orderId: parseInt(orderId) });
   } catch (error) {
-    console.error('Error updating order status:', error);
+    logger.error('Error updating order status', { message: error?.message, code: error?.code, meta: error?.meta, stack: error?.stack });
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -3162,29 +3304,25 @@ app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
       }
     });
     
-    // Create notification for the recipient (opposite of sender type)
+    // Notifications logic:
+    //  - If sender is 'shop': notify the client (existing behavior retained)
+    //  - If sender is 'client': notify all admins (new requirement), DO NOT notify client themselves
     if (order && order.userId) {
-      const recipientType = senderType === 'client' ? 'shop' : 'client';
-      const notificationTitle = senderType === 'client' ? 'Nouveau message client' : 'Nouveau message restaurant';
-      const notificationMessage = `Nouveau message concernant la commande #${orderId}`;
-      
-      const notification = await prisma.notification.create({
-        data: {
-          userId: order.userId,
-          type: 'chat',
-          title: notificationTitle,
-          message: notificationMessage,
-          data: {
-            orderId: parseInt(orderId),
-            chatMessageId: chatMessage.id,
-            senderType: senderType,
-            message: message
-          }
-        }
-      });
-
-      // Send notification via websocket to the specific user (if not admin sending to client)
       if (senderType === 'shop') {
+        const notification = await prisma.notification.create({
+          data: {
+            userId: order.userId,
+            type: 'chat',
+            title: 'Nouveau message restaurant',
+            message: `Nouveau message concernant la commande #${orderId}`,
+            data: {
+              orderId: parseInt(orderId),
+              chatMessageId: chatMessage.id,
+              senderType: senderType,
+              message: message
+            }
+          }
+        });
         io.to(`user-${order.userId}`).emit('new-notification', {
           id: notification.id,
           type: notification.type,
@@ -3193,6 +3331,21 @@ app.post('/orders/:orderId/chat', authenticate, async (req, res) => {
           data: notification.data,
           isRead: notification.isRead,
           createdAt: notification.createdAt
+        });
+      } else if (senderType === 'client') {
+        // Notify admins about client message
+        await notifyAdmins({
+          prisma,
+          excludeUserId: null,
+          type: 'chat',
+          title: 'Nouveau message client',
+          message: `Message client pour commande #${orderId}`,
+          data: {
+            orderId: parseInt(orderId),
+            chatMessageId: chatMessage.id,
+            senderType: senderType,
+            message: message
+          }
         });
       }
     }
@@ -3520,4 +3673,11 @@ app.post('/order-hours/bulk', authenticate, async (req, res) => {
   }
 });
 
-server.listen(3001, '0.0.0.0', () => console.log("Server with Socket.IO running on 0.0.0.0:3001"));
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception', { message: err?.message, stack: err?.stack });
+});
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled rejection', { reason: reason && reason.message ? reason.message : String(reason) });
+});
+
+server.listen(3001, '0.0.0.0', () => logger.info("Server with Socket.IO running on 0.0.0.0:3001", { port: 3001 }));

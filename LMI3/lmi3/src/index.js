@@ -21,6 +21,10 @@ import AdminOrders from './views/adminOrders';
 import OrderHistory from './views/orderHistory';
 import { AuthProvider } from './contexts/AuthContext';
 import { BasketProvider } from './contexts/BasketContext';
+import { clientLogger } from './utils/clientLogger';
+
+// Example startup log
+clientLogger.info('Frontend app starting');
 
 const Layout = () => {
   const location = useLocation();

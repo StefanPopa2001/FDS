@@ -158,8 +158,14 @@ const MenuView = () => {
       try {
         const response = await fetch(`${config.API_URL}/sauces`)
         if (response.ok) {
-          const data = await response.json()
-          setSauces(data)
+          const text = await response.text()
+          try {
+            const data = JSON.parse(text)
+            setSauces(data)
+          } catch (err) {
+            console.error('Failed to parse sauces JSON:', err, 'raw:', text)
+            setSauces([])
+          }
         } else {
           console.error("Failed to fetch sauces:", response.status)
         }
@@ -176,8 +182,14 @@ const MenuView = () => {
       try {
         const response = await fetch(`${config.API_URL}/plats`)
         if (response.ok) {
-          const data = await response.json()
-          setPlats(data)
+          const text = await response.text()
+          try {
+            const data = JSON.parse(text)
+            setPlats(data)
+          } catch (err) {
+            console.error('Failed to parse plats JSON:', err, 'raw:', text)
+            setPlats([])
+          }
         } else {
           console.error("Failed to fetch plats:", response.status)
         }
@@ -194,8 +206,14 @@ const MenuView = () => {
       try {
         const response = await fetch(`${config.API_URL}/tags/searchable`)
         if (response.ok) {
-          const data = await response.json()
-          setSearchableTags(data)
+          const text = await response.text()
+          try {
+            const data = JSON.parse(text)
+            setSearchableTags(data)
+          } catch (err) {
+            console.error('Failed to parse searchable tags JSON:', err, 'raw:', text)
+            setSearchableTags([])
+          }
         } else {
           setSearchableTags([])
         }
@@ -212,12 +230,17 @@ const MenuView = () => {
       try {
         const response = await fetch(`${config.API_URL}/settings`);
         if (response.ok) {
-          const data = await response.json();
-          const settingsMap = {};
-          data.forEach(setting => {
-            settingsMap[setting.key] = setting.value;
-          });
-          setSettings(settingsMap);
+          const text = await response.text();
+          try {
+            const data = JSON.parse(text);
+            const settingsMap = {};
+            data.forEach(setting => {
+              settingsMap[setting.key] = setting.value;
+            });
+            setSettings(settingsMap);
+          } catch (err) {
+            console.error('Failed to parse settings JSON:', err, 'raw:', text)
+          }
         }
       } catch (error) {
         console.error("Failed to fetch settings:", error);

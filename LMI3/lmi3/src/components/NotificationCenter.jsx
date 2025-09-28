@@ -26,12 +26,11 @@ import {
   NotificationsOff as NotificationsOffIcon
 } from '@mui/icons-material';
 import { useOrderNotifications } from '../hooks/useOrderNotifications';
+import { safeNotification } from '../utils/safeNotification';
 
 const NotificationCenter = ({ userId, orderId = null }) => {
   const [anchorEl, setAnchorEl] = useState(null);
-  const [browserNotificationPermission, setBrowserNotificationPermission] = useState(
-    'Notification' in window ? Notification.permission : 'denied'
-  );
+  const [browserNotificationPermission, setBrowserNotificationPermission] = useState(safeNotification.permission());
   const { 
     notifications, 
     unreadCount, 
@@ -66,9 +65,7 @@ const NotificationCenter = ({ userId, orderId = null }) => {
   // Check notification permission periodically
   React.useEffect(() => {
     const checkPermission = () => {
-      if ('Notification' in window) {
-        setBrowserNotificationPermission(Notification.permission);
-      }
+      setBrowserNotificationPermission(safeNotification.permission());
     };
     
     checkPermission();
@@ -77,13 +74,11 @@ const NotificationCenter = ({ userId, orderId = null }) => {
   }, []);
 
   const requestNotificationPermission = async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      const permission = await Notification.requestPermission();
+    if (safeNotification.permission() === 'default') {
+      const permission = await safeNotification.requestPermission();
       setBrowserNotificationPermission(permission);
-      
       if (permission === 'granted') {
-        // Show a test notification
-        new Notification('Notifications activées!', {
+        safeNotification.show('Notifications activées!', {
           body: 'Vous recevrez maintenant des notifications pour vos commandes',
           icon: '/favicon.ico'
         });

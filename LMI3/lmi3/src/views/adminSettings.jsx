@@ -36,8 +36,10 @@ import {
   Visibility as VisibilityIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  Storefront as StorefrontIcon,
 } from "@mui/icons-material";
 import config from "../config";
+import { normalizeSettingsArray } from "../utils/apiService";
 
 const darkTheme = createTheme({
   palette: {
@@ -172,20 +174,10 @@ const AdminSettings = () => {
       description: "Message affiché sur la page du menu",
       defaultValue: "Découvrez notre sélection de spécialités",
     },
-    {
-      key: "heureOuverture",
-      type: "time",
-      category: "hours",
-      description: "Heure d'ouverture",
-      defaultValue: "11:00",
-    },
-    {
-      key: "heureFermeture",
-      type: "time",
-      category: "hours",
-      description: "Heure de fermeture",
-      defaultValue: "22:00",
-    },
+    // Opening hours are managed via RestaurantConfig (auto/manual schedule)
+    // NOTE: restaurant open schedule is stored in RestaurantConfig; admin UI exposes it separately.
+    // Opening hours are managed via RestaurantConfig (auto/manual schedule).
+    // The admin UI shows a single auto/manual toggle and related controls in the "Ouverture du restaurant" block below.
     {
       key: "restaurantPhone",
       type: "string",
@@ -212,7 +204,48 @@ const AdminSettings = () => {
   useEffect(() => {
     fetchSettings();
     fetchOrderHours();
+    fetchRestaurantConfig();
   }, []);
+
+  const [restaurantCfg, setRestaurantCfg] = useState(null);
+
+  // Safe JSON parse to avoid throwing in render when stored strings are malformed
+  const safeParseJSON = (maybeJson, fallback = null) => {
+    if (maybeJson == null) return fallback;
+    if (typeof maybeJson !== 'string') return maybeJson;
+    try {
+      // allow leading/trailing whitespace
+      return JSON.parse(maybeJson);
+    } catch (e) {
+      // attempt to fix common issues like single-quoted arrays or bare numbers
+      try {
+        // replace single quotes with double quotes
+        const replaced = maybeJson.replace(/'/g, '"');
+        return JSON.parse(replaced);
+      } catch (e2) {
+        console.warn('safeParseJSON failed to parse:', maybeJson);
+        return fallback;
+      }
+    }
+  };
+
+  const fetchRestaurantConfig = async () => {
+    try {
+      const res = await fetch(`${config.API_URL}/restaurant-config`);
+      if (res.ok) {
+        const data = await res.json();
+        // normalize server-side JSON field defensively
+        if (data && data.openDays) {
+          data.openDays = safeParseJSON(data.openDays, data.openDays || []);
+        }
+        setRestaurantCfg(data || null);
+        // also merge into settings so Menu can read it via settings if necessary
+  setSettings(prev => ({ ...prev, restaurantAutoMode: data?.openMode !== 'manual', restaurantOpenDays: data?.openDays || prev.restaurantOpenDays, restaurantOpenStart: data?.openStart || prev.restaurantOpenStart, restaurantOpenEnd: data?.openEnd || prev.restaurantOpenEnd, restaurantManualOpen: data?.manualOpen ?? prev.restaurantManualOpen }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch restaurant config', err);
+    }
+  };
 
   const fetchOrderHours = async () => {
     try {
@@ -240,12 +273,8 @@ const AdminSettings = () => {
       
       if (response.ok) {
         const data = await response.json();
-        const settingsMap = {};
-        
-        // Convert array to map for easier access
-        data.forEach(setting => {
-          settingsMap[setting.key] = setting.value;
-        });
+        // Normalize values (booleans/numbers) and convert to map
+        const settingsMap = normalizeSettingsArray(data);
         
         // Fill in any missing settings with defaults
         defaultSettings.forEach(defaultSetting => {
@@ -334,9 +363,18 @@ const AdminSettings = () => {
       }
     }
     
+    // Keep typed values in local state so UI components behave correctly
+    let parsedValue = value;
+    if (type === 'number') {
+      parsedValue = value === '' ? '' : Number(value);
+    }
+    if (type === 'boolean') {
+      parsedValue = !!value;
+    }
+
     setSettings(prev => ({
       ...prev,
-      [key]: value
+      [key]: parsedValue
     }));
   };
 
@@ -346,9 +384,14 @@ const AdminSettings = () => {
       
       const settingsArray = Object.entries(settings).map(([key, value]) => {
         const defaultSetting = defaultSettings.find(s => s.key === key);
+        // Convert booleans and numbers to strings for backend storage
+        let outValue = value;
+        if (typeof value === 'boolean') outValue = value ? 'true' : 'false';
+        if (typeof value === 'number') outValue = value.toString();
+
         return {
           key,
-          value,
+          value: outValue,
           type: defaultSetting?.type || "string",
           category: defaultSetting?.category || "general",
           description: defaultSetting?.description || "",
@@ -379,11 +422,52 @@ const AdminSettings = () => {
     }
   };
 
+  // Save restaurant config (if admin toggles changed)
+  const saveRestaurantConfig = async () => {
+    try {
+      const payload = {
+        openMode: settings.restaurantAutoMode === false ? 'manual' : 'auto',
+  openDays: Array.isArray(settings.restaurantOpenDays) ? settings.restaurantOpenDays : (Array.isArray(restaurantCfg?.openDays) ? restaurantCfg.openDays : safeParseJSON(settings.restaurantOpenDays, [])),
+        openStart: settings.restaurantOpenStart || restaurantCfg?.openStart || '11:00',
+        openEnd: settings.restaurantOpenEnd || restaurantCfg?.openEnd || '22:00',
+        manualOpen: !!settings.restaurantManualOpen,
+      };
+
+      const res = await fetch(`${config.API_URL}/restaurant-config`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setRestaurantCfg(data);
+        // Broadcast the updated config so other components (e.g. Menu) can update immediately
+        try { window.dispatchEvent(new CustomEvent('restaurant-config-updated', { detail: { restaurantCfg: data } })); } catch (e) {}
+        setMessage({ type: 'success', text: 'Configuration du restaurant sauvegardée' });
+        setOpenSnackbar(true);
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Erreur serveur');
+      }
+    } catch (err) {
+      console.error('Save restaurant config error', err);
+      setMessage({ type: 'error', text: 'Échec de la sauvegarde de la configuration du restaurant' });
+      setOpenSnackbar(true);
+    }
+  };
+
   const renderSettingsByCategory = (category) => {
     const categorySettings = defaultSettings.filter(s => s.category === category);
     
     const settingsElements = categorySettings.map(setting => {
-      const value = settings[setting.key] || setting.defaultValue;
+      // Use nullish coalescing to preserve falsy values like false or 0
+      const rawValue = settings.hasOwnProperty(setting.key) ? settings[setting.key] : setting.defaultValue;
+      // Normalize booleans so Switch receives a boolean instead of string
+      const value = setting.type === 'boolean' ? (rawValue === true || rawValue === 'true') : rawValue;
       
       return (
         <Grid item xs={12} md={6} key={setting.key}>
@@ -397,12 +481,12 @@ const AdminSettings = () => {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={value === "true"}
+                      checked={!!value}
                       onChange={(e) => handleSettingChange(setting.key, e.target.checked, "boolean")}
                       color="primary"
                     />
                   }
-                  label={value === "true" ? "Activé" : "Désactivé"}
+                  label={value ? "Activé" : "Désactivé"}
                 />
               ) : setting.type === "time" ? (
                 <TextField
@@ -439,96 +523,104 @@ const AdminSettings = () => {
       );
     });
 
-    // Add order hours management for hours category
+    // Add order hours management and restaurant config for hours category
     if (category === "hours") {
+      // days labels in French
+      // EU order: Monday -> Sunday, keep idx mapping where 0 = Sunday
+      const jours = [
+        { label: 'Lundi', short: 'Lun', idx: 1 },
+        { label: 'Mardi', short: 'Mar', idx: 2 },
+        { label: 'Mercredi', short: 'Mer', idx: 3 },
+        { label: 'Jeudi', short: 'Jeu', idx: 4 },
+        { label: 'Vendredi', short: 'Ven', idx: 5 },
+        { label: 'Samedi', short: 'Sam', idx: 6 },
+        { label: 'Dimanche', short: 'Dim', idx: 0 },
+      ];
+
+      // current restaurant settings (fall back to defaults)
+  const mode = (settings.restaurantAutoMode === false) ? 'manual' : (settings.restaurantAutoMode === true ? 'auto' : (restaurantCfg?.openMode || 'auto'));
+      const days = Array.isArray(settings.restaurantOpenDays)
+        ? settings.restaurantOpenDays
+        : Array.isArray(restaurantCfg?.openDays)
+        ? restaurantCfg.openDays
+        : safeParseJSON(settings.restaurantOpenDays, []);
+      const start = settings.restaurantOpenStart || restaurantCfg?.openStart || '11:00';
+      const end = settings.restaurantOpenEnd || restaurantCfg?.openEnd || '22:00';
+      const manualOpen = settings.hasOwnProperty('restaurantManualOpen') ? !!settings.restaurantManualOpen : !!restaurantCfg?.manualOpen;
+
       settingsElements.push(
         <Grid item xs={12} key="order-hours">
           <Card>
             <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom color="primary.main">
-                Heures d'ouverture pour les commandes
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-                Heures d'ouverture pour les commandes (format HHMM ou HH:MM)
-              </Typography>
-              <Box 
-                sx={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
-                  gap: 1, 
-                  mb: 2,
-                  maxHeight: "120px",
-                  overflowY: "auto",
-                  p: 1,
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  borderRadius: 1,
-                  backgroundColor: "rgba(0, 0, 0, 0.05)"
-                }}
-              >
-                {orderHours.map((hour) => (
-                  <Box key={hour.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip
-                      label={hour.time}
-                      onDelete={() => deleteOrderHour(hour.id)}
-                      color="primary"
-                      variant="outlined"
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                <StorefrontIcon sx={{ color: 'primary.main' }} />
+                <Typography variant="h6" gutterBottom color="primary.main">Ouverture du restaurant</Typography>
+                <Tooltip title="Basculer automatique / manuel">
+                  <FormControlLabel
+                    sx={{ ml: 'auto' }}
+                    control={<Switch checked={mode === 'auto'} onChange={(e) => setSettings(prev => ({ ...prev, restaurantAutoMode: e.target.checked }))} />}
+                    label={mode === 'auto' ? 'Automatique' : 'Manuel'}
+                  />
+                </Tooltip>
+              </Box>
+
+              {mode === 'auto' ? (
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1 }}>Sélectionnez les jours d'ouverture</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                    {jours.map(j => (
+                      <Card
+                        key={j.idx}
+                        onClick={() => {
+                          const cur = Array.isArray(days) ? [...days] : [];
+                          const found = cur.indexOf(j.idx);
+                          if (found === -1) cur.push(j.idx); else cur.splice(found, 1);
+                          setSettings(prev => ({ ...prev, restaurantOpenDays: cur.sort() }));
+                        }}
+                        sx={{
+                          cursor: 'pointer',
+                          p: 1,
+                          minWidth: 88,
+                          textAlign: 'center',
+                          background: days.includes(j.idx) ? 'linear-gradient(90deg, rgba(255,152,0,0.12), rgba(255,152,0,0.06))' : undefined,
+                          border: days.includes(j.idx) ? '1px solid rgba(255,152,0,0.25)' : '1px solid rgba(255,255,255,0.04)'
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{j.short}</Typography>
+                        <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{j.label}</Typography>
+                      </Card>
+                    ))}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <TextField
+                      label="Début"
                       size="small"
-                      sx={{ 
-                        "& .MuiChip-deleteIcon": {
-                          color: "error.main",
-                        },
-                        fontSize: "0.75rem",
-                        height: "28px"
-                      }}
+                      value={start}
+                      onChange={(e) => setSettings(prev => ({ ...prev, restaurantOpenStart: e.target.value }))}
+                      sx={{ width: 140 }}
+                    />
+                    <TextField
+                      label="Fin"
+                      size="small"
+                      value={end}
+                      onChange={(e) => setSettings(prev => ({ ...prev, restaurantOpenEnd: e.target.value }))}
+                      sx={{ width: 140 }}
                     />
                   </Box>
-                ))}
-              </Box>
-              <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
-                <TextField
-                  placeholder="HHMM ou HH:MM"
-                  size="small"
-                  sx={{ flex: 1, minWidth: "120px" }}
-                  inputRef={(ref) => {
-                    if (ref) window.orderHourRef = ref;
-                  }}
-                  inputProps={{
-                    pattern: "^([0-1]?[0-9]|2[0-3])([0-5][0-9])$|^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$",
-                    title: "Format: HHMM (ex: 1430) ou HH:MM (ex: 14:30)"
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<AddIcon />}
-                  sx={{ minWidth: "100px" }}
-                  onClick={() => {
-                    const input = window.orderHourRef?.value;
-                    if (input) {
-                      let formattedHour = input;
-                      
-                      // Convert HHMM to HH:MM format
-                      if (/^([0-1]?[0-9]|2[0-3])([0-5][0-9])$/.test(input)) {
-                        formattedHour = input.slice(0, 2) + ':' + input.slice(2, 4);
-                      }
-                      
-                      // Validate format
-                      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-                      if (!timeRegex.test(formattedHour)) {
-                        setMessage({ type: "error", text: "Format invalide. Utilisez HHMM (ex: 1430) ou HH:MM (ex: 14:30)" });
-                        setOpenSnackbar(true);
-                        return;
-                      }
-                      
-                      addOrderHour(formattedHour);
-                      window.orderHourRef.value = "";
-                    }
-                  }}
-                >
-                  Ajouter
-                </Button>
-              </Box>
-              {/* ASAP toggle removed from Settings per user request */}
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <FormControlLabel
+                    control={<Switch checked={manualOpen} onChange={(e) => {
+                      const manual = e.target.checked;
+                      setSettings(prev => ({ ...prev, restaurantManualOpen: manual, restaurantAutoMode: manual ? false : prev.restaurantAutoMode }));
+                    }} />}
+                    label={manualOpen ? 'Ouvert' : 'Fermé'}
+                  />
+                </Box>
+              )}
+
             </CardContent>
           </Card>
         </Grid>
@@ -611,7 +703,7 @@ const AdminSettings = () => {
             <Button
               variant="contained"
               startIcon={<SaveIcon />}
-              onClick={saveSettings}
+              onClick={async () => { await saveSettings(); await saveRestaurantConfig(); }}
               disabled={saving}
               sx={{ minWidth: 140 }}
             >

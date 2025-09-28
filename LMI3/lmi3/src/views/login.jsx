@@ -32,9 +32,9 @@ import {
   PersonAdd,
 } from "@mui/icons-material"
 import CryptoJS from "crypto-js"
-import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import TermsOfUseModal from '../components/TermsOfUseModal'
+import { useAuth } from "../contexts/AuthContext"
+import { useNavigate } from "react-router-dom"
+import TermsOfUseModal from "../components/TermsOfUseModal"
 
 const darkTheme = createTheme({
   palette: {
@@ -150,32 +150,31 @@ export default function AuthPage() {
   const handleLogin = async (e) => {
     e.preventDefault()
     if (!loginForm.email || !loginForm.password) {
-      setAlert({ show: true, message: "Please fill in all fields", type: "error" })
+      setAlert({ show: true, message: "Veuillez remplir tous les champs", type: "error" })
       return
     }
     try {
       const result = await login(loginForm.email, loginForm.password)
       if (result.success) {
-        setAlert({ show: true, message: "Login successful!", type: "success" })
+        setAlert({ show: true, message: "Connexion réussie !", type: "success" })
         // Redirect to home page
         navigate("/")
       } else {
-        setAlert({ show: true, message: result.error || "Login failed", type: "error" })
+        // Clear password on any login error
+        setLoginForm({ ...loginForm, password: "" })
+        setAlert({ show: true, message: result.error || "Échec de la connexion", type: "error" })
       }
     } catch (error) {
-      setAlert({ show: true, message: "Server error. Please try again.", type: "error" })
+      // Clear password on exception as well
+      setLoginForm({ ...loginForm, password: "" })
+      setAlert({ show: true, message: "Erreur serveur. Veuillez réessayer.", type: "error" })
     }
   }
 
   // Backend integration for register using AuthContext
   const handleSignup = async (e) => {
     e.preventDefault()
-    if (
-      !signupForm.name ||
-      !signupForm.email ||
-      !signupForm.phone ||
-      !signupForm.password
-    ) {
+    if (!signupForm.name || !signupForm.email || !signupForm.phone || !signupForm.password) {
       setAlert({ show: true, message: "Please fill in all fields", type: "error" })
       return
     }
@@ -198,7 +197,7 @@ export default function AuthPage() {
         password: hashedPassword,
         salt: salt.toString(),
       }
-      
+
       const result = await register(userData)
       if (result.success) {
         setAlert({ show: true, message: "Account created successfully!", type: "success" })
@@ -227,30 +226,78 @@ export default function AuthPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          p: 2,
+          p: { xs: 0, sm: 2 },
         }}
       >
-        <Container maxWidth="sm">
+        <Container
+          maxWidth="md"
+          sx={{
+            px: { xs: 0, sm: 2 },
+            width: "100%",
+            display: { md: "flex" },
+            flexDirection: { md: "column" },
+            justifyContent: { md: "center" },
+            alignItems: { md: "center" },
+            minHeight: { md: "100vh" },
+          }}
+        >
           <Fade in timeout={800}>
             <Card
               elevation={24}
               sx={{
-                maxWidth: 480,
-                mx: "auto",
+                maxWidth: { xs: "100vw", md: 720 },
+                width: { xs: "100vw", md: "100%" },
+                mx: { xs: 0, md: "auto" },
                 overflow: "visible",
+                minHeight: { xs: "100vh", md: "auto" },
+                height: { xs: "100vh", md: "auto" },
+                borderRadius: { xs: 0, md: 28 },
+                boxShadow: { xs: "none", md: undefined },
               }}
             >
-              <CardContent sx={{ p: 4 }}>
+              <CardContent
+                sx={{
+                  p: { xs: 3, md: 6 },
+                  py: { xs: 6, md: 6 },
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: { xs: "center", md: "flex-start" },
+                  alignItems: "center",
+                  minHeight: { xs: `calc(100vh - 64px)`, md: "auto" },
+                  width: "100%",
+                  boxSizing: "border-box",
+                  "& .MuiOutlinedInput-root": {
+                    minHeight: { md: 56 },
+                    fontSize: { md: "1rem" },
+                  },
+                  "& .MuiInputBase-input": {
+                    fontSize: { md: "1rem" },
+                    padding: { md: "16px 14px" },
+                  },
+                  "& .MuiButton-root": {
+                    minHeight: { md: 52 },
+                    fontSize: { md: "1rem" },
+                    fontWeight: { md: 600 },
+                  },
+                  "& .MuiAvatar-root": {
+                    width: { md: 100 },
+                    height: { md: 100 },
+                  },
+                  "& h4": {
+                    fontSize: { md: "2.2rem" },
+                  },
+                }}
+              >
                 {/* Logo Section */}
                 <Zoom in timeout={600}>
-                  <Box sx={{ textAlign: "center", mb: 4 }}>
+                  <Box sx={{ textAlign: "center", mb: { xs: 3, md: 4 } }}>
                     <Avatar
-                      src="https://www.fritmap.com/images/annonces/large/5000-9999/5750/img5951d615c1c92.jpg"
+                      src="/rudyetfanny-logo-personnages.png"
                       sx={{
-                        width: 80,
-                        height: 80,
+                        width: { xs: 72, sm: 80 },
+                        height: { xs: 72, sm: 80 },
                         mx: "auto",
-                        mb: 2,
+                        mb: { xs: 1.5, sm: 2 },
                         border: "3px solid",
                         borderColor: "primary.main",
                       }}
@@ -281,7 +328,12 @@ export default function AuthPage() {
                     <Alert
                       severity={alert.type}
                       onClose={() => setAlert({ show: false, message: "", type: "info" })}
-                      sx={{ mb: 3, borderRadius: 2 }}
+                      sx={{
+                        mb: { xs: 2.5, sm: 3 },
+                        borderRadius: 2,
+                        width: { md: "100%" },
+                        maxWidth: { md: 500 },
+                      }}
                     >
                       {alert.message}
                     </Alert>
@@ -289,7 +341,15 @@ export default function AuthPage() {
                 )}
 
                 {/* Tab Navigation */}
-                <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+                <Box
+                  sx={{
+                    borderBottom: 1,
+                    borderColor: "divider",
+                    mb: { xs: 2, md: 4 },
+                    width: { md: "100%" },
+                    maxWidth: { md: 500 },
+                  }}
+                >
                   <Tabs
                     value={activeTab}
                     onChange={handleTabChange}
@@ -310,7 +370,15 @@ export default function AuthPage() {
                 {/* Login Form */}
                 {activeTab === 0 && (
                   <Fade in timeout={400}>
-                    <Box component="form" onSubmit={handleLogin}>
+                    <Box
+                      component="form"
+                      onSubmit={handleLogin}
+                      sx={{
+                        width: { xs: "100%", md: "100%" },
+                        maxWidth: { md: 500 },
+                        mx: "auto",
+                      }}
+                    >
                       <TextField
                         fullWidth
                         label="Email"
@@ -324,7 +392,7 @@ export default function AuthPage() {
                             </InputAdornment>
                           ),
                         }}
-                        sx={{ mb: 3 }}
+                        sx={{ mb: { xs: 2, md: 3 } }}
                       />
 
                       <TextField
@@ -347,7 +415,7 @@ export default function AuthPage() {
                             </InputAdornment>
                           ),
                         }}
-                        sx={{ mb: 4 }}
+                        sx={{ mb: { xs: 2.5, md: 4 } }}
                       />
 
                       <Button
@@ -357,7 +425,7 @@ export default function AuthPage() {
                         size="large"
                         startIcon={<LoginIcon />}
                         sx={{
-                          mb: 3,
+                          mb: { xs: 2, md: 3 },
                           background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
                           "&:hover": {
                             background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
@@ -378,13 +446,17 @@ export default function AuthPage() {
                             Inscrivez-vous
                           </Button>
                         </Typography>
-                        
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, fontSize: "0.7rem" }}>
+
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: { xs: 1, sm: 1 }, fontSize: { xs: '0.6rem', sm: '0.65rem' } }}
+                        >
                           En continuant, vous acceptez nos{" "}
                           <Button
                             variant="text"
                             onClick={() => setTermsModalOpen(true)}
-                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: "0.7rem" }}
+                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: { xs: '0.6rem', sm: '0.65rem' } }}
                           >
                             conditions d'utilisation, politique de confidentialité et politique de cookies
                           </Button>
@@ -397,7 +469,15 @@ export default function AuthPage() {
                 {/* Sign Up Form */}
                 {activeTab === 1 && (
                   <Fade in timeout={400}>
-                    <Box component="form" onSubmit={handleSignup}>
+                    <Box
+                      component="form"
+                      onSubmit={handleSignup}
+                      sx={{
+                        width: { xs: "100%", md: "100%" },
+                        maxWidth: { md: 500 },
+                        mx: "auto",
+                      }}
+                    >
                       <TextField
                         fullWidth
                         label="Nom"
@@ -410,7 +490,7 @@ export default function AuthPage() {
                             </InputAdornment>
                           ),
                         }}
-                        sx={{ mb: 3 }}
+                        sx={{ mb: { xs: 2, md: 3 } }}
                       />
 
                       <TextField
@@ -426,7 +506,7 @@ export default function AuthPage() {
                             </InputAdornment>
                           ),
                         }}
-                        sx={{ mb: 3 }}
+                        sx={{ mb: { xs: 2, md: 3 } }}
                       />
 
                       <TextField
@@ -442,7 +522,7 @@ export default function AuthPage() {
                             </InputAdornment>
                           ),
                         }}
-                        sx={{ mb: 3 }}
+                        sx={{ mb: { xs: 2, md: 3 } }}
                       />
 
                       <TextField
@@ -465,7 +545,7 @@ export default function AuthPage() {
                             </InputAdornment>
                           ),
                         }}
-                        sx={{ mb: 3 }}
+                        sx={{ mb: { xs: 2, md: 3 } }}
                       />
 
                       <TextField
@@ -488,7 +568,7 @@ export default function AuthPage() {
                             </InputAdornment>
                           ),
                         }}
-                        sx={{ mb: 4 }}
+                        sx={{ mb: { xs: 2.5, md: 4 } }}
                       />
 
                       <Button
@@ -498,7 +578,7 @@ export default function AuthPage() {
                         size="large"
                         startIcon={<PersonAdd />}
                         sx={{
-                          mb: 3,
+                          mb: { xs: 2, md: 3 },
                           background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
                           "&:hover": {
                             background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
@@ -519,13 +599,13 @@ export default function AuthPage() {
                             Connectez-vous
                           </Button>
                         </Typography>
-                        
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, fontSize: "0.7rem" }}>
+
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, fontSize: { xs: '0.6rem', sm: '0.65rem' } }}>
                           En continuant, vous acceptez nos{" "}
                           <Button
                             variant="text"
                             onClick={() => setTermsModalOpen(true)}
-                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: "0.7rem" }}
+                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: { xs: '0.6rem', sm: '0.65rem' } }}
                           >
                             conditions d'utilisation, politique de confidentialité et politique de cookies
                           </Button>
@@ -540,7 +620,23 @@ export default function AuthPage() {
 
           {/* Footer */}
           <Fade in timeout={1200}>
-            <Box sx={{ textAlign: "center", mt: 4 }}>
+            <Box
+              sx={{
+                textAlign: "center",
+                mt: { xs: 0, md: 4 },
+                position: { xs: "fixed", md: "static" },
+                left: { xs: 0, md: "auto" },
+                right: { xs: 0, md: "auto" },
+                bottom: { xs: 0, md: "auto" },
+                py: { xs: 1.5, md: 0 },
+                background: {
+                  xs: "linear-gradient(135deg, rgba(10,10,10,0.9), rgba(26,26,26,0.9))",
+                  md: "transparent",
+                },
+                maxWidth: { md: 720 },
+                mx: { md: "auto" },
+              }}
+            >
               <Typography variant="body2" color="text.secondary">
                 © 2025 Rudy et Fanny. Tous droits réservés.
               </Typography>
@@ -550,11 +646,7 @@ export default function AuthPage() {
       </Box>
 
       {/* Terms of Use Modal */}
-      <TermsOfUseModal 
-        open={termsModalOpen} 
-        onClose={() => setTermsModalOpen(false)} 
-      />
+      <TermsOfUseModal open={termsModalOpen} onClose={() => setTermsModalOpen(false)} />
     </ThemeProvider>
   )
 }
-            

@@ -216,11 +216,15 @@ const CashierView = () => {
         const response = await fetch(`${config.API_URL}/settings`);
         if (response.ok) {
           const data = await response.json();
-          const settingsMap = {};
-          data.forEach(setting => {
-            settingsMap[setting.key] = setting.value;
-          });
-          setSettings(settingsMap);
+            const settingsMap = {};
+            data.forEach(setting => {
+              let val = setting.value;
+              if (val === 'true') val = true;
+              else if (val === 'false') val = false;
+              else if (!isNaN(val) && val !== '') val = Number(val);
+              settingsMap[setting.key] = val;
+            });
+            setSettings(settingsMap);
         }
       } catch (error) {
         console.error("Failed to fetch settings:", error);
@@ -252,7 +256,7 @@ const CashierView = () => {
       })
     }
 
-    if (settings.enableSpecialites === "false") {
+  if (!settings.enableSpecialites) {
       filtered = filtered.map((item) => ({
         ...item,
         available: item.speciality ? false : item.available

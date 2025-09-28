@@ -235,7 +235,11 @@ const MenuView = () => {
             const data = JSON.parse(text);
             const settingsMap = {};
             data.forEach(setting => {
-              settingsMap[setting.key] = setting.value;
+              let val = setting.value;
+              if (val === 'true') val = true;
+              else if (val === 'false') val = false;
+              else if (!isNaN(val) && val !== '') val = Number(val);
+              settingsMap[setting.key] = val;
             });
             setSettings(settingsMap);
           } catch (err) {
@@ -300,7 +304,7 @@ const MenuView = () => {
       })
     }
 
-    if (settings.enableSpecialites === "false") {
+  if (!settings.enableSpecialites) {
       filtered = filtered.map((plat) => ({
         ...plat,
         available: plat.speciality ? false : plat.available

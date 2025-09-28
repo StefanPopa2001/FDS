@@ -17,3 +17,23 @@ export async function changePassword({ token, hashedPassword, salt }) {
 	}
 	return res.json();
 }
+
+export function normalizeSettingsArray(settingsArray) {
+	const map = {};
+	settingsArray.forEach(setting => {
+		let val = setting.value;
+		// Try to interpret JSON values (arrays/objects) saved as strings
+		if (typeof val === 'string' && val.trim().startsWith('[')) {
+			try {
+				val = JSON.parse(val);
+			} catch (e) {
+				// fall back to string
+			}
+		}
+		if (val === 'true') val = true;
+		else if (val === 'false') val = false;
+		else if (!isNaN(val) && val !== '') val = Number(val);
+		map[setting.key] = val;
+	});
+	return map;
+}

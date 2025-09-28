@@ -206,7 +206,7 @@ const Navbar = () => {
             <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 70 } }}>
               <Box
                 component="img"
-                src="/rudyetfannylogo.png"
+                src="/rudyetfanny-logo-personnages.png"
                 alt="Rudy et Fanny Logo"
                 sx={{
                   height: { xs: 32, md: 40 },

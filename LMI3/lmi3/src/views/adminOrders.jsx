@@ -47,6 +47,7 @@ import {
   Refresh as RefreshIcon,
   Close as CloseIcon,
   PhotoCamera as PhotoCameraIcon,
+  Archive as ArchiveIcon,
 } from "@mui/icons-material"
 import { useAuth } from "../contexts/AuthContext"
 import { format, isSameDay, differenceInMinutes } from "date-fns"
@@ -72,6 +73,7 @@ export default function AdminOrders() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [statusFilter, setStatusFilter] = useState("all")
+  const [showArchived, setShowArchived] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [hiddenHours, setHiddenHours] = useState(new Set()) // Track hidden hours
   const [viewedOrders, setViewedOrders] = useState(() => {
@@ -97,10 +99,13 @@ export default function AdminOrders() {
   const fetchOrders = useCallback(async () => {
     setRefreshing(true)
     try {
-      let queryParams = "?"
+  let queryParams = "?"
 
       if (statusFilter !== "all") {
         queryParams += `status=${statusFilter}&`
+      }
+      if (showArchived) {
+        queryParams += `includeArchived=true&`
       }
 
       const response = await fetch(`${config.API_URL}/admin/orders${queryParams}`, {
@@ -123,7 +128,36 @@ export default function AdminOrders() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token, statusFilter])
+  }, [token, statusFilter, showArchived])
+
+  // Toggle include archived orders in admin view
+  const handleShowArchivedChange = (event) => {
+    setShowArchived(event.target.checked)
+  }
+
+  // Toggle archived status for a specific order
+  const toggleOrderArchived = async (orderId, archived) => {
+    try {
+      const res = await fetch(`${config.API_URL}/admin/orders/${orderId}/archived`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ archived })
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to update archived flag')
+      }
+
+      // Optimistic UI: refresh orders
+      fetchOrders()
+    } catch (err) {
+      console.error('Error toggling archived:', err)
+      setNotification({ open: true, message: "Erreur lors de la modification de l'état archivé", severity: 'error' })
+    }
+  }
 
   // Initial fetch and auto-refresh setup
   useEffect(() => {
@@ -142,7 +176,7 @@ export default function AdminOrders() {
     return () => {
       clearInterval(interval)
     }
-  }, [token, statusFilter]) // Remove fetchOrders from dependencies to avoid circular dependency
+  }, [token, statusFilter, showArchived]) // Remove fetchOrders from dependencies to avoid circular dependency
 
   // Refresh when page becomes visible
   useEffect(() => {
@@ -189,9 +223,14 @@ export default function AdminOrders() {
         const res = await fetch(`${config.API_URL}/settings`, { headers: getAuthHeaders() })
         if (res.ok) {
           const data = await res.json()
+          // Lazy normalize: convert 'true'/'false' to booleans and numeric strings to numbers
           const map = {}
           data.forEach((s) => {
-            map[s.key] = s.value
+            let v = s.value
+            if (v === 'true') v = true
+            else if (v === 'false') v = false
+            else if (!isNaN(v) && v !== '') v = Number(v)
+            map[s.key] = v
           })
           setSettings(map)
         }
@@ -736,6 +775,20 @@ export default function AdminOrders() {
                   </MenuItem>
                 ))}
               </Select>
+              {(order.status === 5 || order.status === 6 || order.status === 7) && (
+                <IconButton
+                  size="small"
+                  sx={{ ml: 1 }}
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    // Toggle archived state for this order
+                    await toggleOrderArchived(order.id, !order.archived)
+                  }}
+                  title={order.archived ? 'Désarchiver' : 'Archiver'}
+                >
+                  <ArchiveIcon color={order.archived ? 'disabled' : 'action'} />
+                </IconButton>
+              )}
             </Box>
           </Box>
 
@@ -1036,6 +1089,13 @@ export default function AdminOrders() {
           </Grid>
 
           <Grid item xs={12} md={4}>
+            <FormControlLabel
+              control={<Switch checked={showArchived} onChange={handleShowArchivedChange} />}
+              label="Afficher archivés"
+            />
+          </Grid>
+
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel sx={{ fontSize: "0.9rem" }}>Filtrer par statut</InputLabel>
               <Select
@@ -1206,20 +1266,21 @@ export default function AdminOrders() {
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: theme.palette.text.primary }}>
                 🚨 ASAP
               </Typography>
-              <FormControlLabel
+                <FormControlLabel
                 control={
                   <Switch
-                    checked={settings.enableASAP === "true"}
+                    checked={!!settings.enableASAP}
                     onChange={async (e) => {
-                      const newVal = e.target.checked ? "true" : "false"
+                      const checked = e.target.checked;
                       try {
                         const res = await fetch(`${config.API_URL}/settings/enableASAP`, {
                           method: "PUT",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                          body: JSON.stringify({ value: newVal }),
+                          // send boolean; backend will convert to string via toString()
+                          body: JSON.stringify({ value: checked }),
                         })
                         if (res.ok) {
-                          setSettings((prev) => ({ ...prev, enableASAP: newVal }))
+                          setSettings((prev) => ({ ...prev, enableASAP: checked }))
                         }
                       } catch (err) {
                         console.error("Error updating ASAP setting:", err)
@@ -1230,7 +1291,7 @@ export default function AdminOrders() {
                 }
                 label={
                   <Typography sx={{ fontSize: "1.2rem", fontWeight: 600 }}>
-                    {settings.enableASAP === "true" ? "✅ ASAP activé" : "❌ ASAP désactivé"}
+                    { !!settings.enableASAP ? "✅ ASAP activé" : "❌ ASAP désactivé" }
                   </Typography>
                 }
               />

@@ -254,7 +254,7 @@ const BasketDialog = ({ open, onClose }) => {
   const [orderHours, setOrderHours] = useState([]);
   const [loadingHours, setLoadingHours] = useState(false);
 
-  // Fetch settings
+  // Fetch settings (run on mount and also refresh when dialog opens)
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -263,7 +263,11 @@ const BasketDialog = ({ open, onClose }) => {
           const data = await response.json();
           const settingsMap = {};
           data.forEach(setting => {
-            settingsMap[setting.key] = setting.value;
+            let val = setting.value;
+            if (val === 'true') val = true;
+            else if (val === 'false') val = false;
+            else if (!isNaN(val) && val !== '') val = Number(val);
+            settingsMap[setting.key] = val;
           });
           setSettings(settingsMap);
         }
@@ -271,7 +275,12 @@ const BasketDialog = ({ open, onClose }) => {
         console.error("Failed to fetch settings:", error);
       }
     };
-    if (open) { // Only fetch when dialog is open
+
+    // Fetch once when component mounts so settings are ready before the dialog opens
+    fetchSettings();
+
+    // Also fetch when dialog opens to get the most recent values
+    if (open) {
       fetchSettings();
     }
   }, [open]);
@@ -301,7 +310,7 @@ const BasketDialog = ({ open, onClose }) => {
   }, []);
   
   const handleDelivery = () => {
-    if (settings.enableOnlineDelivery === "false") {
+    if (!settings.enableOnlineDelivery) {
       return; // Button is disabled, no action needed
     }
     // Delivery functionality - currently disabled even when setting is enabled
@@ -309,7 +318,7 @@ const BasketDialog = ({ open, onClose }) => {
   };
 
   const handleTakeout = () => {
-    if (settings.enableOnlinePickup === "false") {
+    if (!settings.enableOnlinePickup) {
       return; // Button is disabled, no action needed
     }
     
@@ -645,22 +654,22 @@ const BasketDialog = ({ open, onClose }) => {
               <Button
                 variant="outlined"
                 onClick={handleDelivery}
-                disabled={settings.enableOnlineDelivery === "false"}
+                disabled={!settings.enableOnlineDelivery}
                 sx={{
-                  borderColor: settings.enableOnlineDelivery === "false" 
+                  borderColor: !settings.enableOnlineDelivery
                     ? 'rgba(128, 128, 128, 0.3)'
                     : 'rgba(255, 152, 0, 0.5)',
-                  color: settings.enableOnlineDelivery === "false" 
+                  color: !settings.enableOnlineDelivery
                     ? '#888'
                     : '#ff9800',
-                  cursor: settings.enableOnlineDelivery === "false" 
+                  cursor: !settings.enableOnlineDelivery
                     ? 'not-allowed'
                     : 'pointer',
                   '&:hover': {
-                    borderColor: settings.enableOnlineDelivery === "false" 
+                    borderColor: !settings.enableOnlineDelivery
                       ? 'rgba(128, 128, 128, 0.3)'
                       : '#ff9800',
-                    backgroundColor: settings.enableOnlineDelivery === "false" 
+                    backgroundColor: !settings.enableOnlineDelivery
                       ? 'transparent'
                       : 'rgba(255, 152, 0, 0.1)',
                   },
@@ -670,7 +679,7 @@ const BasketDialog = ({ open, onClose }) => {
                 }}
                 startIcon={<DeliveryIcon />}
               >
-                {settings.enableOnlineDelivery === "false" 
+                {!settings.enableOnlineDelivery
                   ? "Livraison Désactivée"
                   : "Livraison (Bientôt)"
                 }
@@ -679,25 +688,25 @@ const BasketDialog = ({ open, onClose }) => {
               <Button
                 variant="contained"
                 onClick={handleTakeout}
-                disabled={settings.enableOnlinePickup === "false"}
+                disabled={!settings.enableOnlinePickup}
                 sx={{
-                  background: settings.enableOnlinePickup === "false"
+                  background: !settings.enableOnlinePickup
                     ? 'rgba(128, 128, 128, 0.3)'
                     : 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
                   '&:hover': {
-                    background: settings.enableOnlinePickup === "false"
+                    background: !settings.enableOnlinePickup
                       ? 'rgba(128, 128, 128, 0.3)'
                       : 'linear-gradient(45deg, #f57c00 30%, #ff9800 90%)',
                   },
-                  color: settings.enableOnlinePickup === "false" ? '#666' : 'white',
-                  cursor: settings.enableOnlinePickup === "false" ? 'not-allowed' : 'pointer',
+                  color: !settings.enableOnlinePickup ? '#666' : 'white',
+                  cursor: !settings.enableOnlinePickup ? 'not-allowed' : 'pointer',
                   fontWeight: 600,
                   px: 3,
                   flex: 1,
                 }}
                 startIcon={<PickupIcon />}
               >
-                {settings.enableOnlinePickup === "false" 
+                {!settings.enableOnlinePickup
                   ? "À Emporter Désactivé"
                   : "À Emporter"
                 }
@@ -864,10 +873,14 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
     const slots = [];
 
     // Add ASAP option first
+    const now = new Date();
+    const leadMinutes = 20; // minimum lead time in minutes for scheduled slots
     slots.push({
       value: null, // null value means ASAP
       label: 'Dès que possible',
-      isAsap: true
+      isAsap: true,
+      // ASAP enabled depends on settings; we still allow ASAP if enabled
+      enabled: settings.enableASAP !== false,
     });
 
     // Add configured order hours
@@ -878,10 +891,14 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
         const today = new Date();
         const slotDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
 
+        const minutesUntil = Math.round((slotDate - now) / 60000);
+        const hourEnabled = (hour.enabled !== false) && (minutesUntil >= leadMinutes);
+
         slots.push({
           value: slotDate.toISOString(),
           label: hour.time,
-          isAsap: false
+          isAsap: false,
+          enabled: hourEnabled,
         });
       });
     } else {
@@ -898,10 +915,14 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
           const today = new Date();
           const slotDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hour, minute);
 
+          const minutesUntil = Math.round((slotDate - now) / 60000);
+          const hourEnabled = minutesUntil >= leadMinutes;
+
           slots.push({
             value: slotDate.toISOString(),
             label: timeString,
-            isAsap: false
+            isAsap: false,
+            enabled: hourEnabled,
           });
         }
       }
@@ -910,7 +931,8 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
     return slots;
   };
 
-  const timeSlots = useMemo(() => generateTimeSlots(), [orderHours]);
+  // Recompute timeSlots when orderHours or settings change
+  const timeSlots = useMemo(() => generateTimeSlots(), [orderHours, settings]);
 
   const handleSubmit = () => {
     // Allow takeoutTime to be null (ASAP) or a valid time
@@ -1014,7 +1036,7 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
               Choisissez votre heure de retrait
             </FormLabel>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 1, mt: 1 }}>
-              {loadingHours ? (
+                  {loadingHours ? (
                 <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 2 }}>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     Chargement des horaires...
@@ -1023,7 +1045,8 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
               ) : (
                 timeSlots.map((slot) => {
                   const isAsap = slot.isAsap;
-                  const hourEnabled = isAsap ? (settings.enableASAP !== 'false') : (orderHours.find(h => h.time === slot.label)?.enabled !== false);
+                  // Use the precomputed enabled flag on the slot (computed with lead time)
+                  const hourEnabled = slot.enabled !== undefined ? !!slot.enabled : (isAsap ? (settings.enableASAP !== false) : (orderHours.find(h => h.time === slot.label)?.enabled !== false));
                   return (
                     <Button
                       key={slot.value || 'asap'}

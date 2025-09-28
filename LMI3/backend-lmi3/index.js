@@ -579,10 +579,11 @@ app.post("/users/login", authLimiter, async (req, res) => {
       res.json({ user: { id: user.id, email: user.email, name: user.name, type: user.type }, token });
     } else {
       // Same error message regardless of whether email exists or password is wrong
-      res.status(401).json({ error: "Invalid email or password" });
+      res.status(401).json({ error: "Email ou mot de passe invalide" });
     }
   } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
+    logger.error('Login endpoint error', { message: err?.message, stack: err?.stack });
+    res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
 
@@ -1127,30 +1128,33 @@ app.post("/orders", authenticate, async (req, res) => {
         createdAt: order.createdAt
       }
     });
+    // Notify admins of new order (French wording) and broadcast, unless the order was created archived
+    if (!order.archived) {
+      await notifyAdmins({
+        prisma,
+        excludeUserId: order.userId, // avoid self if admin orders
+        type: 'order_new',
+        title: 'Nouvelle commande',
+        message: `Commande #${order.id} créée`,
+        data: { orderId: order.id, totalPrice: order.totalPrice, orderType: order.OrderType }
+      });
 
-    // Notify admins of new order (French wording)
-    await notifyAdmins({
-      prisma,
-      excludeUserId: order.userId, // avoid self if admin orders
-      type: 'order_new',
-      title: 'Nouvelle commande',
-      message: `Commande #${order.id} créée`,
-      data: { orderId: order.id, totalPrice: order.totalPrice, orderType: order.OrderType }
-    });
-
-    // Broadcast new order to admin clients
-    broadcastOrderUpdate({
-      type: 'newOrder',
-      order: {
-        id: order.id,
-        userId: order.userId,
-        totalPrice: order.totalPrice,
-        status: order.status,
-        OrderType: order.OrderType,
-        createdAt: order.createdAt,
-        clientMessage: order.clientMessage
-      }
-    }, 'newOrder');
+      // Broadcast new order to admin clients
+      broadcastOrderUpdate({
+        type: 'newOrder',
+        order: {
+          id: order.id,
+          userId: order.userId,
+          totalPrice: order.totalPrice,
+          status: order.status,
+          OrderType: order.OrderType,
+          createdAt: order.createdAt,
+          clientMessage: order.clientMessage
+        }
+      }, 'newOrder');
+    } else {
+      logger.info('Order created as archived, skipping admin notifications/broadcast', { orderId: order.id });
+    }
 
   } catch (error) {
     // Provide more context in logs for easier debugging
@@ -1241,18 +1245,23 @@ app.get("/users/orders", authenticate, async (req, res) => {
       where: whereClause
     });
     
-    // Format orders for frontend
-    const formattedOrders = orders.map(order => ({
-      ...order,
-      statusText: getStatusText(order.status),
-      formattedDate: order.createdAt.toLocaleDateString('fr-FR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }));
+    // Format orders for frontend (strip internal fields such as 'archived' so clients never see it)
+    const formattedOrders = orders.map(order => {
+      const o = {
+        ...order,
+        statusText: getStatusText(order.status),
+        formattedDate: order.createdAt.toLocaleDateString('fr-FR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      };
+      // Ensure archived is not exposed to clients
+      if (o.archived !== undefined) delete o.archived;
+      return o;
+    });
     
     res.json({
       orders: formattedOrders,
@@ -1326,7 +1335,9 @@ app.get("/users/orders/:orderId", authenticate, async (req, res) => {
         minute: '2-digit'
       })
     };
-    
+    // Ensure archived flag is not exposed to clients
+    if (formattedOrder.archived !== undefined) delete formattedOrder.archived;
+
     res.json(formattedOrder);
   } catch (error) {
     console.error('Error fetching order details:', error);
@@ -1367,7 +1378,13 @@ app.get("/admin/orders", authenticate, async (req, res) => {
     
     // Build where clause
     const whereClause = {};
-    
+
+    // By default hide archived orders for admin listing, unless includeArchived=true is passed
+    const includeArchived = req.query.includeArchived === 'true' || req.query.showArchived === 'true';
+    if (!includeArchived) {
+      whereClause.archived = false;
+    }
+
     // Add status filter if provided
     if (status !== undefined && status !== 'all') {
       whereClause.status = parseInt(status);
@@ -1426,22 +1443,27 @@ app.get("/admin/orders", authenticate, async (req, res) => {
     });
     
     // Format orders for frontend
-    const formattedOrders = orders.map(order => ({
-      ...order,
-      statusText: getStatusText(order.status),
-      formattedDate: order.createdAt.toLocaleDateString('fr-FR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      items: order.items.map(item => ({
-        ...item,
-        unitPrice: item.totalPrice / item.quantity,
-        versionSize: item.versionSize || (item.plat?.versions?.find(v => v.size === item.version)?.size)
-      }))
-    }));
+    const formattedOrders = orders.map(order => {
+      const o = {
+        ...order,
+        statusText: getStatusText(order.status),
+        formattedDate: order.createdAt.toLocaleDateString('fr-FR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        items: order.items.map(item => ({
+          ...item,
+          unitPrice: item.totalPrice / item.quantity,
+          versionSize: item.versionSize || (item.plat?.versions?.find(v => v.size === item.version)?.size)
+        }))
+      };
+      // Expose archived only to admins if they asked for it; otherwise remove it (though whereClause already filters)
+      if (!includeArchived && o.archived !== undefined) delete o.archived;
+      return o;
+    });
     
     const totalPages = Math.ceil(totalOrders / parseInt(limit));
     
@@ -1525,8 +1547,8 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
     });
     logger.debug('Order with user', orderWithUser ? { id: orderWithUser.id, userId: orderWithUser.userId, userEmail: orderWithUser.user?.email } : 'Not found');
 
-    // Create notification for the client if the order has a user
-    if (orderWithUser && orderWithUser.userId) {
+  // Create notification for the client if the order has a user and is not archived
+  if (orderWithUser && orderWithUser.userId && !orderWithUser.archived) {
   logger.info('Creating notification for user', { userId: orderWithUser.userId });
       const notification = await prisma.notification.create({
         data: {
@@ -1545,7 +1567,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       });
   logger.info('Notification created', { notificationId: notification.id });
 
-      // Send notification via websocket to the specific user
+  // Send notification via websocket to the specific user
   logger.debug('Emitting notification via websocket', { room: `user-${orderWithUser.userId}` });
       
       const notificationData = {
@@ -1563,7 +1585,7 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       io.to(`user-${orderWithUser.userId}`).emit('new-notification', notificationData);
   logger.debug('Notification emitted via websocket');
       
-      // Also try emitting to all connected client sockets as a fallback
+  // Also try emitting to all connected client sockets as a fallback
       let notificationSent = false;
       for (const [socketId, clientData] of clientSockets) {
         if (clientData.userId === orderWithUser.userId) {
@@ -1574,7 +1596,11 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       }
       logger.debug('Direct socket notification sent', { sent: notificationSent });
     } else {
-      logger.debug('No user associated with order, skipping notification');
+      if (orderWithUser && orderWithUser.userId && orderWithUser.archived) {
+        logger.info('Order is archived, skipping client notification for status update', { orderId: orderWithUser.id });
+      } else {
+        logger.debug('No user associated with order, skipping notification');
+      }
     }
 
     // Broadcast order status update to admin clients
@@ -1587,20 +1613,58 @@ app.put("/admin/orders/:orderId/status", authenticate, async (req, res) => {
       notes: updatedOrder.restaurantMessage || null
     }, 'orderStatusUpdate');
 
-    // Emit to the specific order chat room for real-time client notification
+    // Emit to the specific order chat room for real-time client notification, but skip if order is archived
   logger.debug('Emitting to order chat room', { room: `order-chat-${updatedOrder.id}` });
-    io.to(`order-chat-${updatedOrder.id}`).emit('order-status-update', {
-      orderId: updatedOrder.id,
-      status: updatedOrder.status,
-      statusText: getStatusText(updatedOrder.status),
-      message: updateData.restaurantMessage || null,
-      timestamp: new Date()
-    });
+    if (!orderWithUser || !orderWithUser.archived) {
+      io.to(`order-chat-${updatedOrder.id}`).emit('order-status-update', {
+        orderId: updatedOrder.id,
+        status: updatedOrder.status,
+        statusText: getStatusText(updatedOrder.status),
+        message: updateData.restaurantMessage || null,
+        timestamp: new Date()
+      });
+    } else {
+      logger.info('Skipping order chat emit for archived order', { orderId: updatedOrder.id });
+    }
     
     logger.info('ORDER STATUS UPDATE COMPLETED', { orderId: parseInt(orderId) });
   } catch (error) {
     logger.error('Error updating order status', { message: error?.message, code: error?.code, meta: error?.meta, stack: error?.stack });
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Toggle archived flag on an order (admin only)
+app.put("/admin/orders/:orderId/archived", authenticate, async (req, res) => {
+  try {
+    const requestingUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!requestingUser || requestingUser.type !== 1) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
+    const { orderId } = req.params;
+    const { archived } = req.body;
+
+    if (typeof archived !== 'boolean') {
+      return res.status(400).json({ error: 'archived must be a boolean' });
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: parseInt(orderId) },
+      data: { archived }
+    });
+
+    // Broadcast to admin clients so UIs can refresh their lists. Do NOT create notifications for clients.
+    broadcastOrderUpdate({
+      type: 'archivedChange',
+      orderId: updatedOrder.id,
+      archived: updatedOrder.archived
+    }, 'orderArchivedChange');
+
+    res.json({ message: 'Order archived flag updated', order: { id: updatedOrder.id, archived: updatedOrder.archived } });
+  } catch (error) {
+    logger.error('Error updating archived flag', { message: error?.message, stack: error?.stack });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -3219,6 +3283,57 @@ app.delete('/settings/:key', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Setting not found' });
     }
     res.status(500).json({ error: 'Failed to delete setting' });
+  }
+});
+
+// Return server time (useful for clients that want server-based opening hours)
+app.get('/server-time', async (req, res) => {
+  try {
+    return res.json({ now: new Date().toISOString() });
+  } catch (err) {
+    console.error('Server time error:', err);
+    res.status(500).json({ error: 'Failed to get server time' });
+  }
+});
+
+// Get restaurant config (public read)
+app.get('/restaurant-config', async (req, res) => {
+  try {
+    const cfg = await prisma.restaurantConfig.findFirst();
+    if (!cfg) return res.json({});
+    res.json(cfg);
+  } catch (err) {
+    console.error('Get restaurant config error:', err);
+    res.status(500).json({ error: 'Failed to fetch restaurant config' });
+  }
+});
+
+// Update restaurant config (admin)
+app.put('/restaurant-config', authenticate, async (req, res) => {
+  try {
+    const { openMode, openDays, openStart, openEnd, manualOpen } = req.body;
+    const up = await prisma.restaurantConfig.upsert({
+      where: { id: 1 },
+      update: {
+        openMode: openMode || 'auto',
+        openDays: openDays || [],
+        openStart: openStart || '11:00',
+        openEnd: openEnd || '22:00',
+        manualOpen: typeof manualOpen === 'boolean' ? manualOpen : true,
+      },
+      create: {
+        openMode: openMode || 'auto',
+        openDays: openDays || [],
+        openStart: openStart || '11:00',
+        openEnd: openEnd || '22:00',
+        manualOpen: typeof manualOpen === 'boolean' ? manualOpen : true,
+      }
+    });
+
+    res.json(up);
+  } catch (err) {
+    console.error('Update restaurant config error:', err);
+    res.status(500).json({ error: 'Failed to update restaurant config' });
   }
 });
 

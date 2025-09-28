@@ -44,6 +44,7 @@ import {
   LocalShipping as TruckIcon,
   Block as BlockIcon,
   Fastfood as FastfoodIcon,
+  Storefront as StorefrontIcon,
   Add as AddIcon,
   Remove as RemoveIcon,
   LocalDining as LocalDiningIcon,
@@ -160,11 +161,12 @@ const Menu = () => {
   // Throttle search input for better mobile performance
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
-  const [filterType, setFilterType] = useState("available")
+  // filterType removed per UX change; we're showing 3 status icons instead
   const [modalOpen, setModalOpen] = useState(false)
   const [platVersionModalOpen, setPlatVersionModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [imageErrors, setImageErrors] = useState({})
+  const [dropdownOpen, setDropdownOpen] = useState(false)
   
   // New state for tag filtering
   const [searchableTags, setSearchableTags] = useState([])
@@ -172,6 +174,8 @@ const Menu = () => {
 
   // Settings state
   const [settings, setSettings] = useState({})
+  // Local fallback for restaurant config (fetched from backend) to handle cases where settings map lacks keys
+  const [restaurantCfgLocal, setRestaurantCfgLocal] = useState(null)
 
   // Basket context
   const { addToBasket } = useBasket()
@@ -188,6 +192,51 @@ const Menu = () => {
 
     return () => clearTimeout(timer)
   }, [searchTerm, isMobile])
+
+  // When a dropdown opens, push a history state so the mobile back gesture can close it
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const stateId = `dropdown-${Date.now()}`;
+    // Push a temporary history state so that the back gesture triggers popstate
+    try { window.history.pushState({ menuDropdown: stateId }, '') } catch (e) {}
+
+    const onPop = () => {
+      if (dropdownOpen) {
+        setDropdownOpen(false)
+      }
+    }
+
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      // Try to remove the pushed state to keep history clean
+      try { window.history.back() } catch (e) {}
+    }
+  }, [dropdownOpen])
+
+  // Fetch restaurant config once as a fallback when settings doesn't include restaurant mode/manual flags
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCfg = async () => {
+      try {
+        const res = await fetch(`${config.API_URL}/restaurant-config`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.openDays && typeof data.openDays === 'string') {
+          try { data.openDays = JSON.parse(data.openDays); } catch(e) { /* ignore */ }
+        }
+        if (!cancelled) setRestaurantCfgLocal(data);
+      } catch (err) {
+        console.warn('Failed to fetch restaurant-config fallback', err);
+      }
+    }
+    fetchCfg();
+    const onUpdate = (e) => {
+      if (e?.detail?.restaurantCfg) setRestaurantCfgLocal(e.detail.restaurantCfg)
+    }
+    window.addEventListener('restaurant-config-updated', onUpdate)
+    return () => { cancelled = true; window.removeEventListener('restaurant-config-updated', onUpdate) }
+  }, [])
 
   // Memoize card styles for better performance
   const cardStyles = useMemo(() => ({
@@ -245,7 +294,7 @@ const Menu = () => {
 
   // Helper function to check if ordering is allowed
   const isOrderingDisabled = () => {
-    return settings.enableOnlinePickup === "false" && settings.enableOnlineDelivery === "false";
+  return !settings.enableOnlinePickup && !settings.enableOnlineDelivery;
   };
 
   // Fetch sauces with tag filtering
@@ -397,7 +446,11 @@ const Menu = () => {
           const data = await response.json();
           const settingsMap = {};
           data.forEach(setting => {
-            settingsMap[setting.key] = setting.value;
+            let val = setting.value;
+            if (val === 'true') val = true;
+            else if (val === 'false') val = false;
+            else if (!isNaN(val) && val !== '') val = Number(val);
+            settingsMap[setting.key] = val;
           });
           setSettings(settingsMap);
         }
@@ -432,11 +485,7 @@ const Menu = () => {
       })
     }
 
-    if (filterType === "available") {
-      filteredSauceData = filteredSauceData.filter((sauce) => sauce.available)
-    } else if (filterType === "delivery") {
-      filteredSauceData = filteredSauceData.filter((sauce) => sauce.available && sauce.deliveryAvailable)
-    }
+  // Show all sauces including unavailable ones; unavailable sauces will render with an overlay
 
     if (debouncedSearchTerm) {
       filteredSauceData = filteredSauceData.filter((sauce) => {
@@ -461,7 +510,7 @@ const Menu = () => {
     })
 
     return filteredSauceData
-  }, [sauces, selectedTagFilter, filterType, debouncedSearchTerm])
+  }, [sauces, selectedTagFilter, debouncedSearchTerm])
 
   const filteredPlats = useMemo(() => {
     let filteredPlatData = [...plats]
@@ -478,7 +527,7 @@ const Menu = () => {
     }
 
     // Apply speciality filter based on settings
-    if (settings.enableSpecialites === "false") {
+  if (!settings.enableSpecialites) {
       // If specialities are disabled, mark them as unavailable but keep them visible
       filteredPlatData = filteredPlatData.map((plat) => ({
         ...plat,
@@ -486,13 +535,7 @@ const Menu = () => {
       }))
     }
 
-    if (filterType === "available") {
-      filteredPlatData = filteredPlatData.filter((plat) => plat.available)
-    } else if (filterType === "delivery") {
-      filteredPlatData = filteredPlatData.filter((plat) => plat.available && plat.deliveryAvailable)
-    } else if (filterType === "speciality") {
-      filteredPlatData = filteredPlatData.filter((plat) => plat.speciality)
-    }
+  // Show all plats including unavailable ones; unavailable plats will render with an overlay
 
     if (debouncedSearchTerm) {
       filteredPlatData = filteredPlatData.filter((plat) => {
@@ -516,14 +559,16 @@ const Menu = () => {
     })
 
     return filteredPlatData
-  }, [plats, selectedTagFilter, settings, filterType, debouncedSearchTerm])
+  }, [plats, selectedTagFilter, settings, debouncedSearchTerm])
 
   const handleSauceClick = (sauce) => {
+    if (!sauce || !sauce.available) return
     setSelectedSauce(sauce)
     setModalOpen(true)
   }
 
   const handlePlatClick = (plat) => {
+    if (!plat || !plat.available) return
     setSelectedPlat(plat)
     // Preselect version by active tag if available; otherwise if single version, select it
     let initialVersion = null
@@ -782,7 +827,7 @@ const Menu = () => {
               fontSize: { xs: "1rem", md: "1.2rem" },
             }}
           >
-            €{sauce.price.toFixed(2)}
+            {sauce.price.toFixed(2)} €
           </Typography>
         </Box>
       </CardContent>
@@ -795,6 +840,16 @@ const Menu = () => {
         ...cardStyles,
         backdropFilter: isMobile ? "none" : undefined,
         boxShadow: isMobile ? "none" : undefined,
+        ...(plat.speciality ? {
+          border: '1.5px solid rgba(255, 215, 0, 0.45)',
+          boxShadow: '0 4px 10px rgba(255, 215, 0, 0.06)',
+          animation: 'pulseGold 3000ms infinite ease-in-out',
+          '@keyframes pulseGold': {
+            '0%': { boxShadow: '0 4px 10px rgba(255, 215, 0, 0.04)' },
+            '50%': { boxShadow: '0 6px 14px rgba(255, 215, 0, 0.08)' },
+            '100%': { boxShadow: '0 4px 10px rgba(255, 215, 0, 0.04)' },
+          }
+        } : {})
       }}
       onClick={() => handlePlatClick(plat)}
     >
@@ -1004,9 +1059,9 @@ const Menu = () => {
               fontSize: { xs: "1rem", md: "1.2rem" },
             }}
           >
-            {plat.versions && plat.versions.length > 1 
-              ? `À partir de €${plat.price.toFixed(2)}`
-              : `€${plat.price.toFixed(2)}`
+            {plat.versions.length > 1 
+              ? `Dès ${(plat.price + plat.versions[0].extraPrice).toFixed(2)} €`
+              : `${plat.price.toFixed(2)} €`
             }
           </Typography>
         </Box>
@@ -1238,26 +1293,7 @@ const Menu = () => {
                 >
                   {settings.menuMessage || "Découvrez notre sélection de spécialités"}
                 </Typography>
-                {(settings.enableOnlinePickup === "false" || settings.enableOnlineDelivery === "false") && (
-                  <Alert 
-                    severity="warning" 
-                    sx={{ 
-                      mb: 3, 
-                      maxWidth: 600, 
-                      mx: "auto",
-                      background: "rgba(255, 152, 0, 0.1)",
-                      border: "1px solid rgba(255, 152, 0, 0.3)",
-                      color: "#ffb74d"
-                    }}
-                  >
-                    {settings.enableOnlinePickup === "false" && settings.enableOnlineDelivery === "false" 
-                      ? "🚫 Les commandes en ligne sont temporairement désactivées."
-                      : settings.enableOnlinePickup === "false" 
-                        ? "🚫 Les commandes à emporter en ligne sont temporairement désactivées."
-                        : "🚫 Les commandes en livraison en ligne sont temporairement désactivées."
-                    }
-                  </Alert>
-                )}
+                {/* Warning alert removed per UX request */}
               </Box>
             </Fade>
           )}
@@ -1282,15 +1318,90 @@ const Menu = () => {
                   gap: 3,
                 }}
               >
-                {/* Search and Filter Row */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: isMobile ? "column" : "row",
-                    gap: 2,
-                    alignItems: "stretch",
-                  }}
-                >
+                {/* Status icons (row above search) - centered with labels */}
+                <Box sx={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', mb: 1, width: '100%' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'primary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlinePickup ? 1 : 0.35 }}>
+                      <FastfoodIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                    </Box>
+                    <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlinePickup ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>À emporter</Typography>
+                  </Box>
+                  {/* Specialities status (mobile) */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'warning.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableSpecialites ? 1 : 0.35 }}>
+                      <StarIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                    </Box>
+                    <Box sx={{ mt: 0.25 }}>{ !!settings.enableSpecialites ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Spécialités</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'secondary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlineDelivery ? 1 : 0.35 }}>
+                      <TruckIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                    </Box>
+                    <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlineDelivery ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Livraisons</Typography>
+                  </Box>
+                  {/* <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'success.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <StorefrontIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                    </Box>
+                    <Box sx={{ mt: 0.25 }}>{ (() => {
+                      // Determine open state using new restaurant settings
+                      try {
+                        // Determine manualOpen value from settings or server fallback
+                        const manualVal = settings.hasOwnProperty('restaurantManualOpen') ? settings.restaurantManualOpen : restaurantCfgLocal?.manualOpen;
+                        // If manualOpen is explicitly true, treat as manual mode (authoritative)
+                        if (manualVal === true || manualVal === 'true') {
+                          return <CheckCircleIcon color="success" sx={{ fontSize: 20 }} />;
+                        }
+
+                        // Otherwise determine mode: prefer explicit settings values, otherwise fall back to server-side restaurant config
+                        const mode = (settings.hasOwnProperty('restaurantAutoMode'))
+                          ? (settings.restaurantAutoMode === false ? 'manual' : 'auto')
+                          : (restaurantCfgLocal?.openMode === 'manual' ? 'manual' : 'auto');
+
+                        if (mode === 'manual') {
+                          // manualOpen was falsy; show closed
+                          return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
+                        }
+
+                        // Auto mode
+                        const safeParse = (v, fallback=null) => {
+                          if (v == null) return fallback;
+                          if (Array.isArray(v)) return v;
+                          if (typeof v !== 'string') return fallback;
+                          try { return JSON.parse(v); } catch (e) {
+                            try { return JSON.parse(v.replace(/'/g, '"')); } catch (e2) { return fallback; }
+                          }
+                        };
+                        const days = Array.isArray(settings.restaurantOpenDays) ? settings.restaurantOpenDays : (Array.isArray(restaurantCfgLocal?.openDays) ? restaurantCfgLocal.openDays : safeParse(settings.restaurantOpenDays, null));
+                        const openStr = settings.restaurantOpenStart || restaurantCfgLocal?.openStart || settings.heureOuverture || settings.heure_ouverture || '';
+                        const closeStr = settings.restaurantOpenEnd || restaurantCfgLocal?.openEnd || settings.heureFermeture || settings.heure_fermeture || '';
+                        if (!openStr || !closeStr) return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
+                        const normalize = (s) => s.includes(':') ? s : (s.length === 4 ? s.slice(0,2) + ':' + s.slice(2,4) : s);
+                        const now = new Date();
+                        const today = now.getDay(); // 0=Sun .. 6=Sat
+                        if (Array.isArray(days) && days.length > 0 && !days.includes(today)) {
+                          return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
+                        }
+                        const [oh, om] = normalize(openStr).split(':').map(Number);
+                        const [ch, cm] = normalize(closeStr).split(':').map(Number);
+                        const todayOpen = new Date(now.getFullYear(), now.getMonth(), now.getDate(), oh, om);
+                        const todayClose = new Date(now.getFullYear(), now.getMonth(), now.getDate(), ch, cm);
+                        const open = now >= todayOpen && now <= todayClose;
+                        return open ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} />;
+                      } catch (err) {
+                        console.error('Error computing restaurant open state:', err);
+                        return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
+                      }
+                    })() }</Box>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Restaurant ouvert</Typography>
+                  </Box> */}
+                </Box>
+
+                {/* Search (full width) */}
+                <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
                     fullWidth
                     placeholder="Rechercher une spécialité..."
@@ -1300,7 +1411,7 @@ const Menu = () => {
                       startAdornment: <SearchIcon sx={{ mr: 1, color: "primary.main" }} />,
                     }}
                     sx={{
-                      flex: 3,
+                      width: '100%',
                       "& .MuiOutlinedInput-root": {
                         borderRadius: 2,
                         "&:hover fieldset": {
@@ -1309,82 +1420,25 @@ const Menu = () => {
                       },
                     }}
                   />
-                  <FormControl sx={{ flex: 1, minWidth: 200 }}>
-                    <InputLabel>Filtrer par</InputLabel>
-                    <Select
-                      value={filterType}
-                      label="Filtrer par"
-                      onChange={(e) => setFilterType(e.target.value)}
-                      sx={{ borderRadius: 2 }}
-                    >
-                      <MenuItem value="all">Tout afficher</MenuItem>
-                      <MenuItem value="available">Disponible</MenuItem>
-                      <MenuItem value="delivery">Disponible en livraison</MenuItem>
-                    </Select>
-                  </FormControl>
                 </Box>
                 
-                {/* Tag Filters */}
+                {/* Category dropdown */}
                 {searchableTags && searchableTags.length > 0 && (
                   <Box>
-                    <Typography variant="h6" sx={{ mb: 2, color: "primary.main", textAlign: "center" }}>
-                      Filtrer par catégories
-                    </Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-                      {/* "Tout" button */}
-                      <Chip
-                        label="Tout"
-                        onClick={() => handleTagFilterSelect("all")}
-                        color={selectedTagFilter === "all" ? "primary" : "default"}
-                        variant={selectedTagFilter === "all" ? "filled" : "outlined"}
-                        sx={{
-                          fontWeight: 600,
-                          borderRadius: 2,
-                          transition: "all 0.3s ease",
-                          minWidth: 120,
-                          height: 40,
-                          "&:hover": {
-                            transform: "scale(1.05)",
-                          },
-                        }}
-                      />
-                      {/* Tag buttons */}
-                      {searchableTags.map((tag) => (
-                        <Chip
-                          key={tag.id}
-                          label={
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                              <Typography
-                                component="span"
-                                sx={{
-                                  fontSize: "1.1em",
-                                  textShadow: "0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)",
-                                  filter: "drop-shadow(0 0 4px rgba(255,255,255,0.4)) drop-shadow(0 2px 8px rgba(0,0,0,0.8))",
-                                }}
-                              >
-                                {tag.emoji}
-                              </Typography>
-                              <Typography component="span">
-                                {tag.nom}
-                              </Typography>
-                            </Box>
-                          }
-                          onClick={() => handleTagFilterSelect(tag.id)}
-                          color={selectedTagFilter === tag.id ? "primary" : "default"}
-                          variant={selectedTagFilter === tag.id ? "filled" : "outlined"}
-                          sx={{
-                            fontWeight: 600,
-                            borderRadius: 2,
-                            transition: "all 0.3s ease",
-                            minWidth: 120,
-                            height: 40,
-                            "&:hover": {
-                              transform: "scale(1.05)",
-                            },
-                          }}
-                        />
-                      ))}
-                    </Box>
+                    <FormControl fullWidth sx={{ mt: 1 }}>
+                      <InputLabel>Catégorie</InputLabel>
+                      <Select
+                        value={selectedTagFilter}
+                        label="Catégorie"
+                        onChange={(e) => handleTagFilterSelect(e.target.value)}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        <MenuItem value="all">Tout</MenuItem>
+                        {searchableTags.map(tag => (
+                          <MenuItem key={tag.id} value={tag.id}>{tag.emoji} {tag.nom}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </Box>
                 )}
               </Box>
@@ -1413,11 +1467,57 @@ const Menu = () => {
                   <Box
                     sx={{
                       display: "flex",
-                      flexDirection: isMobile ? "column" : "row",
+                      flexDirection: "column",
                       gap: 2,
-                      alignItems: "stretch",
+                      alignItems: "center",
                     }}
                   >
+                    {/* Status icons (desktop) - centered above search */}
+                    <Box sx={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'primary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlinePickup ? 1 : 0.35 }}>
+                          <FastfoodIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                        </Box>
+                        <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlinePickup ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
+                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>À emporter</Typography>
+                      </Box>
+                      {/* Specialities status (desktop) */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'warning.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableSpecialites ? 1 : 0.35 }}>
+                          <StarIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                        </Box>
+                        <Box sx={{ mt: 0.25 }}>{ !!settings.enableSpecialites ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
+                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Spécialités</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'secondary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlineDelivery ? 1 : 0.35 }}>
+                          <TruckIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                        </Box>
+                        <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlineDelivery ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
+                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Livraisons</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'success.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <StorefrontIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
+                        </Box>
+                        <Box sx={{ mt: 0.25 }}>{ (() => {
+                          const open = (() => {
+                            const openStr = settings.heureOuverture || settings.heure_ouverture || '';
+                            const closeStr = settings.heureFermeture || settings.heure_fermeture || '';
+                            if (!openStr || !closeStr) return false;
+                            const normalize = (s) => s.includes(':') ? s : s.slice(0,2) + ':' + s.slice(2,4);
+                            const now = new Date();
+                            const [oh, om] = normalize(openStr).split(':').map(Number);
+                            const [ch, cm] = normalize(closeStr).split(':').map(Number);
+                            const todayOpen = new Date(now.getFullYear(), now.getMonth(), now.getDate(), oh, om);
+                            const todayClose = new Date(now.getFullYear(), now.getMonth(), now.getDate(), ch, cm);
+                            return now >= todayOpen && now <= todayClose;
+                          })();
+                          return open ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} />;
+                        })() }</Box>
+                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Restaurant ouvert</Typography>
+                      </Box>
+                    </Box>
                     <TextField
                       fullWidth
                       placeholder="Rechercher une spécialité..."
@@ -1436,78 +1536,23 @@ const Menu = () => {
                         },
                       }}
                     />
-                    <FormControl sx={{ flex: 1, minWidth: 200 }}>
-                      <InputLabel>Filtrer par</InputLabel>
-                      <Select
-                        value={filterType}
-                        label="Filtrer par"
-                        onChange={(e) => setFilterType(e.target.value)}
-                        sx={{ borderRadius: 2 }}
-                      >
-                        <MenuItem value="all">Tout afficher</MenuItem>
-                        <MenuItem value="available">Disponible</MenuItem>
-                        <MenuItem value="delivery">Disponible en livraison</MenuItem>
-                      </Select>
-                    </FormControl>
                   </Box>
                   {searchableTags && searchableTags.length > 0 && (
                     <Box>
-                      <Typography variant="h6" sx={{ mb: 2, color: "primary.main", textAlign: "center" }}>
-                        Filtrer par catégories
-                      </Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-                        <Chip
-                          label="Tout"
-                          onClick={() => handleTagFilterSelect("all")}
-                          color={selectedTagFilter === "all" ? "primary" : "default"}
-                          variant={selectedTagFilter === "all" ? "filled" : "outlined"}
-                          sx={{
-                            fontWeight: 600,
-                            borderRadius: 2,
-                            transition: "all 0.3s ease",
-                            minWidth: 120,
-                            height: 40,
-                            "&:hover": {
-                              transform: "scale(1.05)",
-                            },
-                          }}
-                        />
-                        {searchableTags.map((tag) => (
-                          <Chip
-                            key={tag.id}
-                            label={
-                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                <Typography
-                                  component="span"
-                                  sx={{
-                                    fontSize: "1.1em",
-                                    textShadow: "0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)",
-                                    filter: "drop-shadow(0 0 4px rgba(255,255,255,0.4)) drop-shadow(0 2px 8px rgba(0,0,0,0.8))",
-                                  }}
-                                >
-                                  {tag.emoji}
-                                </Typography>
-                                <Typography component="span">
-                                  {tag.nom}
-                                </Typography>
-                              </Box>
-                            }
-                            onClick={() => handleTagFilterSelect(tag.id)}
-                            color={selectedTagFilter === tag.id ? "primary" : "default"}
-                            variant={selectedTagFilter === tag.id ? "filled" : "outlined"}
-                            sx={{
-                              fontWeight: 600,
-                              borderRadius: 2,
-                              transition: "all 0.3s ease",
-                              minWidth: 120,
-                              height: 40,
-                              "&:hover": {
-                                transform: "scale(1.05)",
-                              },
-                            }}
-                          />
-                        ))}
-                      </Box>
+                      <FormControl fullWidth sx={{ mt: 1 }}>
+                        <InputLabel>Catégorie</InputLabel>
+                        <Select
+                          value={selectedTagFilter}
+                          label="Catégorie"
+                          onChange={(e) => handleTagFilterSelect(e.target.value)}
+                          sx={{ borderRadius: 2 }}
+                        >
+                          <MenuItem value="all">Tout</MenuItem>
+                          {searchableTags.map(tag => (
+                            <MenuItem key={tag.id} value={tag.id}>{tag.emoji} {tag.nom}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                     </Box>
                   )}
                 </Box>
@@ -1533,28 +1578,12 @@ const Menu = () => {
           >
             {/* Render Plats */}
             {filteredPlats.map((plat, index) => (
-              (isMobile || isTablet)
-                ? <React.Fragment key={`plat-${plat.id}`}>{renderPlatCard(plat, index)}</React.Fragment>
-                : (
-                  <Zoom in timeout={300 + index * 50} key={`plat-${plat.id}`}>
-                    {renderPlatCard(plat, index)}
-                  </Zoom>
-                )
+              <React.Fragment key={`plat-${plat.id}`}>{renderPlatCard(plat, index)}</React.Fragment>
             ))}
 
             {/* Render Sauces */}
             {filteredSauces.map((sauce, index) => (
-              (isMobile || isTablet)
-                ? (
-                  <React.Fragment key={`sauce-${sauce.id}`}>
-                    {renderSauceCard(sauce)}
-                  </React.Fragment>
-                )
-                : (
-                  <Zoom in timeout={300 + (filteredPlats.length + index) * 50} key={`sauce-${sauce.id}`}>
-                    {renderSauceCard(sauce)}
-                  </Zoom>
-                )
+              <React.Fragment key={`sauce-${sauce.id}`}>{renderSauceCard(sauce)}</React.Fragment>
             ))}
           </Box>
 
@@ -1646,7 +1675,7 @@ const Menu = () => {
                     )}
                   </Box>
                   <Typography variant="h3" color="primary" gutterBottom sx={{ fontWeight: 800 }}>
-                    €{selectedSauce.price.toFixed(2)}
+                    {selectedSauce.price.toFixed(2)} €
                   </Typography>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 3 }}>
                     {!selectedSauce.available && (
@@ -1842,6 +1871,11 @@ const Menu = () => {
                             setSelectedSauceForPlat(sauce || null);
                           }}
                           label={selectedPlat.saucePrice > 0 ? `Sauce (+€${selectedPlat.saucePrice.toFixed(2)})` : "Sauce (Incluse)"}
+                          onOpen={() => setDropdownOpen(true)}
+                          onClose={() => setDropdownOpen(false)}
+                          MenuProps={{
+                            PaperProps: { sx: { maxHeight: { xs: '30vh', md: '50vh' }, width: 360, overflow: 'auto' } }
+                          }}
                           sx={{
                             "& .MuiOutlinedInput-notchedOutline": {
                               borderColor: "rgba(255, 152, 0, 0.5)",
@@ -1893,6 +1927,9 @@ const Menu = () => {
                                   setSelectedExtras([...otherSelectedExtras, ...e.target.value]);
                                 }}
                                 label={`${tag.emoji} ${tag.nom}`}
+                                onOpen={() => setDropdownOpen(true)}
+                                onClose={() => setDropdownOpen(false)}
+                                MenuProps={{ PaperProps: { sx: { maxHeight: { xs: '35vh', md: '50vh' }, width: 420, overflow: 'auto' } } }}
                                 renderValue={(selected) => (
                                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                     {selected.map((extraId) => {
@@ -2082,6 +2119,9 @@ const Menu = () => {
                             handleVersionSelect(version || null);
                           }}
                           label="Taille"
+                          onOpen={() => setDropdownOpen(true)}
+                          onClose={() => setDropdownOpen(false)}
+                          MenuProps={{ PaperProps: { sx: { maxHeight: { xs: '30vh', md: '50vh' }, width: 360, overflow: 'auto' } } }}
                           sx={{
                             "& .MuiOutlinedInput-notchedOutline": {
                               borderColor: "rgba(255, 152, 0, 0.5)",

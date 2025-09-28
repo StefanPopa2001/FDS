@@ -139,12 +139,14 @@ model Order {
   canceledAt              DateTime?
   preparationStartedAt    DateTime?
   completedAt             DateTime?
+  archived                Boolean              @default(false)
   items                   OrderItem[]
   statusHistory           OrderStatusHistory[]
   chatMessages            OrderChat[]
 
   @@index([userId])
   @@index([status])
+  @@index([archived])
   @@index([createdAt])
 }
 
@@ -242,6 +244,19 @@ model Settings {
 
   @@index([key])
   @@index([category])
+}
+
+model RestaurantConfig {
+  id          Int      @id @default(autoincrement())
+  openMode    String   @default("auto") // 'auto' or 'manual'
+  openDays    Json     @default("[]")    // JSON array of day numbers 0=Sun..6=Sat
+  openStart   String   @default("11:00")
+  openEnd     String   @default("22:00")
+  manualOpen  Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("restaurant_config")
 }
 
 model Notification {

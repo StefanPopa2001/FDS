@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!saltResponse.ok) {
-        return { success: false, error: 'Network error' };
+        return { success: false, error: 'Erreur réseau' };
       }
 
       const { salt } = await saltResponse.json();
@@ -93,12 +93,13 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: data.user };
       } else {
-        const errorData = await response.json();
-        return { success: false, error: errorData.error || 'Login failed' };
+        const errorData = await response.json().catch(() => ({}));
+        // Prefer backend-provided message (now in French), fallback to generic French message
+        return { success: false, error: errorData.error || 'Échec de la connexion' };
       }
     } catch (error) {
       console.error('Login failed:', error);
-      return { success: false, error: 'Network error' };
+      return { success: false, error: 'Erreur réseau' };
     }
   };
 

@@ -274,7 +274,7 @@ export default function AdminExtra() {
           />
         ) : (
           <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main" }}>
-            {params.value ? `€${Number(params.value).toFixed(2)}` : ""}
+            {params.value ? `${Number(params.value).toFixed(2)}€` : ""}
           </Typography>
         ),
     },

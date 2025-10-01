@@ -1068,74 +1068,85 @@ export default function AdminOrders() {
           </Box>
         </Box>
 
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              label="Date"
-              type="date"
-              value={selectedDate.toISOString().split("T")[0]}
-              onChange={(e) => setSelectedDate(new Date(e.target.value))}
-              fullWidth
-              variant="outlined"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 2,
-                  fontSize: "0.9rem",
-                },
-              }}
-            />
-          </Grid>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center", mb: 2 }}>
+          <TextField
+            label="Date"
+            type="text"
+            value={format(selectedDate, 'dd/MM/yyyy')}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Parse DD/MM/YYYY format
+              const parts = value.split('/');
+              if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1; // JS months are 0-based
+                const year = parseInt(parts[2], 10);
+                if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                  const newDate = new Date(year, month, day);
+                  if (!isNaN(newDate.getTime())) {
+                    setSelectedDate(newDate);
+                  }
+                }
+              }
+            }}
+            variant="outlined"
+            size="small"
+            sx={{
+              minWidth: "140px",
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+                fontSize: "0.9rem",
+              },
+            }}
+          />
 
-          <Grid item xs={12} md={4}>
-            <FormControlLabel
-              control={<Switch checked={showArchived} onChange={handleShowArchivedChange} />}
-              label="Afficher archivés"
-            />
-          </Grid>
+          <FormControlLabel
+            control={<Switch checked={showArchived} onChange={handleShowArchivedChange} />}
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ArchiveIcon fontSize="small" />
+                Afficher archivés
+              </Box>
+            }
+          />
 
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ fontSize: "0.9rem" }}>Filtrer par statut</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Filtrer par statut"
-                onChange={handleStatusFilterChange}
-                sx={{
-                  borderRadius: 2,
-                  fontSize: "0.9rem",
-                }}
-              >
-                <MenuItem value="all" sx={{ fontSize: "0.9rem" }}>
-                  Tous les statuts
-                </MenuItem>
-                {statusOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value.toString()} sx={{ fontSize: "0.9rem" }}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Button
-              variant="outlined"
-              startIcon={<ScheduleIcon />}
-              onClick={() => setHoursDrawerOpen(true)}
-              fullWidth
-              size="small"
+          <FormControl size="small" sx={{ minWidth: "160px" }}>
+            <InputLabel sx={{ fontSize: "0.9rem" }}>Filtrer par statut</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Filtrer par statut"
+              onChange={handleStatusFilterChange}
               sx={{
                 borderRadius: 2,
                 fontSize: "0.9rem",
-                fontWeight: 600,
               }}
             >
-              Horaires
-            </Button>
-          </Grid>
-        </Grid>
+              <MenuItem value="all" sx={{ fontSize: "0.9rem" }}>
+                Tous les statuts
+              </MenuItem>
+              {statusOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value.toString()} sx={{ fontSize: "0.9rem" }}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Button
+            variant="outlined"
+            startIcon={<ScheduleIcon />}
+            onClick={() => setHoursDrawerOpen(true)}
+            size="small"
+            sx={{
+              borderRadius: 2,
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Horaires
+          </Button>
+        </Box>
 
         {Object.keys(hourStats).length > 0 && (
           <Paper

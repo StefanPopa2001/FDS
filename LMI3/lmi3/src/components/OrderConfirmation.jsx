@@ -528,7 +528,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography>Sous-total de la commande:</Typography>
-                <Typography sx={{ fontWeight: 600 }}>€{totalPrice.toFixed(2)}</Typography>
+                <Typography sx={{ fontWeight: 600 }}>{totalPrice.toFixed(2)}€</Typography>
               </Box>
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -548,7 +548,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
                   Total:
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: '#ff9800' }}>
-                  €{calculateFinalTotal().toFixed(2)}
+                  {calculateFinalTotal().toFixed(2)}€
                 </Typography>
               </Box>
             </Box>
@@ -673,11 +673,11 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
                           </Typography>
                         )}
                         <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                          €{(calculateItemPrice(item) / item.quantity).toFixed(2)} / unité
+                          {(calculateItemPrice(item) / item.quantity).toFixed(2)}€ / unité
                         </Typography>
                       </Box>
                       <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
-                        €{calculateItemPrice(item).toFixed(2)}
+                        {calculateItemPrice(item).toFixed(2)}€
                       </Typography>
                     </Box>
                   </CardContent>
@@ -715,7 +715,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
             <Box sx={{ backgroundColor: 'rgba(255, 152, 0, 0.1)', p: 2, borderRadius: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography>Sous-total:</Typography>
-                <Typography>€{totalPrice.toFixed(2)}</Typography>
+                <Typography>{totalPrice.toFixed(2)}€</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography>Frais de livraison:</Typography>
@@ -723,7 +723,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
                   color: calculateDeliveryFee() === 0 ? '#4caf50' : 'inherit',
                   fontWeight: calculateDeliveryFee() === 0 ? 600 : 'normal'
                 }}>
-                  {calculateDeliveryFee() === 0 ? 'GRATUIT' : `€${calculateDeliveryFee().toFixed(2)}`}
+                  {calculateDeliveryFee() === 0 ? 'GRATUIT' : `${calculateDeliveryFee().toFixed(2)}€`}
                 </Typography>
               </Box>
               <Divider sx={{ my: 1 }} />
@@ -732,7 +732,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
                   Total:
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: '#ff9800' }}>
-                  €{calculateFinalTotal().toFixed(2)}
+                  {calculateFinalTotal().toFixed(2)}€
                 </Typography>
               </Box>
             </Box>

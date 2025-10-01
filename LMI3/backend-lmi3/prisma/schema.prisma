@@ -45,6 +45,7 @@ model Tags {
   description  String
   emoji        String
   recherchable Boolean @default(false)
+  ordre        String?
   extras       Extra[] @relation("ExtraToTags")
   plats        Plat[]  @relation("PlatToTags")
   sauces       Sauce[] @relation("SauceToTags")

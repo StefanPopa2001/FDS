@@ -170,7 +170,7 @@ const BasketItem = ({ item }) => {
             )}
             
             <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
-              €{calculateItemPrice(item).toFixed(2)}
+              {calculateItemPrice(item).toFixed(2)}€
             </Typography>
           </Box>
           <Tooltip title="Supprimer">
@@ -231,7 +231,7 @@ const BasketItem = ({ item }) => {
           </Box>
           
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            €{(calculateItemPrice(item) / item.quantity).toFixed(2)} / unité
+            {(calculateItemPrice(item) / item.quantity).toFixed(2)}€ / unité
           </Typography>
         </Box>
       </CardContent>
@@ -591,7 +591,7 @@ const BasketDialog = ({ open, onClose }) => {
                     Total
                   </Typography>
                   <Typography variant="h4" sx={{ fontWeight: 800, color: '#ff9800' }}>
-                    €{totalPrice.toFixed(2)}
+                    {totalPrice.toFixed(2)}€
                   </Typography>
                 </Box>
               </Box>
@@ -786,7 +786,7 @@ const BasketDialog = ({ open, onClose }) => {
                 Total de votre panier
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 800, color: '#ff9800' }}>
-                €{totalPrice.toFixed(2)}
+                {totalPrice.toFixed(2)}€
               </Typography>
             </Box>
           </Box>
@@ -1005,7 +1005,7 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
                     </Typography>
                   </Box>
                   <Typography variant="h6" sx={{ color: '#ff9800', fontWeight: 600 }}>
-                    €{(calculateItemPrice(item) * item.quantity).toFixed(2)}
+                    {calculateItemPrice(item).toFixed(2)}€
                   </Typography>
                 </Box>
               </CardContent>
@@ -1019,7 +1019,7 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
               Total
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#ff9800' }}>
-              €{totalPrice.toFixed(2)}
+              {totalPrice.toFixed(2)}€
             </Typography>
           </Box>
         </Box>

@@ -276,14 +276,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// HTTP request logging
+// HTTP request logging - only log PATCH, DELETE, POST and errors
 app.use((req, res, next) => {
   const start = Date.now();
   const { method, originalUrl } = req;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   res.on('finish', () => {
     const duration = Date.now() - start;
-    logger.info('HTTP', { method, url: originalUrl, status: res.statusCode, durationMs: duration, ip });
+    // Only log PATCH, DELETE, POST requests, or any request with error status (>=400)
+    if (['PATCH', 'DELETE', 'POST'].includes(method) || res.statusCode >= 400) {
+      logger.info('HTTP', { method, url: originalUrl, status: res.statusCode, durationMs: duration, ip });
+    }
   });
   next();
 });
@@ -845,7 +848,49 @@ app.get("/users/profile", authenticate, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ user });
+    // Get order count
+    const orderCount = await prisma.order.count({
+      where: { userId: req.user.userId },
+    });
+
+    // Get favorite plat (most ordered)
+    const favoritePlatResult = await prisma.orderItem.groupBy({
+      by: ['platId'],
+      where: {
+        order: {
+          userId: req.user.userId,
+        },
+        platId: {
+          not: null,
+        },
+      },
+      _count: {
+        platId: true,
+      },
+      orderBy: {
+        _count: {
+          platId: 'desc',
+        },
+      },
+      take: 1,
+    });
+
+    let favoritePlat = null;
+    if (favoritePlatResult.length > 0) {
+      const plat = await prisma.plat.findUnique({
+        where: { id: favoritePlatResult[0].platId },
+        select: { name: true },
+      });
+      favoritePlat = plat ? plat.name : null;
+    }
+
+    res.json({ 
+      user: {
+        ...user,
+        orderCount,
+        favoritePlat,
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -1826,12 +1871,12 @@ app.get('/tags/searchable', async (req, res) => {
 // Create tag
 app.post('/tags', async (req, res) => {
   try {
-    const { nom, description, emoji, recherchable } = req.body;
-    if (!nom || !description || !emoji) {
-      return res.status(400).json({ error: 'Nom, description, and emoji are required' });
+    const { nom, description, emoji, recherchable, ordre } = req.body;
+    if (!nom) {
+      return res.status(400).json({ error: 'Nom is required' });
     }
     const tag = await prisma.tags.create({
-      data: { nom, description, emoji, recherchable: recherchable || false },
+      data: { nom, description: description || '', emoji: emoji || '', recherchable: recherchable || false, ordre: ordre || null },
     });
     res.status(201).json(tag);
   } catch (error) {
@@ -1846,14 +1891,14 @@ app.post('/tags', async (req, res) => {
 // Update tag
 app.put('/tags/:id', async (req, res) => {
   const { id } = req.params;
-  const { nom, description, emoji, recherchable } = req.body;
+  const { nom, description, emoji, recherchable, ordre } = req.body;
   try {
-    if (!nom || !description || !emoji) {
-      return res.status(400).json({ error: 'Nom, description, and emoji are required' });
+    if (!nom) {
+      return res.status(400).json({ error: 'Nom is required' });
     }
     const tag = await prisma.tags.update({
       where: { id: parseInt(id) },
-      data: { nom, description, emoji, recherchable: recherchable || false },
+      data: { nom, description: description || '', emoji: emoji || '', recherchable: recherchable || false, ordre: ordre || null },
     });
     res.json(tag);
   } catch (error) {

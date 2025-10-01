@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -33,6 +33,8 @@ import {
   Star as StarIcon,
 } from "@mui/icons-material"
 import LazyImage from '../components/LazyImage'
+import PlatCard from '../components/PlatCard'
+import SauceCard from '../components/SauceCard'
 import config from '../config'
 
 const darkTheme = createTheme({
@@ -135,10 +137,13 @@ const MenuView = () => {
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
-  const [imageErrors, setImageErrors] = useState({})
   const [searchableTags, setSearchableTags] = useState([])
   const [selectedTagFilter, setSelectedTagFilter] = useState("all")
   const [settings, setSettings] = useState({})
+  const [visibleCountPlats, setVisibleCountPlats] = useState(12)
+  const [visibleCountSauces, setVisibleCountSauces] = useState(12)
+  const sentinelPlatsRef = useRef(null)
+  const sentinelSaucesRef = useRef(null)
 
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
@@ -152,52 +157,44 @@ const MenuView = () => {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Fetch sauces
+  // Fetch sauces and plats in parallel
   useEffect(() => {
-    const fetchSauces = async () => {
+    let cancelled = false
+    const fetchAll = async () => {
       try {
-        const response = await fetch(`${config.API_URL}/sauces`)
-        if (response.ok) {
-          const text = await response.text()
+        const [sRes, pRes] = await Promise.allSettled([
+          fetch(`${config.API_URL}/sauces`),
+          fetch(`${config.API_URL}/plats`)
+        ])
+
+        if (!cancelled && sRes.status === 'fulfilled') {
+          const text = await sRes.value.text()
           try {
             const data = JSON.parse(text)
-            setSauces(data)
-          } catch (err) {
-            console.error('Failed to parse sauces JSON:', err, 'raw:', text)
+            setSauces(Array.isArray(data) ? data : [])
+          } catch (e) {
+            console.error('Failed to parse sauces JSON:', e, 'raw:', text)
             setSauces([])
           }
-        } else {
-          console.error("Failed to fetch sauces:", response.status)
         }
-      } catch (error) {
-        console.error("Failed to fetch sauces:", error)
-      }
-    }
-    fetchSauces()
-  }, [])
-
-  // Fetch plats
-  useEffect(() => {
-    const fetchPlats = async () => {
-      try {
-        const response = await fetch(`${config.API_URL}/plats`)
-        if (response.ok) {
-          const text = await response.text()
+        if (!cancelled && pRes.status === 'fulfilled') {
+          const text = await pRes.value.text()
           try {
             const data = JSON.parse(text)
-            setPlats(data)
-          } catch (err) {
-            console.error('Failed to parse plats JSON:', err, 'raw:', text)
+            setPlats(Array.isArray(data) ? data : [])
+          } catch (e) {
+            console.error('Failed to parse plats JSON:', e, 'raw:', text)
             setPlats([])
           }
-        } else {
-          console.error("Failed to fetch plats:", response.status)
         }
-      } catch (error) {
-        console.error("Failed to fetch plats:", error)
+      } catch (err) {
+        console.error('Failed to fetch data:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
-    fetchPlats()
+    fetchAll()
+    return () => { cancelled = true }
   }, [])
 
   // Fetch searchable tags
@@ -253,12 +250,7 @@ const MenuView = () => {
     fetchSettings();
   }, []);
 
-  // Set loading to false when data is loaded
-  useEffect(() => {
-    if (sauces.length >= 0 && plats.length >= 0 && searchableTags !== null) {
-      setLoading(false)
-    }
-  }, [sauces, plats, searchableTags])
+  // (moved below filtered lists to avoid referencing before initialization)
 
   // Filtered sauces
   const filteredSauces = useMemo(() => {
@@ -333,13 +325,39 @@ const MenuView = () => {
     return filtered.filter(plat => plat.available)
   }, [plats, selectedTagFilter, settings, debouncedSearchTerm])
 
-  const handleTagFilterSelect = (tagId) => {
-    setSelectedTagFilter(tagId)
-  }
+  // Progressive reveal: increase visible counts when scrolling near the end
+  useEffect(() => {
+    const isSmall = typeof window !== 'undefined' ? window.innerWidth < 900 : false
+    const incrementPlats = isSmall ? 8 : 16
+    const incrementSauces = isSmall ? 8 : 16
 
-  const handleImageError = (itemId) => {
-    setImageErrors(prev => ({ ...prev, [itemId]: true }))
-  }
+    const createObserver = (ref, cb) => {
+      if (!ref.current) return null
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) cb()
+          })
+        },
+        { rootMargin: '200px' }
+      )
+      io.observe(ref.current)
+      return io
+    }
+
+    const ioPlats = createObserver(sentinelPlatsRef, () => setVisibleCountPlats((c) => Math.min(c + incrementPlats, filteredPlats.length)))
+    const ioSauces = createObserver(sentinelSaucesRef, () => setVisibleCountSauces((c) => Math.min(c + incrementSauces, filteredSauces.length)))
+    return () => {
+      ioPlats?.disconnect()
+      ioSauces?.disconnect()
+    }
+  }, [filteredPlats.length, filteredSauces.length])
+
+  const handleTagFilterSelect = useCallback((tagId) => {
+    setSelectedTagFilter(tagId)
+    setVisibleCountPlats(12)
+    setVisibleCountSauces(12)
+  }, [])
 
   if (loading) {
     return (
@@ -448,126 +466,15 @@ const MenuView = () => {
                 Nos Plats
               </Typography>
               <Grid container spacing={4}>
-                {filteredPlats.map((plat) => (
+                {filteredPlats.slice(0, visibleCountPlats).map((plat) => (
                   <Grid item xs={6} sm={4} md={3} lg={2.4} key={plat.id}>
-                    <Card sx={{ 
-                      width: { xs: 160, md: 220 },
-                      height: { xs: 200, md: 280 },
-                      display: 'flex', 
-                      flexDirection: 'column',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}>
-                      <Box sx={{ position: 'relative' }}>
-            {(plat.image || plat.versions?.find(v => v.image)?.image) && !imageErrors[plat.id] ? (
-                          <LazyImage
-              src={`${config.API_URL}${plat.image || plat.versions?.find(v => v.image)?.image}`}
-                            alt={plat.name}
-                            sx={{
-                              width: '100%',
-                              height: { xs: 120, md: 160 },
-                              objectFit: 'cover',
-                            }}
-                            onError={() => handleImageError(plat.id)}
-                          />
-                        ) : (
-                          <PlaceholderImage sx={{ height: { xs: 120, md: 160 } }} />
-                        )}
-                        {plat.speciality && (
-                          <Chip
-                            label="Spécialité"
-                            icon={<StarIcon />}
-                            sx={{
-                              position: 'absolute',
-                              top: 12,
-                              right: 12,
-                              background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
-                              color: 'white',
-                            }}
-                          />
-                        )}
-                      </Box>
-                      <CardContent sx={{ flex: 1, p: { xs: 1, md: 1.5 }, height: { xs: 80, md: 120 }, overflow: 'hidden' }}>
-                        <Typography variant="h6" gutterBottom sx={{ 
-                          fontWeight: 600, 
-                          fontSize: { xs: '0.9rem', md: '1.1rem' },
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {plat.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ 
-                          mb: 1, 
-                          lineHeight: 1.3,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: '-webkit-box',
-                          WebkitLineClamp: { xs: 2, md: 3 },
-                          WebkitBoxOrient: 'vertical',
-                          fontSize: { xs: '0.75rem', md: '0.875rem' }
-                        }}>
-                          {plat.description}
-                        </Typography>
-                        <Typography variant="subtitle1" sx={{ 
-                          color: 'primary.main', 
-                          fontWeight: 600,
-                          fontSize: { xs: '0.9rem', md: '1rem' }
-                        }}>
-                          {plat.price.toFixed(2)} €
-                        </Typography>
-
-                        {/* Ingredients */}
-                        {plat.ingredients && plat.ingredients.length > 0 && (
-                          <Accordion sx={{ mb: 2, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
-                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                              <Typography variant="subtitle2">Ingrédients</Typography>
-                            </AccordionSummary>
-                            <AccordionDetails>
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {plat.ingredients.map((pi) => (
-                                  <Chip
-                                    key={pi.ingredient.id}
-                                    label={pi.ingredient.name}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ borderRadius: 1 }}
-                                  />
-                                ))}
-                              </Box>
-                            </AccordionDetails>
-                          </Accordion>
-                        )}
-
-                        {/* Versions */}
-                        {plat.versions && plat.versions.length > 1 && (
-                          <Accordion sx={{ mb: 2, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
-                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                              <Typography variant="subtitle2">Tailles disponibles</Typography>
-                            </AccordionSummary>
-                            <AccordionDetails>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                {plat.versions.map((version) => (
-                                  <Box key={version.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2">{version.size}</Typography>
-                                    <Typography variant="body2" sx={{ color: 'primary.main' }}>
-                                      +{version.extraPrice.toFixed(2)} €
-                                    </Typography>
-                                  </Box>
-                                ))}
-                              </Box>
-                            </AccordionDetails>
-                          </Accordion>
-                        )}
-
-                        {/* Tags */}
-                        {/* Tags removed from display */}
-                      </CardContent>
-                    </Card>
+                    <PlatCard plat={plat} isMobile={isMobile} />
                   </Grid>
                 ))}
               </Grid>
+              {visibleCountPlats < filteredPlats.length && (
+                <Box ref={sentinelPlatsRef} sx={{ height: 1 }} />
+              )}
             </Box>
           )}
 
@@ -578,70 +485,15 @@ const MenuView = () => {
                 Nos Sauces
               </Typography>
               <Grid container spacing={4}>
-                {filteredSauces.map((sauce) => (
+                {filteredSauces.slice(0, visibleCountSauces).map((sauce) => (
                   <Grid item xs={6} sm={4} md={3} lg={2.4} key={sauce.id}>
-                    <Card sx={{ 
-                      width: { xs: 160, md: 220 },
-                      height: { xs: 200, md: 280 },
-                      display: 'flex', 
-                      flexDirection: 'column',
-                      cursor: 'pointer',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}>
-                      <Box sx={{ position: 'relative' }}>
-                        {sauce.image && !imageErrors[`sauce-${sauce.id}`] ? (
-                          <LazyImage
-                            src={`${config.API_URL}${sauce.image}`}
-                            alt={sauce.name}
-                            sx={{
-                              width: '100%',
-                              height: { xs: 120, md: 160 },
-                              objectFit: 'cover',
-                            }}
-                            onError={() => handleImageError(`sauce-${sauce.id}`)}
-                          />
-                        ) : (
-                          <PlaceholderImage sx={{ height: { xs: 120, md: 160 } }} />
-                        )}
-                      </Box>
-                      <CardContent sx={{ flex: 1, p: { xs: 1, md: 1.5 }, height: { xs: 80, md: 120 }, overflow: 'hidden' }}>
-                        <Typography variant="h6" gutterBottom sx={{ 
-                          fontWeight: 600,
-                          fontSize: { xs: '0.9rem', md: '1.1rem' },
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {sauce.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ 
-                          mb: 1, 
-                          lineHeight: 1.3,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: '-webkit-box',
-                          WebkitLineClamp: { xs: 1, md: 2 },
-                          WebkitBoxOrient: 'vertical',
-                          fontSize: { xs: '0.75rem', md: '0.875rem' }
-                        }}>
-                          {sauce.description}
-                        </Typography>
-                        <Typography variant="subtitle1" sx={{ 
-                          color: 'primary.main', 
-                          fontWeight: 600,
-                          fontSize: { xs: '0.9rem', md: '1rem' }
-                        }}>
-                          {sauce.price.toFixed(2)} €
-                        </Typography>
-
-                        {/* Tags */}
-                        {/* Tags removed from display */}
-                      </CardContent>
-                    </Card>
+                    <SauceCard sauce={sauce} isMobile={isMobile} />
                   </Grid>
                 ))}
               </Grid>
+              {visibleCountSauces < filteredSauces.length && (
+                <Box ref={sentinelSaucesRef} sx={{ height: 1 }} />
+              )}
             </Box>
           )}
 

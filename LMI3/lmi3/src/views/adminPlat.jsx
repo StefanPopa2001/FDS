@@ -156,7 +156,7 @@ export default function AdminPlat() {
       headerAlign: 'center',
       renderCell: (params) => (
         <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
-          {`€${params.value.toFixed(2)}`}
+          {`${params.value.toFixed(2)}€`}
         </Typography>
       ),
     },
@@ -198,7 +198,7 @@ export default function AdminPlat() {
       headerAlign: 'center',
       renderCell: (params) => (
         <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main", width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'center' }}>
-          {`€${params.value.toFixed(2)}`}
+          {`${params.value.toFixed(2)}€`}
         </Typography>
       ),
     },
@@ -902,6 +902,7 @@ export default function AdminPlat() {
               rows={plats}
               columns={columns}
               disableRowSelectionOnClick
+              pagination={false}
               slots={{ toolbar: GridToolbar }}
               initialState={{
                 sorting: {

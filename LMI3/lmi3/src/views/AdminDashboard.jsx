@@ -29,6 +29,7 @@ import {
   Receipt as OrdersIcon,
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
+  Kitchen as IngredientsIcon,
 } from "@mui/icons-material"
 
 // Import all admin components
@@ -39,6 +40,7 @@ import AdminTags from "./adminTags.jsx"
 import AdminExtra from "./adminExtra.jsx"
 import AdminOrders from "./adminOrders.jsx"
 import AdminSettings from "./adminSettings.jsx"
+import AdminIngredients from "./adminIngredients.jsx"
 
 // Create dark theme with black/orange design
 const darkTheme = createTheme({
@@ -219,6 +221,12 @@ const AdminDashboard = () => {
       label: "Extras",
       icon: <ExtraIcon />,
       description: "Gérer les extras et accompagnements",
+    },
+    {
+      id: "ingredients",
+      label: "Ingrédients",
+      icon: <IngredientsIcon />,
+      description: "Gérer les ingrédients des plats",
     },
     {
       id: "tags",
@@ -424,6 +432,8 @@ const AdminDashboard = () => {
         return <AdminSauce />
       case "extras":
         return <AdminExtra />
+      case "ingredients":
+        return <AdminIngredients />
       case "tags":
         return <AdminTags />
       case "users":

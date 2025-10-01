@@ -32,6 +32,7 @@ export default function AdminTags() {
     description: "",
     emoji: "",
     recherchable: false,
+    ordre: "",
   })
   const [editMode, setEditMode] = useState({})
   const [editData, setEditData] = useState({})
@@ -155,6 +156,33 @@ export default function AdminTags() {
             disabled
             color="primary"
           />
+        ),
+    },
+    {
+      field: "ordre",
+      headerName: "Ordre",
+      width: 100,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
+      renderCell: (params) =>
+        editMode[params.row.id] ? (
+          <TextField
+            size="small"
+            type="number"
+            value={editData[params.row.id]?.ordre || ""}
+            onChange={(e) =>
+              setEditData({
+                ...editData,
+                [params.row.id]: { ...editData[params.row.id], ordre: e.target.value },
+              })
+            }
+            sx={{ width: "100%" }}
+          />
+        ) : (
+          <Typography variant="body2">
+            {params.value || "-"}
+          </Typography>
         ),
     },
     {
@@ -286,7 +314,7 @@ export default function AdminTags() {
       })
       if (response.ok) {
         showAlert("Tag ajouté avec succès")
-        setNewTag({ nom: "", description: "", emoji: "", recherchable: false })
+        setNewTag({ nom: "", description: "", emoji: "", recherchable: false, ordre: "" })
         fetchTags()
       } else {
         const data = await response.json()
@@ -372,6 +400,13 @@ export default function AdminTags() {
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
               <TextField
                 size="small"
+                label="Nom *"
+                value={newTag.nom}
+                onChange={(e) => setNewTag({ ...newTag, nom: e.target.value })}
+                sx={{ width: 200 }}
+              />
+              <TextField
+                size="small"
                 label="Emoji"
                 value={newTag.emoji}
                 onChange={(e) => setNewTag({ ...newTag, emoji: e.target.value })}
@@ -379,17 +414,18 @@ export default function AdminTags() {
               />
               <TextField
                 size="small"
-                label="Nom"
-                value={newTag.nom}
-                onChange={(e) => setNewTag({ ...newTag, nom: e.target.value })}
-                sx={{ width: 200 }}
-              />
-              <TextField
-                size="small"
                 label="Description"
                 value={newTag.description}
                 onChange={(e) => setNewTag({ ...newTag, description: e.target.value })}
                 sx={{ flexGrow: 1 }}
+              />
+              <TextField
+                size="small"
+                label="Ordre"
+                type="number"
+                value={newTag.ordre}
+                onChange={(e) => setNewTag({ ...newTag, ordre: e.target.value })}
+                sx={{ width: 100 }}
               />
               <FormControlLabel
                 control={
@@ -405,7 +441,7 @@ export default function AdminTags() {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleNewTagSubmit}
-                disabled={!newTag.nom || !newTag.description || !newTag.emoji}
+                disabled={!newTag.nom}
               >
                 Ajouter Tag
               </Button>

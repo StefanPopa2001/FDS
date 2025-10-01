@@ -269,7 +269,7 @@ const Navbar = () => {
             {/* Logo and Title - left aligned */}
             <Box
               component="img"
-              src="/rudyetfannylogo.png"
+              src="/rudyetfanny-logo-personnages.png"
               alt="Rudy et Fanny Logo"
               sx={{
                 height: { xs: 32, md: 40 },

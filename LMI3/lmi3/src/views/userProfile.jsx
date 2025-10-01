@@ -36,6 +36,12 @@ import {
   Save as SaveIcon,
   Close as CloseIcon,
   Lock as LockIcon,
+  AccountCircle as AccountCircleIcon,
+  ContactMail as ContactMailIcon,
+  AccountBox as AccountBoxIcon,
+  Settings as SettingsIcon,
+  ShoppingCart as ShoppingCartIcon,
+  RestaurantMenu as RestaurantMenuIcon,
 } from "@mui/icons-material"
 import { useAuth } from '../contexts/AuthContext'
 import config from '../config'
@@ -385,133 +391,150 @@ export default function UserProfile() {
           py: { xs: 2, md: 4 },
         }}
       >
-        <Container maxWidth="lg">
-          {/* Header Section */}
+        <Container maxWidth="xl">
+          {/* Profile Header Card */}
           <Fade in timeout={800}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 3, md: 4 },
-                mb: 4,
-                borderRadius: 3,
-                textAlign: "center",
-                position: "relative",
-                overflow: "hidden",
-                "&::before": {
-                  content: '""',
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: "4px",
-                  background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-                },
-              }}
-            >
-              <Zoom in timeout={1000}>
-                <Avatar
+            <Card sx={{ mb: 3 }}>
+              <CardContent sx={{ textAlign: "center", p: { xs: 2, md: 3 } }}>
+                <Zoom in timeout={1000}>
+                  <Avatar
+                    sx={{
+                      width: { xs: 80, md: 100 },
+                      height: { xs: 80, md: 100 },
+                      mx: "auto",
+                      mb: 2,
+                      bgcolor: "primary.main",
+                      color: "black",
+                      fontSize: { xs: "2rem", md: "2.5rem" },
+                      fontWeight: 800,
+                      border: "4px solid",
+                      borderColor: "primary.main",
+                      boxShadow: "0 8px 32px rgba(255, 152, 0, 0.3)",
+                    }}
+                  >
+                    {user?.name?.charAt(0) || "U"}
+                  </Avatar>
+                </Zoom>
+
+                <Typography
+                  variant="h4"
+                  component="h1"
                   sx={{
-                    width: { xs: 100, md: 120 },
-                    height: { xs: 100, md: 120 },
-                    mx: "auto",
-                    mb: 3,
-                    bgcolor: "primary.main",
-                    color: "black",
-                    fontSize: { xs: "2.5rem", md: "3rem" },
+                    fontSize: { xs: "1.5rem", md: "2rem" },
                     fontWeight: 800,
-                    border: "4px solid",
-                    borderColor: "primary.main",
-                    boxShadow: "0 8px 32px rgba(255, 152, 0, 0.3)",
+                    background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                    backgroundClip: "text",
+                    textFillColor: "transparent",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
                   }}
                 >
-                  {user?.name?.charAt(0) || "U"}
-                </Avatar>
-              </Zoom>
-
-              <Typography
-                variant="h3"
-                component="h1"
-                sx={{
-                  fontSize: { xs: "2rem", md: "2.5rem" },
-                  fontWeight: 800,
-                  background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-                  backgroundClip: "text",
-                  textFillColor: "transparent",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  mb: 1,
-                }}
-              >
-                {user?.name}
-              </Typography>
-
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Membre depuis{" "}
-                {new Date(user?.createdAt).toLocaleDateString("fr-FR", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </Typography>
-            </Paper>
+                  {user?.name}
+                </Typography>
+              </CardContent>
+            </Card>
           </Fade>
 
-          <Grid container spacing={3}>
+          {/* Action Buttons */}
+          <Fade in timeout={1000}>
+            <Card sx={{ mb: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: "primary.main",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 3,
+                  }}
+                >
+                  <SettingsIcon />
+                  Actions du compte
+                </Typography>
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    gap: 2,
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    onClick={handleEditClick}
+                    sx={{
+                      borderColor: "primary.main",
+                      color: "primary.main",
+                      "&:hover": {
+                        borderColor: "primary.light",
+                        backgroundColor: "rgba(255, 152, 0, 0.1)",
+                      },
+                    }}
+                  >
+                    Modifier le profil
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<LockIcon />}
+                    onClick={openPasswordDialog}
+                    sx={{
+                      borderColor: "primary.main",
+                      color: "primary.main",
+                      "&:hover": {
+                        borderColor: "primary.light",
+                        backgroundColor: "rgba(255, 152, 0, 0.1)",
+                      },
+                    }}
+                  >
+                    Changer le mot de passe
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<LogoutIcon />}
+                    onClick={handleLogout}
+                    color="error"
+                    sx={{
+                      borderColor: "error.main",
+                      "&:hover": {
+                        backgroundColor: "rgba(244, 67, 54, 0.1)",
+                        borderColor: "error.main",
+                      },
+                    }}
+                  >
+                    Déconnexion
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Fade>
+
+          <Grid container spacing={3} justifyContent="center">
             {/* Contact Information */}
-            <Grid item xs={12}>
+            <Grid item xs={12} md={7}>
               <Fade in timeout={1200}>
                 <Card>
                   <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          color: "primary.main",
-                          fontWeight: 700,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                        }}
-                      >
-                        <PersonIcon />
-                        Informations personnelles
-                      </Typography>
-                      <Box>
-                        <Button
-                          variant="outlined"
-                          startIcon={<EditIcon />}
-                          onClick={handleEditClick}
-                          sx={{
-                            borderColor: "primary.main",
-                            color: "primary.main",
-                            "&:hover": {
-                              borderColor: "primary.light",
-                              backgroundColor: "rgba(255, 152, 0, 0.1)",
-                            },
-                          }}
-                        >
-                          Modifier
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          startIcon={<LockIcon />}
-                          onClick={openPasswordDialog}
-                          sx={{
-                            borderColor: "primary.main",
-                            color: "primary.main",
-                            ml: 1,
-                            "&:hover": {
-                              borderColor: "primary.light",
-                              backgroundColor: "rgba(255, 152, 0, 0.1)",
-                            },
-                          }}
-                        >
-                          Changer le mot de passe
-                        </Button>
-                      </Box>
-                    </Box>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: "primary.main",
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
+                      <ContactMailIcon />
+                      Informations de contact
+                    </Typography>
 
-                    <Box sx={{ space: 2 }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <Box
                         sx={{
                           display: "flex",
@@ -520,7 +543,27 @@ export default function UserProfile() {
                           p: 2,
                           borderRadius: 2,
                           backgroundColor: "rgba(255, 255, 255, 0.03)",
-                          mb: 2,
+                        }}
+                      >
+                        <AccountCircleIcon sx={{ color: "primary.main" }} />
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Nom complet
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                            {user?.name}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 2,
+                          p: 2,
+                          borderRadius: 2,
+                          backgroundColor: "rgba(255, 255, 255, 0.03)",
                         }}
                       >
                         <EmailIcon sx={{ color: "primary.main" }} />
@@ -542,7 +585,6 @@ export default function UserProfile() {
                           p: 2,
                           borderRadius: 2,
                           backgroundColor: "rgba(255, 255, 255, 0.03)",
-                          mb: 2,
                         }}
                       >
                         <PhoneIcon sx={{ color: "primary.main" }} />
@@ -555,7 +597,33 @@ export default function UserProfile() {
                           </Typography>
                         </Box>
                       </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Fade>
+            </Grid>
 
+            {/* Account Information */}
+            <Grid item xs={12} md={7}>
+              <Fade in timeout={1400}>
+                <Card>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: "primary.main",
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
+                      <AccountBoxIcon />
+                      Informations du compte
+                    </Typography>
+
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <Box
                         sx={{
                           display: "flex",
@@ -572,46 +640,82 @@ export default function UserProfile() {
                             Membre depuis
                           </Typography>
                           <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                            {new Date(user?.createdAt).toLocaleDateString("fr-FR")}
+                            {new Date(user?.createdAt).toLocaleDateString("fr-FR", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
                           </Typography>
                         </Box>
                       </Box>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 2,
+                          p: 2,
+                          borderRadius: 2,
+                          backgroundColor: "rgba(255, 255, 255, 0.03)",
+                        }}
+                      >
+                        <ShoppingCartIcon sx={{ color: "primary.main" }} />
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Nombre de commandes
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                            {user?.orderCount || 0}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 2,
+                          p: 2,
+                          borderRadius: 2,
+                          backgroundColor: "rgba(255, 255, 255, 0.03)",
+                        }}
+                      >
+                        <RestaurantMenuIcon sx={{ color: "primary.main" }} />
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Plat favori
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                            {user?.favoritePlat || "Aucun"}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {user?.role && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                            p: 2,
+                            borderRadius: 2,
+                            backgroundColor: "rgba(255, 255, 255, 0.03)",
+                          }}
+                        >
+                          <PersonIcon sx={{ color: "primary.main" }} />
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Rôle
+                            </Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                              {user.role}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
-              </Fade>
-            </Grid>
-
-            {/* Action Buttons */}
-            <Grid item xs={12}>
-              <Fade in timeout={1400}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: { xs: "column", sm: "row" },
-                    gap: 2,
-                    justifyContent: "center",
-                    mt: 2,
-                  }}
-                >
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    startIcon={<LogoutIcon />}
-                    onClick={handleLogout}
-                    color="error"
-                    sx={{
-                      minWidth: { xs: "100%", sm: "200px" },
-                      borderColor: "error.main",
-                      "&:hover": {
-                        backgroundColor: "rgba(244, 67, 54, 0.1)",
-                        borderColor: "error.main",
-                      },
-                    }}
-                  >
-                    Déconnexion
-                  </Button>
-                </Box>
               </Fade>
             </Grid>
           </Grid>

@@ -827,7 +827,7 @@ const Menu = () => {
               fontSize: { xs: "1rem", md: "1.2rem" },
             }}
           >
-            {sauce.price.toFixed(2)} €
+            {sauce.price.toFixed(2)}€
           </Typography>
         </Box>
       </CardContent>
@@ -1060,8 +1060,8 @@ const Menu = () => {
             }}
           >
             {plat.versions.length > 1 
-              ? `Dès ${(plat.price + plat.versions[0].extraPrice).toFixed(2)} €`
-              : `${plat.price.toFixed(2)} €`
+              ? `Dès ${(plat.price + plat.versions[0].extraPrice).toFixed(2)}€`
+              : `${plat.price.toFixed(2)}€`
             }
           </Typography>
         </Box>
@@ -1861,7 +1861,7 @@ const Menu = () => {
                     <Box sx={{ mb: 3 }}>
                       <FormControl fullWidth variant="outlined">
                         <InputLabel id="sauce-select-label" sx={{ color: "#ff9800" }}>
-                          {selectedPlat.saucePrice > 0 ? `Sauce (+€${selectedPlat.saucePrice.toFixed(2)})` : "Sauce (Incluse)"}
+                          {selectedPlat.saucePrice > 0 ? `Sauce (+${selectedPlat.saucePrice.toFixed(2)}€)` : "Sauce (Incluse)"}
                         </InputLabel>
                         <Select
                           labelId="sauce-select-label"
@@ -1870,7 +1870,7 @@ const Menu = () => {
                             const sauce = sauces.find(s => s.id === e.target.value);
                             setSelectedSauceForPlat(sauce || null);
                           }}
-                          label={selectedPlat.saucePrice > 0 ? `Sauce (+€${selectedPlat.saucePrice.toFixed(2)})` : "Sauce (Incluse)"}
+                          label={selectedPlat.saucePrice > 0 ? `Sauce (+${selectedPlat.saucePrice.toFixed(2)}€)` : "Sauce (Incluse)"}
                           onOpen={() => setDropdownOpen(true)}
                           onClose={() => setDropdownOpen(false)}
                           MenuProps={{
@@ -1935,9 +1935,9 @@ const Menu = () => {
                                     {selected.map((extraId) => {
                                       const extra = tag.extras.find(e => e.id === extraId);
                                       return extra ? (
-                                        <Chip 
+                                          <Chip 
                                           key={extraId} 
-                                          label={`${extra.nom} (+€${extra.price.toFixed(2)})`}
+                                          label={`${extra.nom} (+${extra.price.toFixed(2)}€)`}
                                           size="small"
                                           sx={{ 
                                             backgroundColor: "rgba(255, 152, 0, 0.2)",
@@ -1968,8 +1968,8 @@ const Menu = () => {
                                           {extra.description}
                                         </Typography>
                                       </Box>
-                                      <Typography variant="body1" color="primary" sx={{ ml: 2, fontWeight: 600 }}>
-                                        +€{extra.price.toFixed(2)}
+                                        <Typography variant="body1" color="primary" sx={{ ml: 2, fontWeight: 600 }}>
+                                        +{extra.price.toFixed(2)}€
                                       </Typography>
                                     </Box>
                                   </MenuItem>
@@ -2135,8 +2135,8 @@ const Menu = () => {
                             <MenuItem key={version.id} value={version.id}>
                               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                                 <Typography>{version.size}</Typography>
-                                <Typography color="primary" sx={{ ml: 2 }}>
-                                  €{(selectedPlat.price + version.extraPrice).toFixed(2)}
+                                  <Typography color="primary" sx={{ ml: 2 }}>
+                                  {(selectedPlat.price + version.extraPrice).toFixed(2)}€
                                 </Typography>
                               </Box>
                             </MenuItem>
@@ -2188,12 +2188,12 @@ const Menu = () => {
                       border: "1px solid rgba(255, 152, 0, 0.3)"
                     }}>
                       <Typography variant="h5" sx={{ fontWeight: 700, color: "#ff9800", textAlign: "center" }}>
-                        Total: €{calculateTotalPrice().toFixed(2)}
+                        Total: {calculateTotalPrice().toFixed(2)}€
                       </Typography>
                       {selectedSauceForPlat && (
                         <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", mt: 1 }}>
                           {selectedPlat.saucePrice > 0 
-                            ? `+Sauce ${selectedSauceForPlat.name} (€${selectedPlat.saucePrice.toFixed(2)})` 
+                            ? `+Sauce ${selectedSauceForPlat.name} (${selectedPlat.saucePrice.toFixed(2)}€)` 
                             : `Sauce ${selectedSauceForPlat.name}`}
                         </Typography>
                       )}
@@ -2203,8 +2203,8 @@ const Menu = () => {
                             const allExtras = selectedPlat.tags?.flatMap(tag => tag.extras || []) || [];
                             const extra = allExtras.find(e => e.id === extraId);
                             return extra ? (
-                              <Typography key={extraId} variant="body2" sx={{ color: "text.secondary", textAlign: "center" }}>
-                                +{extra.nom} (€{(extra.price * quantity).toFixed(2)})
+                                <Typography key={extraId} variant="body2" sx={{ color: "text.secondary", textAlign: "center" }}>
+                                +{extra.nom} ({(extra.price * quantity).toFixed(2)}€)
                               </Typography>
                             ) : null;
                           })}

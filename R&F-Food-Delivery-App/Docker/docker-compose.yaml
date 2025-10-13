@@ -1,37 +1,4 @@
 services:
-  traefik:
-    image: traefik:v3.0
-    container_name: traefik
-    restart: always
-    command:
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      # Let's Encrypt configuration
-      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=admin@rudyetfanny.be"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.myresolver.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
-      # Global TLS options
-      - "--global.sendAnonymousUsage=false"
-      # TLS options
-      - "--entrypoints.websecure.http.tls=true"
-      - "--entrypoints.websecure.http.tls.certResolver=myresolver"
-      - "--entrypoints.websecure.http.tls.domains[0].main=rudyetfanny.be"
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080"  # Traefik dashboard
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./letsencrypt:/letsencrypt
-    networks:
-      - app-network
-
   db:
     image: postgres:14
     restart: always
@@ -44,7 +11,7 @@ services:
     volumes:
       - docker_db_data:/var/lib/postgresql/data
     networks:
-      - app-network
+      - starcozka-app-network
 
   backend:
     build:
@@ -59,16 +26,9 @@ services:
     volumes:
       - backend_uploads:/app/public/uploads
     networks:
-      - app-network
+      - starcozka-app-network
     labels:
       - "traefik.enable=true"
-      # HTTPS redirect for domain only
-      - "traefik.http.routers.domain-redirect.rule=Host(`rudyetfanny.be`)"
-      - "traefik.http.routers.domain-redirect.entrypoints=web"
-      - "traefik.http.routers.domain-redirect.middlewares=redirect-to-https"
-      - "traefik.http.routers.domain-redirect.priority=5"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
       # API routes with /api prefix for domain (HTTPS)
       - "traefik.http.routers.backend-api-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend-api-secure.entrypoints=websecure"
@@ -101,7 +61,7 @@ services:
       - "traefik.http.routers.backend-uploads-secure.middlewares=cors"
       - "traefik.http.routers.backend-uploads-secure.priority=4"
       # Direct routes for uploads (HTTP for IP)
-      - "traefik.http.routers.backend-uploads-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/uploads`)"
+      - "traefik.http.routers.backend-uploads-ip.rule=Host(`82.25.118.116`) && PathPrefix(`/uploads`)"
       - "traefik.http.routers.backend-uploads-ip.entrypoints=web"
       - "traefik.http.routers.backend-uploads-ip.service=backend"
       - "traefik.http.routers.backend-uploads-ip.middlewares=cors"
@@ -109,7 +69,7 @@ services:
       # Enhanced CORS headers
       - "traefik.http.middlewares.cors.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE,PATCH"
       - "traefik.http.middlewares.cors.headers.accesscontrolallowheaders=*"
-      - "traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=https://rudyetfanny.be,http://168.231.81.212,http://localhost:3000"
+      - "traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=https://rudyetfanny.be,http://82.25.118.116,http://localhost:3000"
       - "traefik.http.middlewares.cors.headers.accesscontrolallowcredentials=true"
       - "traefik.http.middlewares.cors.headers.accesscontrolmaxage=86400"
       - "traefik.http.middlewares.cors.headers.addvaryheader=true"
@@ -128,7 +88,7 @@ services:
     depends_on:
       - backend
     networks:
-      - app-network
+      - starcozka-app-network
     labels:
       - "traefik.enable=true"
       # Frontend for domain (HTTPS)
@@ -145,7 +105,7 @@ services:
       - "traefik.http.middlewares.security-headers.headers.forceSTSHeader=true"
       - "traefik.http.middlewares.security-headers.headers.customResponseHeaders.Content-Security-Policy=upgrade-insecure-requests"
       # Frontend for IP (HTTP with redirect)
-      - "traefik.http.routers.frontend-ip.rule=Host(`168.231.81.212`)"
+      - "traefik.http.routers.frontend-ip.rule=Host(`82.25.118.116`)"
       - "traefik.http.routers.frontend-ip.entrypoints=web"
       - "traefik.http.routers.frontend-ip.service=frontend"
       - "traefik.http.routers.frontend-ip.priority=1"
@@ -163,7 +123,7 @@ services:
     ports:
       - "5050:80"
     networks:
-      - app-network
+      - starcozka-app-network
     depends_on:
       - db
     labels:
@@ -176,7 +136,7 @@ services:
       - "traefik.http.routers.pgadmin-secure.middlewares=pgadmin-stripprefix"
       - "traefik.http.routers.pgadmin-secure.priority=2"
       # PgAdmin for IP (HTTP)
-      - "traefik.http.routers.pgadmin-ip.rule=Host(`168.231.81.212`) && PathPrefix(`/pgadmin`)"
+      - "traefik.http.routers.pgadmin-ip.rule=Host(`82.25.118.116`) && PathPrefix(`/pgadmin`)"
       - "traefik.http.routers.pgadmin-ip.entrypoints=web"
       - "traefik.http.routers.pgadmin-ip.service=pgadmin"
       - "traefik.http.routers.pgadmin-ip.middlewares=pgadmin-stripprefix"
@@ -192,8 +152,8 @@ services:
       - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
 
 networks:
-  app-network:
-    driver: bridge
+  starcozka-app-network:
+    external: true
 
 volumes:
   docker_db_data:

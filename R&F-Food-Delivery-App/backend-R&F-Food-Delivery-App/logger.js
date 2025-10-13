@@ -2,24 +2,11 @@ const fs = require('fs');
 const path = require('path');
 
 // Determine log file paths
-// Dev: write to repo root (../*.log)
-// Prod (Docker): write inside backend folder (/app/*.log)
-const isProd = process.env.NODE_ENV === 'production';
-const LOG_FILE = process.env.LOG_FILE_PATH || (isProd
-  ? path.join(__dirname, 'backend.log')
-  : path.join(__dirname, '..', 'backend.log'));
-// Dedicated backend error/anomaly log
-const LOG_ERROR_FILE = process.env.LOG_ERROR_FILE_PATH || (isProd
-  ? path.join(__dirname, 'backend-error.log')
-  : path.join(__dirname, '..', 'backend-error.log'));
-// Dedicated frontend error/anomaly log (received from client)
-const LOG_FRONTEND_ERROR_FILE = process.env.LOG_FRONTEND_ERROR_FILE_PATH || (isProd
-  ? path.join(__dirname, 'frontend-error.log')
-  : path.join(__dirname, '..', 'frontend-error.log'));
-// Dedicated frontend main log (all levels from client, optional)
-const LOG_FRONTEND_FILE = process.env.LOG_FRONTEND_FILE_PATH || (isProd
-  ? path.join(__dirname, 'frontend.log')
-  : path.join(__dirname, '..', 'frontend.log'));
+// Always write to /tmp for Docker containers
+const LOG_FILE = '/tmp/backend.log';
+const LOG_ERROR_FILE = '/tmp/backend-error.log';
+const LOG_FRONTEND_ERROR_FILE = '/tmp/frontend-error.log';
+const LOG_FRONTEND_FILE = '/tmp/frontend.log';
 
 const MAX_LINES = parseInt(process.env.LOG_MAX_LINES || '800', 10); // main log retention
 const ERROR_MAX_LINES = parseInt(process.env.LOG_ERROR_MAX_LINES || '1000', 10);

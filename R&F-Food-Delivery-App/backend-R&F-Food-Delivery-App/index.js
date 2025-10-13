@@ -528,8 +528,8 @@ app.post("/users/createUser", async (req, res) => {
 });
 
 // Get user salt for secure login
-app.post("/users/getSalt", authLimiter, async (req, res) => {
-  const { email } = req.body;
+app.all("/users/getSalt", authLimiter, async (req, res) => {
+  const { email } = req.body || req.query;
   
   // Normalize and sanitize the email
   const normalizedEmail = sanitizeEmail(email);

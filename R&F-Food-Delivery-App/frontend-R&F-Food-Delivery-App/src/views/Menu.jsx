@@ -58,6 +58,7 @@ import {
 import { useBasket } from '../contexts/BasketContext'
 import LazyImage from '../components/LazyImage'
 import config from '../config'
+import useMobileBackToClose from '../hooks/useMobileBackToClose'
 
 const darkTheme = createTheme({
   palette: {
@@ -183,6 +184,10 @@ const Menu = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
   const isTablet = useMediaQuery(theme.breakpoints.between("md", "lg"))
+
+  // Close modals on mobile back gesture
+  useMobileBackToClose(modalOpen, () => setModalOpen(false))
+  useMobileBackToClose(platVersionModalOpen, () => setPlatVersionModalOpen(false))
 
   // Debounce search term to improve performance on mobile
   useEffect(() => {

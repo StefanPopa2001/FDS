@@ -23,12 +23,16 @@ import {
   Person as PersonIcon
 } from '@mui/icons-material';
 import config from '../config';
+import useMobileBackToClose from '../hooks/useMobileBackToClose';
 
 const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
   const pollingIntervalRef = useRef(null);
+
+  // Close on mobile back gesture
+  useMobileBackToClose(open, onClose);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -15,8 +15,11 @@ import {
   CheckCircle as CheckIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
+import useMobileBackToClose from '../hooks/useMobileBackToClose';
 
 const OrderStatusModal = ({ open, onClose, orderId, status }) => {
+  // Close on mobile back gesture
+  useMobileBackToClose(open, onClose);
   const getStatusInfo = (status) => {
     switch (status) {
       case 0:

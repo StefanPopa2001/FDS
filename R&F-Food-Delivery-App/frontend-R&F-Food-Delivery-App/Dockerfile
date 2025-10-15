@@ -40,23 +40,28 @@ ENV CI=false
 # Build the application
 RUN npm run build
 
-# Production stage with nginx
-FROM nginx:1.25-alpine AS production
+# Production stage with a lightweight Node static server
+FROM node:20.18.0-alpine AS production
 
 # Install dumb-init
 RUN apk add --no-cache dumb-init
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+# Create app dir and copy build
+WORKDIR /app
+COPY --from=build /app/build ./build
 
-# Copy built application from build stage
-COPY --from=build /app/build /usr/share/nginx/html
+# Copy server script
+COPY server.js ./server.js
 
-# Add healthcheck
+# Install a minimal set of dependencies for the static server
+COPY package*.json ./
+RUN npm ci --only=production --legacy-peer-deps && npm cache clean --force
+
+# Healthcheck against the static server
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/ || exit 1
+  CMD wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1
 
 EXPOSE 3000
 
 # Use dumb-init for proper signal handling
-CMD ["dumb-init", "nginx", "-g", "daemon off;"]
+CMD ["dumb-init", "node", "server.js"]

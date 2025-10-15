@@ -70,7 +70,7 @@ const server = http.createServer(app);
 // Setup Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: ['https://rudyetfanny.be', 'http://168.231.81.212', 'http://localhost:3000'],
+    origin: ['https://rudyetfanny.be', 'https://82.25.118.116', 'http://localhost:3000'],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -293,13 +293,19 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(cors({
-  origin: ['https://rudyetfanny.be', 'http://168.231.81.212', 'http://localhost:3000'],
+  origin: ['https://rudyetfanny.be', 'https://82.25.118.116', 'http://localhost:3000'],
   methods: ['GET', 'OPTIONS', 'PUT', 'POST', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
   maxAge: 86400,
   exposedHeaders: ['*']
 }));
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/')) {
+    req.url = req.url.substring(4);
+  }
+  next();
+});
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Endpoint for frontend to push anomaly/error logs

@@ -47,6 +47,7 @@ import { useAuth } from '../contexts/AuthContext';
 import OrderConfirmation from './OrderConfirmation';
 import OrderStatusModal from './OrderStatusModal';
 import config from '../config.js';
+import useMobileBackToClose from '../hooks/useMobileBackToClose';
 
 const BasketItem = ({ item }) => {
   const { updateQuantity, removeFromBasket, getItemDisplayName, getItemDescription, calculateItemPrice, updateMessage } = useBasket();
@@ -253,6 +254,9 @@ const BasketDialog = ({ open, onClose }) => {
   const [settings, setSettings] = useState({});
   const [orderHours, setOrderHours] = useState([]);
   const [loadingHours, setLoadingHours] = useState(false);
+
+  // On mobile, close basket on back gesture instead of navigating
+  useMobileBackToClose(open, onClose);
 
   // Fetch settings (run on mount and also refresh when dialog opens)
   useEffect(() => {
@@ -486,6 +490,12 @@ const BasketDialog = ({ open, onClose }) => {
   const handleOrderConfirmationClose = () => {
     setShowOrderConfirmation(false);
   };
+
+  // Intercept back gesture for nested modals as well
+  useMobileBackToClose(showLoginPrompt, () => setShowLoginPrompt(false));
+  useMobileBackToClose(showOrderConfirmation, handleOrderConfirmationClose);
+  useMobileBackToClose(showTakeoutModal, () => setShowTakeoutModal(false));
+  useMobileBackToClose(showOrderStatusModal, () => setShowOrderStatusModal(false));
   
   return (
     <>

@@ -44,6 +44,7 @@ import {
   RestaurantMenu as RestaurantMenuIcon,
 } from "@mui/icons-material"
 import { useAuth } from '../contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import config from '../config'
 
 const darkTheme = createTheme({
@@ -161,7 +162,8 @@ export default function UserProfile() {
   })
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const { changePassword } = useAuth()
+  const { changePassword, logout } = useAuth()
+  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
@@ -177,6 +179,22 @@ export default function UserProfile() {
           setLoading(false)
           return
         }
+
+        // Helper: safely parse JSON only when content-type indicates JSON
+        const safeParse = async (res) => {
+          if (!res || !res.headers) return null;
+          const ct = res.headers.get('content-type') || '';
+          if (!ct.toLowerCase().includes('application/json')) {
+            console.warn('Non-JSON response received:', { status: res.status, contentType: ct });
+            return null;
+          }
+          try {
+            return await res.json();
+          } catch (e) {
+            console.error('JSON parse error:', e);
+            return null;
+          }
+        };
 
         // Make API call to get user profile
         const response = await fetch(`${config.API_URL}/users/profile`, {
@@ -194,7 +212,10 @@ export default function UserProfile() {
           throw new Error("Erreur lors du chargement du profil")
         }
 
-        const responseData = await response.json()
+        const responseData = await safeParse(response);
+        if (!responseData || !responseData.user) {
+          throw new Error("Réponse invalide du serveur");
+        }
         const userData = responseData.user // The API returns { user: {...} }
         
         // Set user data from backend response
@@ -242,6 +263,18 @@ export default function UserProfile() {
         return
       }
 
+      // Helper: safely parse JSON only when content-type indicates JSON
+      const safeParse = async (res) => {
+        if (!res || !res.headers) return null;
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.toLowerCase().includes('application/json')) return null;
+        try {
+          return await res.json();
+        } catch (e) {
+          return null;
+        }
+      };
+
       // Make API call to update user profile
       const response = await fetch(`${config.API_URL}/users/profile`, {
         method: 'PUT',
@@ -258,11 +291,14 @@ export default function UserProfile() {
         if (response.status === 401) {
           throw new Error("Session expirée, veuillez vous reconnecter")
         }
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erreur lors de la mise à jour du profil")
+        const errorData = await safeParse(response);
+        throw new Error(errorData?.error || "Erreur lors de la mise à jour du profil")
       }
 
-      const updatedUser = await response.json()
+      const updatedUser = await safeParse(response);
+      if (!updatedUser) {
+        throw new Error("Réponse invalide du serveur");
+      }
       
       // Update local state with response from backend
       setUser(updatedUser)
@@ -300,23 +336,11 @@ export default function UserProfile() {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-      
-      // Clear all authentication data
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      
-      // Redirect to login page
-      window.location.href = '/login'
-      
-    } catch (err) {
-      console.error('Error during logout:', err)
-      // Even if logout fails, clear local storage and redirect
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+      // Use centralized auth context logout for consistency
+      await logout()
+    } finally {
+      // Always navigate to login after logout
+      navigate('/login', { replace: true })
     }
   }
 

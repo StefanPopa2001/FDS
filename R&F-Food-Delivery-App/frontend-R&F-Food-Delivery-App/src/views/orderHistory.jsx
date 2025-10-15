@@ -266,6 +266,22 @@ export default function OrderHistory() {
       const token = localStorage.getItem("authToken")
       if (!token) return
 
+      // Helper: safely parse JSON only when content-type indicates JSON
+      const safeParse = async (res) => {
+        if (!res || !res.headers) return null;
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.toLowerCase().includes('application/json')) {
+          console.warn('Non-JSON response received:', { status: res.status, contentType: ct });
+          return null;
+        }
+        try {
+          return await res.json();
+        } catch (e) {
+          console.error('JSON parse error:', e);
+          return null;
+        }
+      };
+
       // Fetch all orders
       const response = await fetch(`${config.API_URL}/users/orders`, {
         headers: {
@@ -275,7 +291,11 @@ export default function OrderHistory() {
       })
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await safeParse(response);
+        if (!data || !data.orders) {
+          console.error('Invalid response from server');
+          return;
+        }
         const allOrders = data.orders
 
         // Get today's date in YYYY-MM-DD format

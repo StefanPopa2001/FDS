@@ -17,7 +17,6 @@ echo -e "${BLUE}[DEV]${NC} Starting development environment..."
 # Create/update .env files
 echo -e "${GREEN}[DEV]${NC} Setting up environment files..."
 cat > .env << EOF
-GOOGLE_MAPS_API_KEY=AIzaSyDu-sJV3QBGJYzWXBZkpBFBRrv4wGKoSfA
 REACT_APP_API_URL=http://localhost:3001
 REACT_APP_API_URL_FRONTEND=http://localhost:3000
 DATABASE_URL="postgresql://admin:admin@localhost:5432/fds"

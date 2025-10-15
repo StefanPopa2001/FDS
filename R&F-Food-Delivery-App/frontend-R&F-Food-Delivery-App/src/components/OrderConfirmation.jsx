@@ -41,6 +41,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useBasket } from '../contexts/BasketContext';
 import config from '../config';
+import useMobileBackToClose from '../hooks/useMobileBackToClose';
 
 const OrderConfirmation = ({ open, onClose, onConfirm }) => {
   const theme = useTheme();
@@ -72,6 +73,9 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
 
   const [orderHours, setOrderHours] = useState([]);
   const [loadingHours, setLoadingHours] = useState(false);
+
+  // Close on mobile back gesture
+  useMobileBackToClose(open, onClose);
 
   const steps = ['Adresse de livraison', 'Heure de livraison', 'Frais de livraison', 'Paiement', 'Confirmation'];
 

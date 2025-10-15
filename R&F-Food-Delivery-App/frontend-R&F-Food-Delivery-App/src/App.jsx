@@ -10,6 +10,7 @@ import AdminDashboard from './views/AdminDashboard';
 import OrderHistory from './views/orderHistory';
 import UserProfile from './views/userProfile';
 import NotFoundPage from './views/not-found-page';
+import Login from './views/login';
 import './App.css';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
               <Route path="/menu" element={<Menu />} />
               <Route path="/borne" element={<MenuView />} />
               <Route path="/caisse" element={<CashierView />} />
+              <Route path="/login" element={<Login />} />
               <Route path="/profile" element={<UserProfile />} />
               <Route path="/orders" element={<OrderHistory />} />
               <Route path="/admin" element={<AdminDashboard />} />

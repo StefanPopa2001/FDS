@@ -43,8 +43,8 @@ const PlatCardComponent = ({ plat, isMobile }) => {
 
   return (
     <Card sx={{
-      width: { xs: 160, md: 220 },
-      height: { xs: 200, md: 280 },
+      width: { xs: 180, md: 220 },
+      height: { xs: 230, md: 280 },
       display: 'flex',
       flexDirection: 'column',
       cursor: 'pointer',
@@ -78,7 +78,7 @@ const PlatCardComponent = ({ plat, isMobile }) => {
           />
         )}
       </Box>
-      <CardContent sx={{ flex: 1, p: { xs: 1, md: 1.5 }, height: { xs: 80, md: 120 }, overflow: 'hidden' }}>
+      <CardContent sx={{ flex: 1, p: { xs: 1.5, md: 1.5 }, height: { xs: 110, md: 120 }, overflow: 'hidden' }}>
         <Typography variant="h6" gutterBottom sx={{
           fontWeight: 600,
           fontSize: { xs: '0.9rem', md: '1.1rem' },
@@ -100,7 +100,7 @@ const PlatCardComponent = ({ plat, isMobile }) => {
         }}>
           {plat.description}
         </Typography>
-        <Typography variant="subtitle1" sx={{ color: 'primary.main', fontWeight: 600, fontSize: { xs: '0.9rem', md: '1rem' } }}>
+        <Typography variant="subtitle1" sx={{ color: 'primary.main', fontWeight: 600, fontSize: { xs: '0.8rem', md: '1rem' } }}>
           {Array.isArray(plat.versions) && plat.versions.length > 0 ? `Dès ${minPrice.toFixed(2)}€` : `${(plat.price ?? 0).toFixed(2)}€`}
         </Typography>
 

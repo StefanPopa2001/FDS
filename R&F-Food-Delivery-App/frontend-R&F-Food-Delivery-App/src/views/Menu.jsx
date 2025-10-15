@@ -54,6 +54,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ArrowBackIosNew as ArrowBackIosNewIcon,
   ArrowForwardIos as ArrowForwardIosIcon,
+  ErrorOutline as ErrorOutlineIcon,
 } from "@mui/icons-material"
 import { useBasket } from '../contexts/BasketContext'
 import LazyImage from '../components/LazyImage'
@@ -99,7 +100,7 @@ const darkTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: 0,
           border: "1px solid rgba(255, 255, 255, 0.08)",
           background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
           backdropFilter: "blur(10px)",
@@ -166,6 +167,7 @@ const Menu = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [platVersionModalOpen, setPlatVersionModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [hasServerError, setHasServerError] = useState(false)
   const [imageErrors, setImageErrors] = useState({})
   const [dropdownOpen, setDropdownOpen] = useState(false)
   
@@ -245,8 +247,8 @@ const Menu = () => {
 
   // Memoize card styles for better performance
   const cardStyles = useMemo(() => ({
-    width: { xs: 160, md: 220 },
-    height: { xs: 200, md: 280 },
+    width: { xs: 180, md: 220 },
+    height: { xs: 230, md: 280 },
     display: "flex",
     flexDirection: "column",
     cursor: "pointer",
@@ -320,13 +322,8 @@ const Menu = () => {
         }
       } catch (error) {
         console.error("Failed to fetch sauces:", error)
-        // Mock data for demo purposes
-        const mockData = [
-          { id: 1, name: "Ketchup", price: 0.5, available: true, deliveryAvailable: true, image: null, tags: [] },
-          { id: 2, name: "Mayonnaise", price: 0.5, available: true, deliveryAvailable: true, image: null, tags: [] },
-          { id: 3, name: "Barbecue", price: 0.8, available: true, deliveryAvailable: true, image: null, tags: [] },
-        ]
-        setSauces(mockData)
+        setHasServerError(true)
+        setLoading(false)
       }
     }
     fetchSauces()
@@ -353,65 +350,8 @@ const Menu = () => {
         }
       } catch (error) {
         console.error("Failed to fetch plats:", error)
-        // Mock data for demo purposes
-        const mockData = [
-          { 
-            id: 1, 
-            name: "Frites", 
-            price: 4.5, 
-            available: true, 
-            deliveryAvailable: true, 
-            speciality: false, 
-            image: null,
-            saucePrice: 1.5, // Can add sauce for €1.5
-            tags: [
-              {
-                id: 1,
-                nom: "Accompagnements",
-                description: "Extras pour accompagner",
-                emoji: "🍟",
-                extras: [
-                  { id: 1, nom: "Cheddar", description: "Fromage cheddar fondu", price: 1.0, available: true },
-                  { id: 2, nom: "Bacon", description: "Bacon croustillant", price: 1.5, available: true },
-                  { id: 3, nom: "Oignons frits", description: "Oignons croustillants", price: 0.8, available: true }
-                ]
-              }
-            ],
-            versions: [
-              { id: 1, size: "M", extraPrice: 0 },
-              { id: 2, size: "L", extraPrice: 1.5 },
-              { id: 3, size: "XL", extraPrice: 2.5 }
-            ]
-          },
-          { 
-            id: 2, 
-            name: "Burger Classic", 
-            price: 8.0, 
-            available: true, 
-            deliveryAvailable: true, 
-            speciality: true, 
-            image: null,
-            saucePrice: 0, // Sauce included for free
-            tags: [
-              {
-                id: 2,
-                nom: "Garnitures Burger",
-                description: "Extras pour burgers",
-                emoji: "🍔",
-                extras: [
-                  { id: 4, nom: "Double Steak", description: "Steak supplémentaire", price: 3.0, available: true },
-                  { id: 5, nom: "Cheese", description: "Fromage supplémentaire", price: 1.0, available: true },
-                  { id: 6, nom: "Cornichons", description: "Cornichons tranchés", price: 0.5, available: true }
-                ]
-              }
-            ],
-            versions: [
-              { id: 4, size: "Standard", extraPrice: 0 },
-              { id: 5, size: "Double", extraPrice: 3.0 }
-            ]
-          }
-        ]
-        setPlats(mockData)
+        setHasServerError(true)
+        setLoading(false)
       }
     }
     fetchPlats()
@@ -540,7 +480,8 @@ const Menu = () => {
       }))
     }
 
-  // Show all plats including unavailable ones; unavailable plats will render with an overlay
+  // Filter out unavailable plats (including disabled specialities)
+  filteredPlatData = filteredPlatData.filter((plat) => plat.available)
 
     if (debouncedSearchTerm) {
       filteredPlatData = filteredPlatData.filter((plat) => {
@@ -565,6 +506,11 @@ const Menu = () => {
 
     return filteredPlatData
   }, [plats, selectedTagFilter, settings, debouncedSearchTerm])
+
+  const availableItemsCount = useMemo(() => {
+    const availableSauces = filteredSauces.filter(sauce => sauce.available).length
+    return filteredPlats.length + availableSauces
+  }, [filteredPlats, filteredSauces])
 
   const handleSauceClick = (sauce) => {
     if (!sauce || !sauce.available) return
@@ -791,37 +737,38 @@ const Menu = () => {
         sx={{
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
           p: { xs: 1.5, md: 2 },
-          height: { xs: 80, md: 120 },
+          height: { xs: 110, md: 120 },
           overflow: "hidden",
+          position: "relative",
         }}
       >
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{
-              fontWeight: 700,
-              fontSize: { xs: "0.9rem", md: "1.1rem" },
-              mb: 1,
-              lineHeight: 1.3,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
-            {sauce.name}
-          </Typography>
-        </Box>
+        <Typography
+          variant="h6"
+          component="h2"
+          sx={{
+            fontWeight: 700,
+            fontSize: { xs: "0.9rem", md: "1.1rem" },
+            mb: 1,
+            lineHeight: 1.3,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {sauce.name}
+        </Typography>
 
         <Box
           sx={{
+            position: "absolute",
+            bottom: { xs: 12, md: 16 },
+            left: { xs: 12, md: 16 },
+            right: { xs: 12, md: 16 },
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            mt: "auto",
           }}
         >
           <Typography
@@ -829,7 +776,7 @@ const Menu = () => {
             color="primary"
             sx={{
               fontWeight: 800,
-              fontSize: { xs: "1rem", md: "1.2rem" },
+              fontSize: { xs: "0.9rem", md: "1.2rem" },
             }}
           >
             {sauce.price.toFixed(2)}€
@@ -1022,38 +969,39 @@ const Menu = () => {
         sx={{
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
           p: { xs: 1.5, md: 2 },
-          height: { xs: 80, md: 120 },
+          height: { xs: 110, md: 120 },
           overflow: "hidden",
+          position: "relative",
         }}
       >
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{
-              fontWeight: 700,
-              fontSize: { xs: "0.9rem", md: "1.1rem" },
-              mb: 1,
-              lineHeight: 1.3,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {plat.name}
-          </Typography>
-        </Box>
+        <Typography
+          variant="h6"
+          component="h2"
+          sx={{
+            fontWeight: 700,
+            fontSize: { xs: "0.9rem", md: "1.1rem" },
+            mb: 1,
+            lineHeight: 1.3,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {plat.name}
+        </Typography>
 
         <Box
           sx={{
+            position: "absolute",
+            bottom: { xs: 12, md: 16 },
+            left: { xs: 12, md: 16 },
+            right: { xs: 12, md: 16 },
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            mt: "auto",
           }}
         >
           <Typography
@@ -1061,7 +1009,7 @@ const Menu = () => {
             color="primary"
             sx={{
               fontWeight: 800,
-              fontSize: { xs: "1rem", md: "1.2rem" },
+              fontSize: { xs: "0.9rem", md: "1.2rem" },
             }}
           >
             {plat.versions.length > 1 
@@ -1203,8 +1151,20 @@ const Menu = () => {
         }}
       >
         <Container maxWidth="xl" sx={{ py: 4 }}>
-          {/* Header */}
-          {isMobile || isTablet ? (
+          {hasServerError ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <ErrorOutlineIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+              <Typography variant="h5" color="text.secondary" sx={{ mb: 1 }}>
+                Service Indisponible
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Le serveur est actuellement hors service. Veuillez réessayer plus tard.
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              {/* Header */}
+              {isMobile || isTablet ? (
             <Box sx={{ mb: 6, textAlign: "center" }}>
               <Typography
                 variant="h2"
@@ -1240,27 +1200,46 @@ const Menu = () => {
                 {settings.menuMessage || "Découvrez notre sélection de spécialités"}
               </Typography>
               
-              {/* Warning messages for disabled services - REMOVED */}
-              {/* {(settings.enableOnlinePickup === "false" || settings.enableOnlineDelivery === "false") && (
-                <Alert 
-                  severity="warning" 
-                  sx={{ 
-                    mb: 3, 
-                    maxWidth: 600, 
-                    mx: "auto",
-                    background: "rgba(255, 152, 0, 0.1)",
-                    border: "1px solid rgba(255, 152, 0, 0.3)",
-                    color: "#ffb74d"
-                  }}
-                >
-                  {settings.enableOnlinePickup === "false" && settings.enableOnlineDelivery === "false" 
-                    ? "🚫 Les commandes en ligne sont temporairement désactivées."
-                    : settings.enableOnlinePickup === "false" 
-                      ? "🚫 Les commandes à emporter en ligne sont temporairement désactivées."
-                      : "🚫 Les commandes en livraison en ligne sont temporairement désactivées."
-                  }
-                </Alert>
-              )} */}
+              {/* Status indicators */}
+              <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {settings.enableOnlinePickup ? (
+                    <FastfoodIcon sx={{ color: 'primary.main', fontSize: 16 }} />
+                  ) : (
+                    <CancelIcon sx={{ color: 'error.main', fontSize: 16 }} />
+                  )}
+                  <Typography sx={{ fontSize: '0.8rem', color: settings.enableOnlinePickup ? 'text.primary' : 'error.main' }}>
+                    À emporter
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {settings.enableSpecialites ? (
+                    <StarIcon sx={{ color: 'warning.main', fontSize: 16 }} />
+                  ) : (
+                    <CancelIcon sx={{ color: 'error.main', fontSize: 16 }} />
+                  )}
+                  <Typography sx={{ fontSize: '0.8rem', color: settings.enableSpecialites ? 'text.primary' : 'error.main' }}>
+                    Spécialités
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {settings.enableOnlineDelivery ? (
+                    <TruckIcon sx={{ color: 'secondary.main', fontSize: 16 }} />
+                  ) : (
+                    <CancelIcon sx={{ color: 'error.main', fontSize: 16 }} />
+                  )}
+                  <Typography sx={{ fontSize: '0.8rem', color: settings.enableOnlineDelivery ? 'text.primary' : 'error.main' }}>
+                    Livraisons
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <StorefrontIcon sx={{ color: 'success.main', fontSize: 16 }} />
+                  <Typography sx={{ fontSize: '0.8rem', color: 'text.primary' }}>
+                    Restaurant ouvert
+                  </Typography>
+                </Box>
+              </Box>
+            
             </Box>
           ) : (
             <Fade in timeout={800}>
@@ -1298,6 +1277,47 @@ const Menu = () => {
                 >
                   {settings.menuMessage || "Découvrez notre sélection de spécialités"}
                 </Typography>
+                
+                {/* Status indicators */}
+                <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {settings.enableOnlinePickup ? (
+                      <FastfoodIcon sx={{ color: 'primary.main', fontSize: 16 }} />
+                    ) : (
+                      <CancelIcon sx={{ color: 'error.main', fontSize: 16 }} />
+                    )}
+                    <Typography sx={{ fontSize: '0.8rem', color: settings.enableOnlinePickup ? 'text.primary' : 'error.main' }}>
+                      À emporter
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {settings.enableSpecialites ? (
+                      <StarIcon sx={{ color: 'warning.main', fontSize: 16 }} />
+                    ) : (
+                      <CancelIcon sx={{ color: 'error.main', fontSize: 16 }} />
+                    )}
+                    <Typography sx={{ fontSize: '0.8rem', color: settings.enableSpecialites ? 'text.primary' : 'error.main' }}>
+                      Spécialités
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {settings.enableOnlineDelivery ? (
+                      <TruckIcon sx={{ color: 'secondary.main', fontSize: 16 }} />
+                    ) : (
+                      <CancelIcon sx={{ color: 'error.main', fontSize: 16 }} />
+                    )}
+                    <Typography sx={{ fontSize: '0.8rem', color: settings.enableOnlineDelivery ? 'text.primary' : 'error.main' }}>
+                      Livraisons
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <StorefrontIcon sx={{ color: 'success.main', fontSize: 16 }} />
+                    <Typography sx={{ fontSize: '0.8rem', color: 'text.primary' }}>
+                      Restaurant ouvert
+                    </Typography>
+                  </Box>
+                </Box>
+                
                 {/* Warning alert removed per UX request */}
               </Box>
             </Fade>
@@ -1310,7 +1330,7 @@ const Menu = () => {
               sx={{
                 p: 3,
                 mb: 4,
-                borderRadius: 3,
+                borderRadius: 0,
         background: "rgba(26, 26, 26, 0.9)",
                 backdropFilter: "none",
                 border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -1323,93 +1343,11 @@ const Menu = () => {
                   gap: 3,
                 }}
               >
-                {/* Status icons (row above search) - centered with labels */}
-                <Box sx={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', mb: 1, width: '100%' }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'primary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlinePickup ? 1 : 0.35 }}>
-                      <FastfoodIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                    </Box>
-                    <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlinePickup ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
-                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>À emporter</Typography>
-                  </Box>
-                  {/* Specialities status (mobile) */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'warning.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableSpecialites ? 1 : 0.35 }}>
-                      <StarIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                    </Box>
-                    <Box sx={{ mt: 0.25 }}>{ !!settings.enableSpecialites ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
-                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Spécialités</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'secondary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlineDelivery ? 1 : 0.35 }}>
-                      <TruckIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                    </Box>
-                    <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlineDelivery ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
-                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Livraisons</Typography>
-                  </Box>
-                  {/* <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'success.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <StorefrontIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                    </Box>
-                    <Box sx={{ mt: 0.25 }}>{ (() => {
-                      // Determine open state using new restaurant settings
-                      try {
-                        // Determine manualOpen value from settings or server fallback
-                        const manualVal = settings.hasOwnProperty('restaurantManualOpen') ? settings.restaurantManualOpen : restaurantCfgLocal?.manualOpen;
-                        // If manualOpen is explicitly true, treat as manual mode (authoritative)
-                        if (manualVal === true || manualVal === 'true') {
-                          return <CheckCircleIcon color="success" sx={{ fontSize: 20 }} />;
-                        }
-
-                        // Otherwise determine mode: prefer explicit settings values, otherwise fall back to server-side restaurant config
-                        const mode = (settings.hasOwnProperty('restaurantAutoMode'))
-                          ? (settings.restaurantAutoMode === false ? 'manual' : 'auto')
-                          : (restaurantCfgLocal?.openMode === 'manual' ? 'manual' : 'auto');
-
-                        if (mode === 'manual') {
-                          // manualOpen was falsy; show closed
-                          return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
-                        }
-
-                        // Auto mode
-                        const safeParse = (v, fallback=null) => {
-                          if (v == null) return fallback;
-                          if (Array.isArray(v)) return v;
-                          if (typeof v !== 'string') return fallback;
-                          try { return JSON.parse(v); } catch (e) {
-                            try { return JSON.parse(v.replace(/'/g, '"')); } catch (e2) { return fallback; }
-                          }
-                        };
-                        const days = Array.isArray(settings.restaurantOpenDays) ? settings.restaurantOpenDays : (Array.isArray(restaurantCfgLocal?.openDays) ? restaurantCfgLocal.openDays : safeParse(settings.restaurantOpenDays, null));
-                        const openStr = settings.restaurantOpenStart || restaurantCfgLocal?.openStart || settings.heureOuverture || settings.heure_ouverture || '';
-                        const closeStr = settings.restaurantOpenEnd || restaurantCfgLocal?.openEnd || settings.heureFermeture || settings.heure_fermeture || '';
-                        if (!openStr || !closeStr) return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
-                        const normalize = (s) => s.includes(':') ? s : (s.length === 4 ? s.slice(0,2) + ':' + s.slice(2,4) : s);
-                        const now = new Date();
-                        const today = now.getDay(); // 0=Sun .. 6=Sat
-                        if (Array.isArray(days) && days.length > 0 && !days.includes(today)) {
-                          return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
-                        }
-                        const [oh, om] = normalize(openStr).split(':').map(Number);
-                        const [ch, cm] = normalize(closeStr).split(':').map(Number);
-                        const todayOpen = new Date(now.getFullYear(), now.getMonth(), now.getDate(), oh, om);
-                        const todayClose = new Date(now.getFullYear(), now.getMonth(), now.getDate(), ch, cm);
-                        const open = now >= todayOpen && now <= todayClose;
-                        return open ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} />;
-                      } catch (err) {
-                        console.error('Error computing restaurant open state:', err);
-                        return <CancelIcon color="error" sx={{ fontSize: 20 }} />;
-                      }
-                    })() }</Box>
-                    <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Restaurant ouvert</Typography>
-                  </Box> */}
-                </Box>
-
                 {/* Search (full width) */}
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
                     fullWidth
-                    placeholder="Rechercher une spécialité..."
+                    placeholder={`Rechercher parmi nos ${availableItemsCount} spécialités`}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     InputProps={{
@@ -1455,7 +1393,7 @@ const Menu = () => {
                 sx={{
                   p: 3,
                   mb: 4,
-                  borderRadius: 3,
+                  borderRadius: 0,
                   background: "rgba(26, 26, 26, 0.8)",
                   backdropFilter: "blur(20px)",
                   border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -1477,55 +1415,9 @@ const Menu = () => {
                       alignItems: "center",
                     }}
                   >
-                    {/* Status icons (desktop) - centered above search */}
-                    <Box sx={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'primary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlinePickup ? 1 : 0.35 }}>
-                          <FastfoodIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                        </Box>
-                        <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlinePickup ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
-                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>À emporter</Typography>
-                      </Box>
-                      {/* Specialities status (desktop) */}
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'warning.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableSpecialites ? 1 : 0.35 }}>
-                          <StarIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                        </Box>
-                        <Box sx={{ mt: 0.25 }}>{ !!settings.enableSpecialites ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
-                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Spécialités</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'secondary.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: !!settings.enableOnlineDelivery ? 1 : 0.35 }}>
-                          <TruckIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                        </Box>
-                        <Box sx={{ mt: 0.25 }}>{ !!settings.enableOnlineDelivery ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} /> }</Box>
-                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Livraisons</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ borderRadius: 2, p: 1.1, bgcolor: 'success.main', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <StorefrontIcon sx={{ color: '#fff', fontSize: { xs: 20, md: 28 } }} />
-                        </Box>
-                        <Box sx={{ mt: 0.25 }}>{ (() => {
-                          const open = (() => {
-                            const openStr = settings.heureOuverture || settings.heure_ouverture || '';
-                            const closeStr = settings.heureFermeture || settings.heure_fermeture || '';
-                            if (!openStr || !closeStr) return false;
-                            const normalize = (s) => s.includes(':') ? s : s.slice(0,2) + ':' + s.slice(2,4);
-                            const now = new Date();
-                            const [oh, om] = normalize(openStr).split(':').map(Number);
-                            const [ch, cm] = normalize(closeStr).split(':').map(Number);
-                            const todayOpen = new Date(now.getFullYear(), now.getMonth(), now.getDate(), oh, om);
-                            const todayClose = new Date(now.getFullYear(), now.getMonth(), now.getDate(), ch, cm);
-                            return now >= todayOpen && now <= todayClose;
-                          })();
-                          return open ? <CheckCircleIcon color="success" sx={{ fontSize: 20 }} /> : <CancelIcon color="error" sx={{ fontSize: 20 }} />;
-                        })() }</Box>
-                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.5 }}>Restaurant ouvert</Typography>
-                      </Box>
-                    </Box>
                     <TextField
                       fullWidth
-                      placeholder="Rechercher une spécialité..."
+                      placeholder={`Rechercher parmi nos ${availableItemsCount} spécialités`}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       InputProps={{
@@ -1599,7 +1491,7 @@ const Menu = () => {
             <Box sx={{ textAlign: "center", py: 8 }}>
               <RestaurantIcon sx={{ fontSize: 80, color: "text.secondary", mb: 2 }} />
               <Typography variant="h5" color="text.secondary" gutterBottom>
-                Aucune spécialité trouvée
+                Aucune spécialité trouvée...
               </Typography>
               <Typography variant="body1" color="text.secondary">
                 Essayez de modifier vos critères de recherche
@@ -1861,147 +1753,25 @@ const Menu = () => {
                     {selectedPlat.description}
                   </Typography>
 
-                  {/* Sauce Selection */}
-                  {selectedPlat.IncludesSauce !== false && selectedPlat.saucePrice !== undefined && (
-                    <Box sx={{ mb: 3 }}>
-                      <FormControl fullWidth variant="outlined">
-                        <InputLabel id="sauce-select-label" sx={{ color: "#ff9800" }}>
-                          {selectedPlat.saucePrice > 0 ? `Sauce (+${selectedPlat.saucePrice.toFixed(2)}€)` : "Sauce (Incluse)"}
-                        </InputLabel>
-                        <Select
-                          labelId="sauce-select-label"
-                          value={selectedSauceForPlat ? selectedSauceForPlat.id : ""}
-                          onChange={(e) => {
-                            const sauce = sauces.find(s => s.id === e.target.value);
-                            setSelectedSauceForPlat(sauce || null);
-                          }}
-                          label={selectedPlat.saucePrice > 0 ? `Sauce (+${selectedPlat.saucePrice.toFixed(2)}€)` : "Sauce (Incluse)"}
-                          onOpen={() => setDropdownOpen(true)}
-                          onClose={() => setDropdownOpen(false)}
-                          MenuProps={{
-                            PaperProps: { sx: { maxHeight: { xs: '30vh', md: '50vh' }, width: 360, overflow: 'auto' } }
-                          }}
-                          sx={{
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "rgba(255, 152, 0, 0.5)",
-                            },
-                            "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#ff9800",
-                            },
-                          }}
-                        >
-                          <MenuItem value="">
-                            <em>Aucune sauce</em>
-                          </MenuItem>
-                          {sauces.filter(s => s.available).map((sauce) => (
-                            <MenuItem key={sauce.id} value={sauce.id}>
-                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <Typography>{sauce.name}</Typography>
-                              </Box>
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-                  )}
-
-                  {/* Extras Selection */}
-                  {selectedPlat.tags && selectedPlat.tags.some(tag => tag.extras && tag.extras.length > 0) && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="h6" sx={{ mb: 2, color: "#ff9800" }}>
-                        Extras disponibles
-                      </Typography>
-                      {selectedPlat.tags.map(tag => 
-                        tag.extras && tag.extras.length > 0 && (
-                          <Box key={tag.id} sx={{ mb: 2 }}>
-                            <FormControl fullWidth variant="outlined" sx={{ mb: 1 }}>
-                              <InputLabel id={`extras-select-label-${tag.id}`} sx={{ color: "#ff9800" }}>
-                                {tag.emoji} {tag.nom}
-                              </InputLabel>
-                              <Select
-                                labelId={`extras-select-label-${tag.id}`}
-                                multiple
-                                value={selectedExtras.filter(extraId => 
-                                  tag.extras.some(extra => extra.id === extraId)
-                                )}
-                                onChange={(e) => {
-                                  const tagExtraIds = tag.extras.map(extra => extra.id);
-                                  const otherSelectedExtras = selectedExtras.filter(extraId => 
-                                    !tagExtraIds.includes(extraId)
-                                  );
-                                  setSelectedExtras([...otherSelectedExtras, ...e.target.value]);
-                                }}
-                                label={`${tag.emoji} ${tag.nom}`}
-                                onOpen={() => setDropdownOpen(true)}
-                                onClose={() => setDropdownOpen(false)}
-                                MenuProps={{ PaperProps: { sx: { maxHeight: { xs: '35vh', md: '50vh' }, width: 420, overflow: 'auto' } } }}
-                                renderValue={(selected) => (
-                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                    {selected.map((extraId) => {
-                                      const extra = tag.extras.find(e => e.id === extraId);
-                                      return extra ? (
-                                          <Chip 
-                                          key={extraId} 
-                                          label={`${extra.nom} (+${extra.price.toFixed(2)}€)`}
-                                          size="small"
-                                          sx={{ 
-                                            backgroundColor: "rgba(255, 152, 0, 0.2)",
-                                            color: "#ff9800"
-                                          }}
-                                        />
-                                      ) : null;
-                                    })}
-                                  </Box>
-                                )}
-                                sx={{
-                                  "& .MuiOutlinedInput-notchedOutline": {
-                                    borderColor: "rgba(255, 152, 0, 0.5)",
-                                  },
-                                  "&:hover .MuiOutlinedInput-notchedOutline": {
-                                    borderColor: "#ff9800",
-                                  },
-                                }}
-                              >
-                                {tag.extras.map(extra => (
-                                  <MenuItem key={extra.id} value={extra.id}>
-                                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                                      <Box sx={{ display: "flex", flexDirection: "column" }}>
-                                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                                          {extra.nom}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                          {extra.description}
-                                        </Typography>
-                                      </Box>
-                                        <Typography variant="body1" color="primary" sx={{ ml: 2, fontWeight: 600 }}>
-                                        +{extra.price.toFixed(2)}€
-                                      </Typography>
-                                    </Box>
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          </Box>
-                        )
-                      )}
-                    </Box>
-                  )}
+                  {/* Personnalisation Section */}
+                  <Typography variant="h6" sx={{ mb: 2, color: "#ff9800" }}>
+                    Personnalisation
+                  </Typography>
 
                   {/* Ingredients Selection */}
                   {selectedPlat.ingredients && selectedPlat.ingredients.length > 0 && (
                     <Box sx={{ mb: 3 }}>
-                      <Accordion defaultExpanded>
+                      <Accordion defaultExpanded sx={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }} TransitionProps={{ unmountOnExit: true }}>
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Typography variant="h6" sx={{ color: "#ff9800", display: "flex", alignItems: "center", gap: 1 }}>
-                            <LocalDiningIcon />
-                            Composition du plat
+                          <Typography variant="subtitle1" sx={{ color: "#ff9800", fontWeight: 600 }}>
+                            🥗 Composition du plat
                           </Typography>
                         </AccordionSummary>
                         <AccordionDetails>
-                          <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-                            Personnalisez votre plat en sélectionnant ou désélectionnant les ingrédients
+                          <Typography variant="body2" sx={{ mb: 1, color: "text.secondary", fontSize: '0.8rem' }}>
+                            Personnalisez les ingrédients de votre plat:
                           </Typography>
-                          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                             {selectedPlat.ingredients.map((platIngredient) => {
                               const ingredient = platIngredient.ingredient;
                               const isRemoved = selectedIngredients.includes(ingredient.id);
@@ -2014,9 +1784,9 @@ const Menu = () => {
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "space-between",
-                                    p: 2,
+                                    p: 1,
                                     border: "1px solid rgba(255, 152, 0, 0.2)",
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     backgroundColor: isRemoved 
                                       ? "rgba(244, 67, 54, 0.1)" 
                                       : "rgba(255, 152, 0, 0.05)",
@@ -2024,18 +1794,19 @@ const Menu = () => {
                                     transition: "all 0.3s ease",
                                   }}
                                 >
-                                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, flex: 1 }}>
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                       {ingredient.allergen && (
-                                        <WarningIcon sx={{ color: "orange", fontSize: 20 }} />
+                                        <WarningIcon sx={{ color: "orange", fontSize: 16 }} />
                                       )}
                                     </Box>
                                     
                                     <Box sx={{ flex: 1 }}>
                                       <Typography 
-                                        variant="body1" 
+                                        variant="body2" 
                                         sx={{ 
-                                          fontWeight: 600,
+                                          fontWeight: 500,
+                                          fontSize: '0.85rem',
                                           textDecoration: isRemoved ? "line-through" : "none",
                                           color: isRemoved ? "text.secondary" : "text.primary"
                                         }}
@@ -2044,9 +1815,10 @@ const Menu = () => {
                                       </Typography>
                                       {ingredient.description && (
                                         <Typography 
-                                          variant="body2" 
+                                          variant="caption" 
                                           sx={{ 
                                             color: "text.secondary",
+                                            fontSize: '0.75rem',
                                             textDecoration: isRemoved ? "line-through" : "none"
                                           }}
                                         >
@@ -2054,14 +1826,14 @@ const Menu = () => {
                                         </Typography>
                                       )}
                                       {ingredient.allergen && (
-                                        <Typography variant="caption" sx={{ color: "orange", fontWeight: 600 }}>
+                                        <Typography variant="caption" sx={{ color: "orange", fontWeight: 600, fontSize: '0.7rem' }}>
                                           Allergène
                                         </Typography>
                                       )}
                                     </Box>
                                   </Box>
 
-                                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                     {isRemovable ? (
                                       <FormControlLabel
                                         control={
@@ -2069,6 +1841,7 @@ const Menu = () => {
                                             checked={!isRemoved}
                                             onChange={() => handleIngredientToggle(ingredient.id)}
                                             sx={{
+                                              '& .MuiSvgIcon-root': { fontSize: 18 },
                                               color: "rgba(255, 152, 0, 0.7)",
                                               "&.Mui-checked": {
                                                 color: "#ff9800",
@@ -2080,9 +1853,9 @@ const Menu = () => {
                                         sx={{ margin: 0 }}
                                       />
                                     ) : (
-                                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                        <CheckCircleIcon sx={{ color: "#4caf50", fontSize: 24 }} />
-                                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                        <CheckCircleIcon sx={{ color: "#4caf50", fontSize: 18 }} />
+                                        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.7rem' }}>
                                           Inclus
                                         </Typography>
                                       </Box>
@@ -2095,13 +1868,13 @@ const Menu = () => {
                           
                           {selectedIngredients.length > 0 && (
                             <Box sx={{ 
-                              mt: 2, 
-                              p: 2, 
+                              mt: 1, 
+                              p: 1, 
                               backgroundColor: "rgba(244, 67, 54, 0.1)",
-                              borderRadius: 2,
+                              borderRadius: 1,
                               border: "1px solid rgba(244, 67, 54, 0.3)"
                             }}>
-                              <Typography variant="body2" sx={{ color: "#f44336", fontWeight: 600 }}>
+                              <Typography variant="caption" sx={{ color: "#f44336", fontWeight: 600, fontSize: '0.75rem' }}>
                                 Ingrédients retirés: {selectedIngredients.length}
                               </Typography>
                             </Box>
@@ -2111,9 +1884,338 @@ const Menu = () => {
                     </Box>
                   )}
 
+                  {/* Sauce Selection */}
+                  {selectedPlat.IncludesSauce !== false && selectedPlat.saucePrice !== undefined && (
+                    <Box sx={{ mb: 3 }}>
+                      <Accordion sx={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }} TransitionProps={{ unmountOnExit: true }}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                          <Typography variant="subtitle1" sx={{ color: "#ff9800", fontWeight: 600 }}>
+                            🍅 Sauces {selectedPlat.saucePrice > 0 ? `(+${selectedPlat.saucePrice.toFixed(2)}€)` : '(Incluse)'}
+                            {selectedSauceForPlat && (
+                              <Chip 
+                                label="1"
+                                size="small"
+                                sx={{ ml: 1, backgroundColor: "rgba(255, 152, 0, 0.2)", color: "#ff9800" }}
+                              />
+                            )}
+                          </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ maxHeight: { xs: '40vh', md: '50vh' }, overflow: 'auto' }}>
+                          <Box sx={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, 
+                            gap: 1,
+                            mb: 1
+                          }}>
+                            <Box
+                              onClick={() => setSelectedSauceForPlat(null)}
+                              sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                p: 1,
+                                border: `1px solid ${!selectedSauceForPlat ? '#ff9800' : 'rgba(255, 255, 255, 0.1)'}`,
+                                borderRadius: 1,
+                                cursor: 'pointer',
+                                backgroundColor: !selectedSauceForPlat ? 'rgba(255, 152, 0, 0.1)' : 'transparent',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(255, 152, 0, 0.05)',
+                                },
+                                minHeight: '80px'
+                              }}
+                            >
+                              <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5, textAlign: 'center' }}>
+                                Aucune sauce
+                              </Typography>
+                            </Box>
+                            {sauces.filter(s => s.available).map((sauce) => {
+                              const isSelected = selectedSauceForPlat && selectedSauceForPlat.id === sauce.id;
+                              const imgSrc = sauce.image ? `${config.API_URL}${sauce.image}` : null;
+                              return (
+                                <Box
+                                  key={sauce.id}
+                                  onClick={() => setSelectedSauceForPlat(sauce)}
+                                  sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    p: 1,
+                                    border: `1px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.1)'}`,
+                                    borderRadius: 1,
+                                    cursor: 'pointer',
+                                    backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.1)' : 'transparent',
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(255, 152, 0, 0.05)',
+                                    },
+                                    minHeight: '120px'
+                                  }}
+                                >
+                                  <Box sx={{ width: '100%', height: '60px', mb: 1, borderRadius: 1, overflow: 'hidden' }}>
+                                    {imgSrc ? (
+                                      <img
+                                        src={imgSrc}
+                                        alt={sauce.name}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        onError={() => setImageErrors(prev => ({ ...prev, [`sauce-${sauce.id}`]: true }))}
+                                      />
+                                    ) : (
+                                      <PlaceholderImage sx={{ height: '100%', borderRadius: 1 }} />
+                                    )}
+                                  </Box>
+                                  <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5, textAlign: 'center' }}>
+                                    {sauce.name}
+                                  </Typography>
+                                  <Typography variant="body2" color="primary" sx={{ fontWeight: 600, textAlign: 'center' }}>
+                                    {selectedPlat.saucePrice > 0 ? `+${selectedPlat.saucePrice.toFixed(2)}€` : 'Incluse'}
+                                  </Typography>
+                                </Box>
+                              );
+                            })}
+                          </Box>
+                        </AccordionDetails>
+                      </Accordion>
+                    </Box>
+                  )}
+
+                  {/* Extras Selection */}
+                  {selectedPlat.tags && selectedPlat.tags.some(tag => tag.extras && tag.extras.length > 0) && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="h6" sx={{ mb: 2, color: "#ff9800" }}>
+                        Extras disponibles
+                      </Typography>
+                      {selectedPlat.tags.map(tag => 
+                        tag.extras && tag.extras.length > 0 && (
+                          <Accordion key={tag.id} sx={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', mb: 1 }} TransitionProps={{ unmountOnExit: true }}>
+                            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                              <Typography variant="subtitle1" sx={{ color: "#ff9800", fontWeight: 600 }}>
+                                {tag.emoji} {tag.nom}
+                                {selectedExtras.filter(extraId => tag.extras.some(extra => extra.id === extraId)).length > 0 && (
+                                  <Chip 
+                                    label={selectedExtras.filter(extraId => tag.extras.some(extra => extra.id === extraId)).length}
+                                    size="small"
+                                    sx={{ ml: 1, backgroundColor: "rgba(255, 152, 0, 0.2)", color: "#ff9800" }}
+                                  />
+                                )}
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ maxHeight: { xs: '40vh', md: '50vh' }, overflow: 'auto' }}>
+                            {tag.choixUnique ? (
+                              // Single choice: radio button style
+                              <FormControl component="fieldset">
+                                <Box sx={{ 
+                                  display: 'grid', 
+                                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, 
+                                  gap: 1,
+                                  maxHeight: { xs: '35vh', md: '45vh' },
+                                  overflow: 'auto'
+                                }}>
+                                  {tag.extras.map(extra => {
+                                    const isSelected = selectedExtras.includes(extra.id);
+                                    return (
+                                      <Box
+                                        key={extra.id}
+                                        onClick={() => {
+                                          const tagExtraIds = tag.extras.map(e => e.id);
+                                          const otherSelectedExtras = selectedExtras.filter(extraId => 
+                                            !tagExtraIds.includes(extraId)
+                                          );
+                                          setSelectedExtras([...otherSelectedExtras, extra.id]);
+                                        }}
+                                        sx={{
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          p: 1,
+                                          border: `1px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.1)'}`,
+                                          borderRadius: 1,
+                                          cursor: 'pointer',
+                                          backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.1)' : 'transparent',
+                                          '&:hover': {
+                                            backgroundColor: 'rgba(255, 152, 0, 0.05)',
+                                          },
+                                          minHeight: '80px'
+                                        }}
+                                      >
+                                        <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                          {extra.nom}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1, flex: 1 }}>
+                                          {extra.description}
+                                        </Typography>
+                                        <Typography variant="body1" color="primary" sx={{ fontWeight: 600, alignSelf: 'flex-end' }}>
+                                          +{extra.price.toFixed(2)}€
+                                        </Typography>
+                                      </Box>
+                                    );
+                                  })}
+                                </Box>
+                              </FormControl>
+                            ) : tag.doublonsAutorises ? (
+                              // Allow duplicates: quantity controls
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: { xs: '35vh', md: '45vh' }, overflow: 'auto' }}>
+                                {tag.extras.map(extra => {
+                                  const count = selectedExtras.filter(id => id === extra.id).length;
+                                  return (
+                                    <Box
+                                      key={extra.id}
+                                      sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        p: 1,
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        borderRadius: 1,
+                                        backgroundColor: count > 0 ? 'rgba(255, 152, 0, 0.1)' : 'transparent',
+                                      }}
+                                    >
+                                      <Box sx={{ flex: 1 }}>
+                                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                          {extra.nom} {count > 0 && `(${count})`}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          {extra.description}
+                                        </Typography>
+                                      </Box>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Typography variant="body1" color="primary" sx={{ fontWeight: 600 }}>
+                                          +{extra.price.toFixed(2)}€
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => {
+                                              const tagExtraIds = tag.extras.map(e => e.id);
+                                              const otherSelectedExtras = selectedExtras.filter(extraId => 
+                                                !tagExtraIds.includes(extraId) || extraId !== extra.id
+                                              );
+                                              const currentCount = selectedExtras.filter(id => id === extra.id).length;
+                                              if (currentCount > 0) {
+                                                // Remove one instance
+                                                const indexToRemove = selectedExtras.lastIndexOf(extra.id);
+                                                const newSelected = [...selectedExtras];
+                                                newSelected.splice(indexToRemove, 1);
+                                                setSelectedExtras(newSelected);
+                                              }
+                                            }}
+                                            disabled={count === 0}
+                                            sx={{ color: '#ff9800' }}
+                                          >
+                                            <RemoveIcon />
+                                          </IconButton>
+                                          <Typography variant="body2" sx={{ minWidth: 20, textAlign: 'center' }}>
+                                            {count}
+                                          </Typography>
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => {
+                                              setSelectedExtras([...selectedExtras, extra.id]);
+                                            }}
+                                            sx={{ color: '#ff9800' }}
+                                          >
+                                            <AddIcon />
+                                          </IconButton>
+                                        </Box>
+                                      </Box>
+                                    </Box>
+                                  );
+                                })}
+                              </Box>
+                            ) : (
+                              // Multiple choice without duplicates
+                              <FormControl fullWidth variant="outlined">
+                                <InputLabel id={`extras-select-label-${tag.id}`} sx={{ color: "#ff9800" }}>
+                                  Sélectionner des extras
+                                </InputLabel>
+                                <Select
+                                  labelId={`extras-select-label-${tag.id}`}
+                                  multiple
+                                  value={selectedExtras.filter(extraId => 
+                                    tag.extras.some(extra => extra.id === extraId)
+                                  )}
+                                  onChange={(e) => {
+                                    const tagExtraIds = tag.extras.map(extra => extra.id);
+                                    const otherSelectedExtras = selectedExtras.filter(extraId => 
+                                      !tagExtraIds.includes(extraId)
+                                    );
+                                    setSelectedExtras([...otherSelectedExtras, ...e.target.value]);
+                                  }}
+                                  label="Sélectionner des extras"
+                                  onOpen={() => setDropdownOpen(true)}
+                                  onClose={() => setDropdownOpen(false)}
+                                  MenuProps={{ PaperProps: { sx: { maxHeight: { xs: '35vh', md: '50vh' }, width: 420, overflow: 'auto' } } }}
+                                  renderValue={(selected) => (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                      {selected.map((extraId) => {
+                                        const extra = tag.extras.find(e => e.id === extraId);
+                                        return extra ? (
+                                            <Chip 
+                                            key={extraId} 
+                                            label={`${extra.nom} (+${extra.price.toFixed(2)}€)`}
+                                            size="small"
+                                            sx={{ 
+                                              backgroundColor: "rgba(255, 152, 0, 0.2)",
+                                              color: "#ff9800"
+                                            }}
+                                          />
+                                        ) : null;
+                                      })}
+                                    </Box>
+                                  )}
+                                  sx={{
+                                    "& .MuiOutlinedInput-notchedOutline": {
+                                      borderColor: "rgba(255, 152, 0, 0.5)",
+                                    },
+                                    "&:hover .MuiOutlinedInput-notchedOutline": {
+                                      borderColor: "#ff9800",
+                                    },
+                                  }}
+                                >
+                                  {tag.extras.map(extra => (
+                                    <MenuItem key={extra.id} value={extra.id}>
+                                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                                        <Box sx={{ display: "flex", flexDirection: "column" }}>
+                                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                            {extra.nom}
+                                          </Typography>
+                                          <Typography variant="body2" color="text.secondary">
+                                            {extra.description}
+                                          </Typography>
+                                        </Box>
+                                          <Typography variant="body1" color="primary" sx={{ ml: 2, fontWeight: 600 }}>
+                                          +{extra.price.toFixed(2)}€
+                                        </Typography>
+                                      </Box>
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            )}
+                            </AccordionDetails>
+                          </Accordion>
+                        )
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Sauce Selection */}
+
                   {/* Version Selection - Only show if multiple versions exist */}
                   {selectedPlat.versions && selectedPlat.versions.length > 1 && (
                     <Box sx={{ mb: 3 }}>
+                      {/* Validation message when no version is selected */}
+                      {!selectedVersion && (
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: "#f44336", 
+                            fontWeight: 600, 
+                            mb: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5
+                          }}
+                        >
+                          <ErrorOutlineIcon sx={{ fontSize: 16 }} />
+                          Veuillez choisir une version (obligatoire)
+                        </Typography>
+                      )}
                       <FormControl fullWidth variant="outlined">
                         <InputLabel id="version-select-label" sx={{ color: "#ff9800" }}>Taille</InputLabel>
                         <Select
@@ -2151,40 +2253,7 @@ const Menu = () => {
                     </Box>
                   )}
 
-                  {/* Quantity Selection */}
-                  {selectedVersion && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="h6" sx={{ mb: 2, color: "#ff9800" }}>
-                        Quantité
-                      </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <IconButton 
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          disabled={quantity <= 1}
-                          sx={{ 
-                            backgroundColor: "rgba(255, 152, 0, 0.1)",
-                            "&:hover": { backgroundColor: "rgba(255, 152, 0, 0.2)" }
-                          }}
-                        >
-                          <RemoveIcon />
-                        </IconButton>
-                        <Typography variant="h6" sx={{ minWidth: 40, textAlign: "center" }}>
-                          {quantity}
-                        </Typography>
-                        <IconButton 
-                          onClick={() => setQuantity(quantity + 1)}
-                          sx={{ 
-                            backgroundColor: "rgba(255, 152, 0, 0.1)",
-                            "&:hover": { backgroundColor: "rgba(255, 152, 0, 0.2)" }
-                          }}
-                        >
-                          <AddIcon />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* Total Price */}
+                  {/* Quantity Controls and Total Price */}
                   {selectedVersion && (
                     <Box sx={{ 
                       p: 2, 
@@ -2192,6 +2261,58 @@ const Menu = () => {
                       borderRadius: 2,
                       border: "1px solid rgba(255, 152, 0, 0.3)"
                     }}>
+                      {/* Quantity Controls */}
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        gap: 2,
+                        mb: 2
+                      }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>Quantité:</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            disabled={quantity <= 1}
+                            sx={{ 
+                              color: '#ff9800',
+                              '&:hover': {
+                                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                              },
+                              '&.Mui-disabled': {
+                                color: 'text.disabled'
+                              }
+                            }}
+                          >
+                            <RemoveIcon />
+                          </IconButton>
+                          <Typography 
+                            sx={{ 
+                              minWidth: 40, 
+                              textAlign: 'center', 
+                              fontWeight: 600,
+                              fontSize: '1.1rem'
+                            }}
+                          >
+                            {quantity}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => setQuantity(quantity + 1)}
+                            sx={{ 
+                              color: '#ff9800',
+                              '&:hover': {
+                                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                              }
+                            }}
+                          >
+                            <AddIcon />
+                          </IconButton>
+                        </Box>
+                      </Box>
+
+                      {/* Total Price */}
                       <Typography variant="h5" sx={{ fontWeight: 700, color: "#ff9800", textAlign: "center" }}>
                         Total: {calculateTotalPrice().toFixed(2)}€
                       </Typography>
@@ -2245,11 +2366,11 @@ const Menu = () => {
                   </Box>
                 </DialogContent>
 
-                <DialogActions sx={{ p: 3 }}>
+                <DialogActions sx={{ p: 3, gap: 2 }}>
                   <Button
                     onClick={() => setPlatVersionModalOpen(false)}
                     variant="outlined"
-                    sx={{ mr: 2 }}
+                    sx={{ flex: 1 }}
                   >
                     Annuler
                   </Button>
@@ -2284,6 +2405,7 @@ const Menu = () => {
                     variant="contained"
                     disabled={!selectedVersion || isOrderingDisabled()}
                     sx={{
+                      flex: 1,
                       background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
                       "&:hover": {
                         background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
@@ -2292,12 +2414,14 @@ const Menu = () => {
                       px: 4,
                     }}
                   >
-                    Ajouter au panier
+                    Ajouter
                   </Button>
                 </DialogActions>
               </>
             )}
           </Dialog>
+        </>
+        )}
         </Container>
       </Box>
     </ThemeProvider>

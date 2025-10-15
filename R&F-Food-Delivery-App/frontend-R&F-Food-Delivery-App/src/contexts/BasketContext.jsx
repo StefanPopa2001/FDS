@@ -406,7 +406,7 @@ export const BasketProvider = ({ children }) => {
     
     if (item.type === 'plat') {
       name = item.plat.name;
-      if (item.version) name += ` (${item.version.size})`;
+      if (item.version && item.version.size) name += ` (${item.version.size})`;
     } else if (item.type === 'sauce') {
       name = item.sauce.name;
     } else if (item.type === 'extra') {

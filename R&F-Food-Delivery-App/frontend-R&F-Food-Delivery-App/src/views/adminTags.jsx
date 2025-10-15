@@ -32,6 +32,8 @@ export default function AdminTags() {
     description: "",
     emoji: "",
     recherchable: false,
+    choixUnique: false,
+    doublonsAutorises: false,
     ordre: "",
   })
   const [editMode, setEditMode] = useState({})
@@ -143,6 +145,70 @@ export default function AdminTags() {
                   setEditData({
                     ...editData,
                     [params.row.id]: { ...editData[params.row.id], recherchable: e.target.checked },
+                  })
+                }
+                color="primary"
+              />
+            }
+            label=""
+          />
+        ) : (
+          <Switch
+            checked={params.value}
+            disabled
+            color="primary"
+          />
+        ),
+    },
+    {
+      field: "choixUnique",
+      headerName: "Choix Unique",
+      width: 120,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
+      renderCell: (params) =>
+        editMode[params.row.id] ? (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={editData[params.row.id]?.choixUnique || false}
+                onChange={(e) =>
+                  setEditData({
+                    ...editData,
+                    [params.row.id]: { ...editData[params.row.id], choixUnique: e.target.checked },
+                  })
+                }
+                color="primary"
+              />
+            }
+            label=""
+          />
+        ) : (
+          <Switch
+            checked={params.value}
+            disabled
+            color="primary"
+          />
+        ),
+    },
+    {
+      field: "doublonsAutorises",
+      headerName: "Doublons Autorises",
+      width: 150,
+      align: 'center',
+      headerAlign: 'center',
+      cellClassName: 'centered-cell',
+      renderCell: (params) =>
+        editMode[params.row.id] ? (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={editData[params.row.id]?.doublonsAutorises || false}
+                onChange={(e) =>
+                  setEditData({
+                    ...editData,
+                    [params.row.id]: { ...editData[params.row.id], doublonsAutorises: e.target.checked },
                   })
                 }
                 color="primary"
@@ -314,7 +380,7 @@ export default function AdminTags() {
       })
       if (response.ok) {
         showAlert("Tag ajouté avec succès")
-        setNewTag({ nom: "", description: "", emoji: "", recherchable: false, ordre: "" })
+        setNewTag({ nom: "", description: "", emoji: "", recherchable: false, choixUnique: false, doublonsAutorises: false, ordre: "" })
         fetchTags()
       } else {
         const data = await response.json()
@@ -436,6 +502,26 @@ export default function AdminTags() {
                   />
                 }
                 label="Recherchable"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={newTag.choixUnique}
+                    onChange={(e) => setNewTag({ ...newTag, choixUnique: e.target.checked })}
+                    color="primary"
+                  />
+                }
+                label="Choix Unique"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={newTag.doublonsAutorises}
+                    onChange={(e) => setNewTag({ ...newTag, doublonsAutorises: e.target.checked })}
+                    color="primary"
+                  />
+                }
+                label="Doublons Autorises"
               />
               <Button
                 variant="contained"

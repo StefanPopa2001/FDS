@@ -6,18 +6,24 @@ import {
   DialogActions,
   Button,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 const TermsOfUseModal = ({ open, onClose }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       scroll="paper"
       maxWidth="md"
+      fullScreen={isMobile}
       sx={{
         '& .MuiDialog-paper': {
-          borderRadius: 3,
+          borderRadius: isMobile ? 0 : 3,
           bgcolor: 'background.paper',
           backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))',
         }

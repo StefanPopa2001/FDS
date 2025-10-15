@@ -13,7 +13,12 @@ import {
   Divider,
   Chip,
   Paper,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -23,12 +28,17 @@ import {
   MarkEmailRead as MarkReadIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  NotificationsOff as NotificationsOffIcon
+  NotificationsOff as NotificationsOffIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useOrderNotifications } from '../hooks/useOrderNotifications';
 import { safeNotification } from '../utils/safeNotification';
 
 const NotificationCenter = ({ userId, orderId = null }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [browserNotificationPermission, setBrowserNotificationPermission] = useState(safeNotification.permission());
   const { 
@@ -99,6 +109,12 @@ const NotificationCenter = ({ userId, orderId = null }) => {
   const handleNotificationClick = (notification) => {
     if (!notification.isRead) {
       markAsRead(notification.id);
+    }
+    // Navigate to order history with the specific order
+    const details = getNotificationDetails(notification);
+    if (details.orderId) {
+      navigate(`/orders?orderId=${details.orderId}`);
+      handleClose();
     }
   };
 
@@ -196,57 +212,118 @@ const NotificationCenter = ({ userId, orderId = null }) => {
         )}
       </IconButton>
 
-      <Popover
+      <Dialog
         open={Boolean(anchorEl)}
-        anchorEl={anchorEl}
         onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          elevation: 24,
+          sx: {
+            borderRadius: isMobile ? 0 : 3,
+            background: 'linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 152, 0, 0.2)',
+            maxHeight: isMobile ? '100vh' : '80vh',
+            height: isMobile ? '100vh' : 'auto',
+          },
         }}
       >
-        <Paper sx={{ width: 350, maxHeight: 500, overflow: 'auto' }}>
-          <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">
-                Notifications {unreadCount > 0 && `(${unreadCount})`}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            pb: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#ff9800' }}>
+              Notifications {unreadCount > 0 && `(${unreadCount})`}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton 
+                size="small" 
+                onClick={refreshNotifications}
+                title="Actualiser les notifications"
+                sx={{ color: '#ff9800' }}
+              >
+                <RefreshIcon />
+              </IconButton>
+              {isMobile && (
                 <IconButton 
                   size="small" 
-                  onClick={refreshNotifications}
-                  title="Actualiser les notifications"
+                  onClick={handleClose}
+                  title="Fermer"
+                  sx={{ color: '#ff9800' }}
                 >
-                  <RefreshIcon />
+                  <CloseIcon />
                 </IconButton>
-                {unreadCount > 0 && (
-                  <Button 
-                    size="small" 
-                    onClick={markAllAsRead}
-                    startIcon={<MarkReadIcon />}
-                    variant="outlined"
-                  >
-                    Tout lire
-                  </Button>
-                )}
-                {notifications.length > 0 && (
-                  <Button 
-                    size="small" 
-                    onClick={clearNotifications}
-                    startIcon={<ClearIcon />}
-                    color="error"
-                    variant="outlined"
-                  >
-                    Effacer tout
-                  </Button>
-                )}
-              </Box>
+              )}
             </Box>
           </Box>
+        </DialogTitle>
+
+        {/* Action buttons under header */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          p: 2, 
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          backgroundColor: 'rgba(0,0,0,0.05)'
+        }}>
+          <Button 
+            size="small" 
+            onClick={markAllAsRead}
+            disabled={unreadCount === 0}
+            startIcon={<MarkReadIcon />}
+            variant="outlined"
+            sx={{
+              flex: 1,
+              borderColor: 'rgba(255, 152, 0, 0.5)',
+              color: unreadCount === 0 ? 'text.disabled' : '#ff9800',
+              '&:hover': {
+                borderColor: unreadCount === 0 ? 'rgba(255, 152, 0, 0.3)' : '#ff9800',
+                backgroundColor: unreadCount === 0 ? 'transparent' : 'rgba(255, 152, 0, 0.1)',
+              },
+              '&.Mui-disabled': {
+                borderColor: 'rgba(255, 152, 0, 0.3)',
+                color: 'text.disabled'
+              }
+            }}
+          >
+            Tout lire
+          </Button>
+          <Button 
+            size="small" 
+            onClick={clearNotifications}
+            disabled={notifications.length === 0}
+            startIcon={<ClearIcon />}
+            color="error"
+            variant="outlined"
+            sx={{ 
+              flex: 1,
+              '&.Mui-disabled': {
+                borderColor: 'rgba(244, 67, 54, 0.3)',
+                color: 'text.disabled'
+              }
+            }}
+          >
+            Effacer tout
+          </Button>
+        </Box>
+
+        <DialogContent 
+          sx={{ 
+            p: 0, 
+            display: 'flex',
+            flexDirection: 'column',
+            height: isMobile ? 'calc(100vh - 180px)' : '60vh',
+            overflow: 'hidden'
+          }}
+        >
 
           {/* Browser notification permission alert */}
           {browserNotificationPermission === 'default' && (
@@ -296,74 +373,69 @@ const NotificationCenter = ({ userId, orderId = null }) => {
                         backgroundColor: notification.isRead ? 'transparent' : 'action.hover',
                         '&:hover': {
                           backgroundColor: 'action.selected'
-                        }
+                        },
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        py: 2
                       }}
                     >
-                      <ListItemIcon>
-                        {getIcon(notification)}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="subtitle2">
-                                {notification.title}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
-                              <Box sx={{ textAlign: 'right' }}>
-                                <Typography variant="caption" color="text.secondary" display="block">
-                                  {formatDate(notification.createdAt)}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {formatTime(notification.createdAt)}
-                                </Typography>
-                              </Box>
-                              {!notification.isRead && (
-                                <Chip size="small" color="primary" label="Nouveau" />
-                              )}
-                              <IconButton 
-                                size="small" 
-                                onClick={(e) => handleDeleteNotification(e, notification.id)}
-                                color="error"
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
-                          </Box>
-                        }
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              {notification.message}
+                      <Box sx={{ display: 'flex', width: '100%', mb: 1 }}>
+                        <ListItemIcon sx={{ minWidth: 40 }}>
+                          {getIcon(notification)}
+                        </ListItemIcon>
+                        <Box sx={{ flex: 1 }}>
+                          {/* First line: time and hour */}
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                            {formatDate(notification.createdAt)} à {formatTime(notification.createdAt)}
+                          </Typography>
+                          {/* Second line: notification title and message */}
+                          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                            {notification.title}
+                          </Typography>
+                          <Typography variant="body2" sx={{ mb: 1 }}>
+                            {notification.message}
+                          </Typography>
+                          {/* Last line: concerned command */}
+                          {details.orderId && (
+                            <Typography 
+                              variant="caption" 
+                              color="primary.main"
+                              sx={{ display: 'block', fontWeight: 500 }}
+                            >
+                              Commande #{details.orderId}
                             </Typography>
-                            {details.shopMessage && (
-                              <Typography 
-                                variant="body2" 
-                                sx={{ 
-                                  fontStyle: 'italic',
-                                  color: 'primary.main',
-                                  backgroundColor: 'action.hover',
-                                  p: 1,
-                                  borderRadius: 1,
-                                  mt: 1
-                                }}
-                              >
-                                Message du restaurant: {details.shopMessage}
-                              </Typography>
-                            )}
-                            {details.orderId && (
-                              <Typography 
-                                variant="caption" 
-                                color="text.secondary"
-                                sx={{ display: 'block', mt: 1 }}
-                              >
-                                Commande #{details.orderId}
-                              </Typography>
-                            )}
-                          </Box>
-                        }
-                      />
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                          {!notification.isRead && (
+                            <Chip size="small" color="primary" label="Nouveau" />
+                          )}
+                          <IconButton 
+                            size="small" 
+                            onClick={(e) => handleDeleteNotification(e, notification.id)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                      {details.shopMessage && (
+                        <Box sx={{ width: '100%', pl: 6 }}>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontStyle: 'italic',
+                              color: 'primary.main',
+                              backgroundColor: 'action.hover',
+                              p: 1,
+                              borderRadius: 1,
+                              mt: 1
+                            }}
+                          >
+                            Message du restaurant: {details.shopMessage}
+                          </Typography>
+                        </Box>
+                      )}
                     </ListItem>
                     {index < notifications.length - 1 && <Divider />}
                   </React.Fragment>
@@ -371,8 +443,8 @@ const NotificationCenter = ({ userId, orderId = null }) => {
               })}
             </List>
           )}
-        </Paper>
-      </Popover>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

@@ -1877,12 +1877,20 @@ app.get('/tags/searchable', async (req, res) => {
 // Create tag
 app.post('/tags', async (req, res) => {
   try {
-    const { nom, description, emoji, recherchable, ordre } = req.body;
+    const { nom, description, emoji, recherchable, ordre, choixUnique, doublonsAutorises } = req.body;
     if (!nom) {
       return res.status(400).json({ error: 'Nom is required' });
     }
     const tag = await prisma.tags.create({
-      data: { nom, description: description || '', emoji: emoji || '', recherchable: recherchable || false, ordre: ordre || null },
+      data: { 
+        nom, 
+        description: description || '', 
+        emoji: emoji || '', 
+        recherchable: recherchable || false, 
+        ordre: ordre || null,
+        choixUnique: choixUnique || false,
+        doublonsAutorises: doublonsAutorises || false
+      },
     });
     res.status(201).json(tag);
   } catch (error) {
@@ -1897,14 +1905,22 @@ app.post('/tags', async (req, res) => {
 // Update tag
 app.put('/tags/:id', async (req, res) => {
   const { id } = req.params;
-  const { nom, description, emoji, recherchable, ordre } = req.body;
+  const { nom, description, emoji, recherchable, ordre, choixUnique, doublonsAutorises } = req.body;
   try {
     if (!nom) {
       return res.status(400).json({ error: 'Nom is required' });
     }
     const tag = await prisma.tags.update({
       where: { id: parseInt(id) },
-      data: { nom, description: description || '', emoji: emoji || '', recherchable: recherchable || false, ordre: ordre || null },
+      data: { 
+        nom, 
+        description: description || '', 
+        emoji: emoji || '', 
+        recherchable: recherchable || false, 
+        ordre: ordre || null,
+        choixUnique: choixUnique || false,
+        doublonsAutorises: doublonsAutorises || false
+      },
     });
     res.json(tag);
   } catch (error) {

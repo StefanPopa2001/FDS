@@ -31,6 +31,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   LocalDining as LocalDiningIcon,
   Star as StarIcon,
+  ErrorOutline as ErrorOutlineIcon,
 } from "@mui/icons-material"
 import LazyImage from '../components/LazyImage'
 import PlatCard from '../components/PlatCard'
@@ -81,7 +82,7 @@ const darkTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 20,
+          borderRadius: 0,
           border: "1px solid rgba(255, 255, 255, 0.08)",
           background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
           backdropFilter: "blur(10px)",
@@ -142,6 +143,7 @@ const MenuView = () => {
   const [settings, setSettings] = useState({})
   const [visibleCountPlats, setVisibleCountPlats] = useState(12)
   const [visibleCountSauces, setVisibleCountSauces] = useState(12)
+  const [hasServerError, setHasServerError] = useState(false)
   const sentinelPlatsRef = useRef(null)
   const sentinelSaucesRef = useRef(null)
 
@@ -161,13 +163,23 @@ const MenuView = () => {
   useEffect(() => {
     let cancelled = false
     const fetchAll = async () => {
+      setHasServerError(false)
       try {
         const [sRes, pRes] = await Promise.allSettled([
           fetch(`${config.API_URL}/sauces`),
           fetch(`${config.API_URL}/plats`)
         ])
 
-        if (!cancelled && sRes.status === 'fulfilled') {
+        const saucesFailed = sRes.status !== 'fulfilled' || !sRes.value.ok
+        const platsFailed = pRes.status !== 'fulfilled' || !pRes.value.ok
+
+        if (saucesFailed && platsFailed) {
+          if (!cancelled) setHasServerError(true)
+          if (!cancelled) setLoading(false)
+          return
+        }
+
+        if (!cancelled && sRes.status === 'fulfilled' && sRes.value.ok) {
           const text = await sRes.value.text()
           try {
             const data = JSON.parse(text)
@@ -177,7 +189,7 @@ const MenuView = () => {
             setSauces([])
           }
         }
-        if (!cancelled && pRes.status === 'fulfilled') {
+        if (!cancelled && pRes.status === 'fulfilled' && pRes.value.ok) {
           const text = await pRes.value.text()
           try {
             const data = JSON.parse(text)
@@ -189,6 +201,7 @@ const MenuView = () => {
         }
       } catch (err) {
         console.error('Failed to fetch data:', err)
+        if (!cancelled) setHasServerError(true)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -460,54 +473,68 @@ const MenuView = () => {
           </Paper>
 
           {/* Plats Section */}
-          {filteredPlats.length > 0 && (
-            <Box sx={{ mb: 6 }}>
-              <Typography variant="h2" sx={{ mb: 4, textAlign: 'center' }}>
-                Nos Plats
-              </Typography>
-              <Grid container spacing={4}>
-                {filteredPlats.slice(0, visibleCountPlats).map((plat) => (
-                  <Grid item xs={6} sm={4} md={3} lg={2.4} key={plat.id}>
-                    <PlatCard plat={plat} isMobile={isMobile} />
-                  </Grid>
-                ))}
-              </Grid>
-              {visibleCountPlats < filteredPlats.length && (
-                <Box ref={sentinelPlatsRef} sx={{ height: 1 }} />
-              )}
-            </Box>
-          )}
-
-          {/* Sauces Section */}
-          {filteredSauces.length > 0 && (
-            <Box sx={{ mb: 6 }}>
-              <Typography variant="h2" sx={{ mb: 4, textAlign: 'center' }}>
-                Nos Sauces
-              </Typography>
-              <Grid container spacing={4}>
-                {filteredSauces.slice(0, visibleCountSauces).map((sauce) => (
-                  <Grid item xs={6} sm={4} md={3} lg={2.4} key={sauce.id}>
-                    <SauceCard sauce={sauce} isMobile={isMobile} />
-                  </Grid>
-                ))}
-              </Grid>
-              {visibleCountSauces < filteredSauces.length && (
-                <Box ref={sentinelSaucesRef} sx={{ height: 1 }} />
-              )}
-            </Box>
-          )}
-
-          {/* No results */}
-          {filteredPlats.length === 0 && filteredSauces.length === 0 && (
+          {hasServerError ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
-              <LocalDiningIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h5" color="text.secondary">
-                Aucun plat ou sauce trouvé
+              <ErrorOutlineIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+              <Typography variant="h5" color="text.secondary" sx={{ mb: 1 }}>
+                Service Indisponible
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                Essayez de modifier vos critères de recherche
+                Le serveur est actuellement hors service. Veuillez réessayer plus tard.
               </Typography>
             </Box>
+          ) : (
+            <>
+              {filteredPlats.length > 0 && (
+                <Box sx={{ mb: 6 }}>
+                  <Typography variant="h2" sx={{ mb: 4, textAlign: 'center' }}>
+                    Nos Plats
+                  </Typography>
+                  <Grid container spacing={4}>
+                    {filteredPlats.slice(0, visibleCountPlats).map((plat) => (
+                      <Grid item xs={6} sm={4} md={3} lg={2.4} key={plat.id}>
+                        <PlatCard plat={plat} isMobile={isMobile} />
+                      </Grid>
+                    ))}
+                  </Grid>
+                  {visibleCountPlats < filteredPlats.length && (
+                    <Box ref={sentinelPlatsRef} sx={{ height: 1 }} />
+                  )}
+                </Box>
+              )}
+
+              {/* Sauces Section */}
+              {filteredSauces.length > 0 && (
+                <Box sx={{ mb: 6 }}>
+                  <Typography variant="h2" sx={{ mb: 4, textAlign: 'center' }}>
+                    Nos Sauces
+                  </Typography>
+                  <Grid container spacing={4}>
+                    {filteredSauces.slice(0, visibleCountSauces).map((sauce) => (
+                      <Grid item xs={6} sm={4} md={3} lg={2.4} key={sauce.id}>
+                        <SauceCard sauce={sauce} isMobile={isMobile} />
+                      </Grid>
+                    ))}
+                  </Grid>
+                  {visibleCountSauces < filteredSauces.length && (
+                    <Box ref={sentinelSaucesRef} sx={{ height: 1 }} />
+                  )}
+                </Box>
+              )}
+
+              {/* No results */}
+              {filteredPlats.length === 0 && filteredSauces.length === 0 && (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <LocalDiningIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h5" color="text.secondary">
+                    Aucun plat ou sauce trouvé...
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    Essayez de modifier vos critères de recherche...
+                  </Typography>
+                </Box>
+              )}
+            </>
           )}
         </Container>
       </Box>

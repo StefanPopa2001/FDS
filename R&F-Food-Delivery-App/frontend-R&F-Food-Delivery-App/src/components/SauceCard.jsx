@@ -29,8 +29,8 @@ const SauceCardComponent = ({ sauce, isMobile }) => {
 
   return (
     <Card sx={{
-      width: { xs: 160, md: 220 },
-      height: { xs: 200, md: 280 },
+      width: { xs: 180, md: 220 },
+      height: { xs: 230, md: 280 },
       display: 'flex',
       flexDirection: 'column',
       cursor: 'pointer',
@@ -51,7 +51,7 @@ const SauceCardComponent = ({ sauce, isMobile }) => {
           <PlaceholderImage sx={{ height: { xs: 120, md: 160 } }} />
         )}
       </Box>
-      <CardContent sx={{ flex: 1, p: { xs: 1, md: 1.5 }, height: { xs: 80, md: 120 }, overflow: 'hidden' }}>
+      <CardContent sx={{ flex: 1, p: { xs: 1.5, md: 1.5 }, height: { xs: 110, md: 120 }, overflow: 'hidden' }}>
         <Typography variant="h6" gutterBottom sx={{
           fontWeight: 600,
           fontSize: { xs: '0.9rem', md: '1.1rem' },
@@ -73,7 +73,7 @@ const SauceCardComponent = ({ sauce, isMobile }) => {
         }}>
           {sauce.description}
         </Typography>
-        <Typography variant="subtitle1" sx={{ color: 'primary.main', fontWeight: 600, fontSize: { xs: '0.9rem', md: '1rem' } }}>
+        <Typography variant="subtitle1" sx={{ color: 'primary.main', fontWeight: 600, fontSize: { xs: '0.8rem', md: '1rem' } }}>
           {(sauce.price ?? 0).toFixed(2)}€
         </Typography>
       </CardContent>

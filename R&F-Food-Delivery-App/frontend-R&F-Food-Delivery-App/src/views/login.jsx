@@ -211,11 +211,6 @@ export default function AuthPage() {
     }
   }
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue)
-    setAlert({ show: false, message: "", type: "info" })
-  }
-
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
@@ -242,83 +237,87 @@ export default function AuthPage() {
           }}
         >
           <Fade in timeout={800}>
-            <Card
-              elevation={24}
+            <Box
               sx={{
                 maxWidth: { xs: "100vw", md: 720 },
                 width: { xs: "100vw", md: "100%" },
                 mx: { xs: 0, md: "auto" },
                 overflow: "visible",
                 minHeight: { xs: "100vh", md: "auto" },
-                height: { xs: "100vh", md: "auto" },
+                height: "auto",
                 borderRadius: { xs: 0, md: 28 },
                 boxShadow: { xs: "none", md: undefined },
+                p: { xs: 3, md: 6 },
+                py: { xs: 6, md: 6 },
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: { xs: "center", md: "flex-start" },
+                alignItems: "center",
+                minHeight: "auto",
+                width: "100%",
+                boxSizing: "border-box",
+                "& .MuiOutlinedInput-root": {
+                  minHeight: { md: 56 },
+                  fontSize: { md: "1rem" },
+                },
+                "& .MuiInputBase-input": {
+                  fontSize: { md: "1rem" },
+                  padding: { md: "16px 14px" },
+                },
+                "& .MuiButton-root": {
+                  minHeight: { md: 52 },
+                  fontSize: { md: "1rem" },
+                  fontWeight: { md: 600 },
+                },
+                "& .MuiAvatar-root": {
+                  width: { md: 100 },
+                  height: { md: 100 },
+                },
+                "& h4": {
+                  fontSize: { md: "2.2rem" },
+                },
               }}
             >
-              <CardContent
-                sx={{
-                  p: { xs: 3, md: 6 },
-                  py: { xs: 6, md: 6 },
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: { xs: "center", md: "flex-start" },
-                  alignItems: "center",
-                  minHeight: { xs: `calc(100vh - 64px)`, md: "auto" },
-                  width: "100%",
-                  boxSizing: "border-box",
-                  "& .MuiOutlinedInput-root": {
-                    minHeight: { md: 56 },
-                    fontSize: { md: "1rem" },
-                  },
-                  "& .MuiInputBase-input": {
-                    fontSize: { md: "1rem" },
-                    padding: { md: "16px 14px" },
-                  },
-                  "& .MuiButton-root": {
-                    minHeight: { md: 52 },
-                    fontSize: { md: "1rem" },
-                    fontWeight: { md: 600 },
-                  },
-                  "& .MuiAvatar-root": {
-                    width: { md: 100 },
-                    height: { md: 100 },
-                  },
-                  "& h4": {
-                    fontSize: { md: "2.2rem" },
-                  },
-                }}
-              >
                 {/* Logo Section */}
                 <Zoom in timeout={600}>
-                  <Box sx={{ textAlign: "center", mb: { xs: 3, md: 4 } }}>
+                  <Box sx={{ 
+                    textAlign: { xs: "left", md: "center" }, 
+                    mb: { xs: 3, md: 4 },
+                    display: { xs: "flex", md: "block" },
+                    alignItems: { xs: "center", md: "unset" },
+                    gap: { xs: 2, md: 0 }
+                  }}>
                     <Avatar
                       src="/rudyetfanny-logo-personnages.png"
                       sx={{
-                        width: { xs: 72, sm: 80 },
-                        height: { xs: 72, sm: 80 },
-                        mx: "auto",
-                        mb: { xs: 1.5, sm: 2 },
+                        width: { xs: 48, sm: 80 },
+                        height: { xs: 48, sm: 80 },
+                        mx: { md: "auto" },
+                        mb: { md: 1.5, sm: 2 },
                         border: "3px solid",
                         borderColor: "primary.main",
                       }}
                     />
-                    <Typography
-                      variant="h4"
-                      component="h1"
-                      sx={{
-                        background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
-                        backgroundClip: "text",
-                        textFillColor: "transparent",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                        mb: 1,
-                      }}
-                    >
-                      Rudy et Fanny
-                    </Typography>
-                    <Typography variant="body2" color="text.primary">
-                      Bienvenue sur le site de commande en ligne
-                    </Typography>
+                    <Box>
+                      <Typography
+                        variant="h4"
+                        component="h1"
+                        sx={{
+                          background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                          backgroundClip: "text",
+                          textFillColor: "transparent",
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                          mb: 1,
+                          fontSize: { xs: "1.5rem", md: "2.2rem" },
+                        }}
+                      >
+                        Rudy et Fanny
+                      </Typography>
+                      <Typography variant="body2" color="text.primary" sx={{ fontSize: { xs: "0.8rem", md: "1rem" } }}>
+                        Bienvenue sur le site de commande en ligne
+                      </Typography>
+                    </Box>
                   </Box>
                 </Zoom>
 
@@ -339,33 +338,6 @@ export default function AuthPage() {
                     </Alert>
                   </Fade>
                 )}
-
-                {/* Tab Navigation */}
-                <Box
-                  sx={{
-                    borderBottom: 1,
-                    borderColor: "divider",
-                    mb: { xs: 2, md: 4 },
-                    width: { md: "100%" },
-                    maxWidth: { md: 500 },
-                  }}
-                >
-                  <Tabs
-                    value={activeTab}
-                    onChange={handleTabChange}
-                    variant="fullWidth"
-                    sx={{
-                      "& .MuiTabs-indicator": {
-                        backgroundColor: "primary.main",
-                        height: 3,
-                        borderRadius: "3px 3px 0 0",
-                      },
-                    }}
-                  >
-                    <Tab icon={<LoginIcon />} label="Connexion" iconPosition="start" />
-                    <Tab icon={<PersonAdd />} label="Inscription" iconPosition="start" />
-                  </Tabs>
-                </Box>
 
                 {/* Login Form */}
                 {activeTab === 0 && (
@@ -438,29 +410,20 @@ export default function AuthPage() {
                       <Box sx={{ textAlign: "center" }}>
                         <Typography variant="body2" color="text.secondary">
                           Pas encore de compte ?{" "}
-                          <Button
-                            variant="text"
+                          <Typography
+                            component="span"
                             onClick={() => setActiveTab(1)}
-                            sx={{ color: "primary.main", p: 0, minWidth: "auto" }}
+                            sx={{
+                              color: "primary.main",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              "&:hover": { textDecoration: "underline" },
+                            }}
                           >
                             Inscrivez-vous
-                          </Button>
+                          </Typography>
                         </Typography>
 
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ mt: { xs: 1, sm: 1 }, fontSize: { xs: '0.6rem', sm: '0.65rem' } }}
-                        >
-                          En continuant, vous acceptez nos{" "}
-                          <Button
-                            variant="text"
-                            onClick={() => setTermsModalOpen(true)}
-                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: { xs: '0.6rem', sm: '0.65rem' } }}
-                          >
-                            conditions d'utilisation, politique de confidentialité et politique de cookies
-                          </Button>
-                        </Typography>
                       </Box>
                     </Box>
                   </Fade>
@@ -591,57 +554,48 @@ export default function AuthPage() {
                       <Box sx={{ textAlign: "center" }}>
                         <Typography variant="body2" color="text.secondary">
                           Déjà un compte ?{" "}
-                          <Button
-                            variant="text"
+                          <Typography
+                            component="span"
                             onClick={() => setActiveTab(0)}
-                            sx={{ color: "primary.main", p: 0, minWidth: "auto" }}
+                            sx={{
+                              color: "primary.main",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              "&:hover": { textDecoration: "underline" },
+                            }}
                           >
                             Connectez-vous
-                          </Button>
+                          </Typography>
                         </Typography>
 
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, fontSize: { xs: '0.6rem', sm: '0.65rem' } }}>
-                          En continuant, vous acceptez nos{" "}
-                          <Button
-                            variant="text"
-                            onClick={() => setTermsModalOpen(true)}
-                            sx={{ color: "primary.main", p: 0, minWidth: "auto", fontSize: { xs: '0.6rem', sm: '0.65rem' } }}
-                          >
-                            conditions d'utilisation, politique de confidentialité et politique de cookies
-                          </Button>
-                        </Typography>
                       </Box>
                     </Box>
                   </Fade>
                 )}
-              </CardContent>
-            </Card>
-          </Fade>
 
-          {/* Footer */}
-          <Fade in timeout={1200}>
-            <Box
-              sx={{
-                textAlign: "center",
-                mt: { xs: 0, md: 4 },
-                position: { xs: "fixed", md: "static" },
-                left: { xs: 0, md: "auto" },
-                right: { xs: 0, md: "auto" },
-                bottom: { xs: 0, md: "auto" },
-                py: { xs: 1.5, md: 0 },
-                background: {
-                  xs: "linear-gradient(135deg, rgba(10,10,10,0.9), rgba(26,26,26,0.9))",
-                  md: "transparent",
-                },
-                maxWidth: { md: 720 },
-                mx: { md: "auto" },
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                © 2025 Rudy et Fanny. Tous droits réservés.
-              </Typography>
-            </Box>
-          </Fade>
+                {/* Footer content */}
+                <Box sx={{ textAlign: "center", mt: 4 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    En continuant, vous acceptez nos{" "}
+                    <Typography
+                      component="span"
+                      onClick={() => setTermsModalOpen(true)}
+                      sx={{
+                        color: "text.secondary",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        fontSize: "inherit",
+                        "&:hover": { textDecoration: "underline" },
+                      }}
+                    >
+                      conditions d'utilisation, politique de confidentialité et politique de cookies
+                    </Typography>
+                    <br />
+                    © 2025 Rudy et Fanny. Tous droits réservés.
+                  </Typography>
+                </Box>
+              </Box>
+            </Fade>
         </Container>
       </Box>
 

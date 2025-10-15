@@ -28,6 +28,7 @@ import {
   Add as AddIcon,
   Remove as RemoveIcon,
   Delete as DeleteIcon,
+  DeleteSweep as DeleteSweepIcon,
   ShoppingBag as ShoppingBagIcon,
   Login as LoginIcon,
   LocalShipping as DeliveryIcon,
@@ -528,6 +529,26 @@ const BasketDialog = ({ open, onClose }) => {
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#ff9800', flex: 1 }}>
             Mon Panier ({totalItems} article{totalItems > 1 ? 's' : ''})
           </Typography>
+          {items.length > 0 && (
+            <Tooltip title="Vider le panier">
+              <IconButton
+                onClick={() => {
+                  if (window.confirm('Êtes-vous sûr de vouloir vider complètement le panier ?')) {
+                    clearBasket();
+                  }
+                }}
+                sx={{
+                  color: '#f44336',
+                  '&:hover': {
+                    backgroundColor: 'rgba(244, 67, 54, 0.2)',
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <DeleteSweepIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </DialogTitle>
         
         <DialogContent 
@@ -616,51 +637,8 @@ const BasketDialog = ({ open, onClose }) => {
           flexDirection: 'column',
           gap: 2
         }}>
-          {/* First row of buttons */}
-          <Box sx={{ 
-            display: 'flex', 
-            width: '100%', 
-            gap: 2,
-            justifyContent: items.length > 0 ? 'space-between' : 'center'
-          }}>
-            <Button
-              variant="outlined"
-              onClick={onClose}
-              sx={{
-                borderColor: 'rgba(255, 152, 0, 0.5)',
-                color: '#ff9800',
-                '&:hover': {
-                  borderColor: '#ff9800',
-                  backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                },
-                flex: items.length > 0 ? 1 : 'none',
-                minWidth: '180px',
-              }}
-            >
-              Continuer le shopping
-            </Button>
-            
-            {items.length > 0 && (
-              <Button
-                variant="outlined"
-                onClick={clearBasket}
-                sx={{
-                  borderColor: 'rgba(244, 67, 54, 0.5)',
-                  color: '#f44336',
-                  '&:hover': {
-                    borderColor: '#f44336',
-                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                  },
-                  flex: 1,
-                }}
-              >
-                Vider le panier
-              </Button>
-            )}
-          </Box>
-          
           {items.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
+            <>
               <Button
                 variant="outlined"
                 onClick={handleDelivery}
@@ -684,8 +662,8 @@ const BasketDialog = ({ open, onClose }) => {
                       : 'rgba(255, 152, 0, 0.1)',
                   },
                   fontWeight: 600,
-                  px: 3,
-                  flex: 1,
+                  width: '100%',
+                  py: 1.5,
                 }}
                 startIcon={<DeliveryIcon />}
               >
@@ -711,8 +689,8 @@ const BasketDialog = ({ open, onClose }) => {
                   color: !settings.enableOnlinePickup ? '#666' : 'white',
                   cursor: !settings.enableOnlinePickup ? 'not-allowed' : 'pointer',
                   fontWeight: 600,
-                  px: 3,
-                  flex: 1,
+                  width: '100%',
+                  py: 1.5,
                 }}
                 startIcon={<PickupIcon />}
               >
@@ -721,8 +699,26 @@ const BasketDialog = ({ open, onClose }) => {
                   : "À Emporter"
                 }
               </Button>
-            </Box>
+            </>
           )}
+          
+          <Button
+            variant="outlined"
+            onClick={onClose}
+            sx={{
+              borderColor: 'rgba(255, 152, 0, 0.5)',
+              color: '#ff9800',
+              '&:hover': {
+                borderColor: '#ff9800',
+                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+              },
+              width: '100%',
+              fontWeight: 600,
+              py: 1.5,
+            }}
+          >
+            Continuer le shopping
+          </Button>
         </DialogActions>
       </Dialog>
 

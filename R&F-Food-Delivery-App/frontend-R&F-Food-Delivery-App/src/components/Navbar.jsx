@@ -236,6 +236,7 @@ const Navbar = () => {
                   fontSize: { xs: "1.3rem", md: "1.5rem" },
                   letterSpacing: "-0.02em",
                   transition: "all 0.3s ease",
+                  display: { xs: 'none', md: 'block' },
                   "&:hover": {
                     transform: "scale(1.05)",
                   },
@@ -299,6 +300,7 @@ const Navbar = () => {
                 fontSize: { xs: "1.3rem", md: "1.5rem" },
                 letterSpacing: "-0.02em",
                 transition: "all 0.3s ease",
+                display: { xs: 'none', md: 'block' },
                 "&:hover": {
                   transform: "scale(1.05)",
                 },

@@ -19,6 +19,9 @@ import {
   ListItemText,
   Tabs,
   Tab,
+  Button,
+  IconButton,
+  Tooltip,
 } from "@mui/material"
 import {
   Restaurant as RestaurantIcon,
@@ -30,6 +33,7 @@ import {
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
   Kitchen as IngredientsIcon,
+  HelpOutline as HelpIcon,
 } from "@mui/icons-material"
 
 // Import all admin components
@@ -41,6 +45,7 @@ import AdminExtra from "./adminExtra.jsx"
 import AdminOrders from "./adminOrders.jsx"
 import AdminSettings from "./adminSettings.jsx"
 import AdminIngredients from "./adminIngredients.jsx"
+import HelpModal from "../components/HelpModal.jsx"
 
 // Create dark theme with black/orange design
 const darkTheme = createTheme({
@@ -187,6 +192,7 @@ const darkTheme = createTheme({
 
 const AdminDashboard = () => {
   const [activeView, setActiveView] = useState("dashboard")
+  const [helpOpen, setHelpOpen] = useState(false)
 
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
@@ -264,37 +270,45 @@ const AdminDashboard = () => {
         mb: { xs: 2, md: 3 },
       }}
     >
-      <Tabs
-        value={activeView}
-        onChange={handleTabChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{
-          minHeight: { xs: 48, md: 56 },
-          "& .MuiTab-root": {
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Tabs
+          value={activeView}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            flex: 1,
             minHeight: { xs: 48, md: 56 },
-            fontSize: { xs: "0.875rem", md: "1rem" },
-          },
-        }}
-      >
-        {menuItems.map((item) => (
-          <Tab
-            key={item.id}
-            value={item.id}
-            icon={React.cloneElement(item.icon, {
-              sx: { fontSize: { xs: 20, md: 24 } },
-            })}
-            label={item.label}
-            iconPosition="start"
-            sx={{
-              textTransform: "none",
-              fontWeight: 500,
-              gap: { xs: 0.5, md: 1 },
-              px: { xs: 1, md: 2 },
-            }}
-          />
-        ))}
-      </Tabs>
+            "& .MuiTab-root": {
+              minHeight: { xs: 48, md: 56 },
+              fontSize: { xs: "0.875rem", md: "1rem" },
+            },
+          }}
+        >
+          {menuItems.map((item) => (
+            <Tab
+              key={item.id}
+              value={item.id}
+              icon={React.cloneElement(item.icon, {
+                sx: { fontSize: { xs: 20, md: 24 } },
+              })}
+              label={item.label}
+              iconPosition="start"
+              sx={{
+                textTransform: "none",
+                fontWeight: 500,
+                gap: { xs: 0.5, md: 1 },
+                px: { xs: 1, md: 2 },
+              }}
+            />
+          ))}
+        </Tabs>
+        <Tooltip title="Aide">
+          <IconButton color="primary" onClick={() => setHelpOpen(true)} aria-label="ouvrir l'aide" sx={{ mr: 1 }}>
+            <HelpIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
     </Box>
   )
 
@@ -506,6 +520,7 @@ const AdminDashboard = () => {
           <Box sx={{ maxWidth: "100%", mx: "auto" }}>{renderActiveComponent()}</Box>
         </Box>
       </Box>
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </ThemeProvider>
   )
 }

@@ -315,7 +315,7 @@ export default function AuthPage() {
                         Rudy et Fanny
                       </Typography>
                       <Typography variant="body2" color="text.primary" sx={{ fontSize: { xs: "0.8rem", md: "1rem" } }}>
-                        Bienvenue sur le site de commande en ligne
+                        Site de commande en ligne
                       </Typography>
                     </Box>
                   </Box>

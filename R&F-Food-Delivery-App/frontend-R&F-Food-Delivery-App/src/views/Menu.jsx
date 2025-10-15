@@ -247,7 +247,9 @@ const Menu = () => {
 
   // Memoize card styles for better performance
   const cardStyles = useMemo(() => ({
-    width: { xs: 180, md: 220 },
+    // Make cards fill the grid cell on mobile and cap width to keep centered
+    width: { xs: '100%', md: 220 },
+    maxWidth: { xs: 200, sm: 220 },
     height: { xs: 230, md: 280 },
     display: "flex",
     flexDirection: "column",
@@ -512,13 +514,13 @@ const Menu = () => {
     return filteredPlats.length + availableSauces
   }, [filteredPlats, filteredSauces])
 
-  const handleSauceClick = (sauce) => {
+  const handleSauceClick = useCallback((sauce) => {
     if (!sauce || !sauce.available) return
     setSelectedSauce(sauce)
     setModalOpen(true)
-  }
+  }, [])
 
-  const handlePlatClick = (plat) => {
+  const handlePlatClick = useCallback((plat) => {
     if (!plat || !plat.available) return
     setSelectedPlat(plat)
     // Preselect version by active tag if available; otherwise if single version, select it
@@ -536,7 +538,7 @@ const Menu = () => {
     setSelectedIngredients([]) // Reset removed ingredients
     setQuantity(1)
     setPlatVersionModalOpen(true)
-  }
+  }, [selectedTagFilter])
 
   const [selectedSauceForPlat, setSelectedSauceForPlat] = useState(null)
   const [selectedExtras, setSelectedExtras] = useState([]) // Array of selected extra IDs
@@ -795,12 +797,14 @@ const Menu = () => {
         ...(plat.speciality ? {
           border: '1.5px solid rgba(255, 215, 0, 0.45)',
           boxShadow: '0 4px 10px rgba(255, 215, 0, 0.06)',
-          animation: 'pulseGold 3000ms infinite ease-in-out',
-          '@keyframes pulseGold': {
-            '0%': { boxShadow: '0 4px 10px rgba(255, 215, 0, 0.04)' },
-            '50%': { boxShadow: '0 6px 14px rgba(255, 215, 0, 0.08)' },
-            '100%': { boxShadow: '0 4px 10px rgba(255, 215, 0, 0.04)' },
-          }
+          ...(isMobile ? {} : {
+            animation: 'pulseGold 3000ms infinite ease-in-out',
+            '@keyframes pulseGold': {
+              '0%': { boxShadow: '0 4px 10px rgba(255, 215, 0, 0.04)' },
+              '50%': { boxShadow: '0 6px 14px rgba(255, 215, 0, 0.08)' },
+              '100%': { boxShadow: '0 4px 10px rgba(255, 215, 0, 0.04)' },
+            }
+          })
         } : {})
       }}
       onClick={() => handlePlatClick(plat)}
@@ -1022,6 +1026,19 @@ const Menu = () => {
     </Card>
   ), [cardStyles, handlePlatClick, imageErrors, isMobile, selectedTagFilter])
 
+  // Memoize the rendered card lists to avoid re-rendering when modal/quantity changes
+  const renderedPlatCards = useMemo(() => (
+    filteredPlats.map((plat, index) => (
+      <React.Fragment key={`plat-${plat.id}`}>{renderPlatCard(plat, index)}</React.Fragment>
+    ))
+  ), [filteredPlats, renderPlatCard])
+
+  const renderedSauceCards = useMemo(() => (
+    filteredSauces.map((sauce) => (
+      <React.Fragment key={`sauce-${sauce.id}`}>{renderSauceCard(sauce)}</React.Fragment>
+    ))
+  ), [filteredSauces, renderSauceCard])
+
   // Handle ingredient selection/deselection
   const handleIngredientToggle = (ingredientId) => {
     setSelectedIngredients(prev => {
@@ -1079,7 +1096,7 @@ const Menu = () => {
   }
 
   const getCardHeight = () => {
-    return isMobile ? 200 : 320 // Smaller on mobile, larger on desktop
+    return isMobile ? 220 : 320 // Slightly taller to accommodate centered layout
   }
 
   const getImageHeight = () => {
@@ -1090,7 +1107,7 @@ const Menu = () => {
     return (
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
-        <Container maxWidth="xl" sx={{ py: 4 }}>
+  <Container maxWidth="xl" sx={{ py: 4, mx: 'auto' }}>
           <Box sx={{ mb: 6, textAlign: "center" }}>
             <Skeleton variant="text" width="60%" height={80} sx={{ mx: "auto", mb: 2 }} />
             <Skeleton variant="text" width="40%" height={40} sx={{ mx: "auto" }} />
@@ -1461,15 +1478,18 @@ const Menu = () => {
           <Box
             sx={{
               display: "grid",
+              // Use auto-fit with minmax to keep cards centered and responsive
               gridTemplateColumns: {
-                xs: "repeat(2, 1fr)", // 2 columns on mobile
-                sm: "repeat(3, 1fr)", // 3 columns on small screens
-                md: "repeat(4, 1fr)", // 4 columns on medium screens
-                lg: "repeat(5, 1fr)", // 5 columns on large screens
-                xl: "repeat(6, 1fr)", // 6 columns on extra large screens
+                xs: "repeat(auto-fit, minmax(150px, 1fr))",
+                sm: "repeat(auto-fit, minmax(180px, 1fr))",
+                md: "repeat(4, 1fr)",
+                lg: "repeat(5, 1fr)",
+                xl: "repeat(6, 1fr)",
               },
-              gap: { xs: 1, md: 3 },
+              gap: { xs: 1.5, md: 3 },
               justifyItems: "center",
+              alignItems: 'start',
+              mx: 'auto',
               mb: 4,
             }}
           >
@@ -1506,12 +1526,16 @@ const Menu = () => {
             maxWidth="md"
             fullWidth
             fullScreen={isMobile}
+            disableRestoreFocus
+            disableAutoFocus
+            disableEnforceFocus
+            TransitionProps={{ timeout: isMobile ? 120 : 220 }}
             PaperProps={{
               elevation: 24,
               sx: {
                 borderRadius: isMobile ? 0 : 3,
                 background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
-                backdropFilter: "blur(20px)",
+                backdropFilter: isMobile ? 'none' : "blur(20px)",
                 border: "1px solid rgba(255, 255, 255, 0.08)",
               },
             }}
@@ -1650,12 +1674,16 @@ const Menu = () => {
             maxWidth="sm"
             fullWidth
             fullScreen={isMobile}
+            disableRestoreFocus
+            disableAutoFocus
+            disableEnforceFocus
+            TransitionProps={{ timeout: isMobile ? 120 : 220 }}
             PaperProps={{
               elevation: 24,
               sx: {
                 borderRadius: isMobile ? 0 : 3,
                 background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
-                backdropFilter: "blur(20px)",
+                backdropFilter: isMobile ? 'none' : "blur(20px)",
                 border: "1px solid rgba(255, 152, 0, 0.2)",
               },
             }}
@@ -1950,11 +1978,13 @@ const Menu = () => {
                                 >
                                   <Box sx={{ width: '100%', height: '60px', mb: 1, borderRadius: 1, overflow: 'hidden' }}>
                                     {imgSrc ? (
-                                      <img
+                                      <LazyImage
                                         src={imgSrc}
                                         alt={sauce.name}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        reduceMotion={isMobile}
+                                        sizes={isMobile ? '(max-width: 600px) 50vw' : '(min-width: 600px) 220px'}
                                         onError={() => setImageErrors(prev => ({ ...prev, [`sauce-${sauce.id}`]: true }))}
+                                        sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                       />
                                     ) : (
                                       <PlaceholderImage sx={{ height: '100%', borderRadius: 1 }} />

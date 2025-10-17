@@ -99,7 +99,7 @@ model PlatTagAssociation {
   id              Int     @id @default(autoincrement())
   platId          Int
   tagId           Int
-  associationType String  // "is" or "hasOn"
+  associationType String  // "relatifA" (composing the plat) or "proposition" (proposed on order)
   plat            Plat    @relation(fields: [platId], references: [id], onDelete: Cascade)
   tag             Tags    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 

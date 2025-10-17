@@ -1899,6 +1899,296 @@ app.get("/admin/orders/:orderId", authenticate, async (req, res) => {
 });
 
 
+
+// ADMIN ASSOCIATIONS AND STATS ROUTES
+
+// Associations for a specific plat (used by AdminInspection)
+app.get('/admin/associations/:platId', authenticate, async (req, res) => {
+  try {
+    const { platId } = req.params;
+    const associations = await prisma.platTagAssociation.findMany({
+      where: { 
+        platId: parseInt(platId),
+        associationType: 'proposition'
+      },
+      include: { tag: { select: { id: true, nom: true, emoji: true } } }
+    });
+
+    const result = { platId: parseInt(platId), proposition: [] };
+    associations.forEach(assoc => {
+      const tag = { id: assoc.tag.id, nom: assoc.tag.nom, emoji: assoc.tag.emoji };
+      result.proposition.push(tag);
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Get plat associations error:', error);
+    res.status(500).json({ error: 'Failed to fetch associations' });
+  }
+});
+
+app.put('/admin/associations/:platId', authenticate, async (req, res) => {
+  try {
+    const { platId } = req.params;
+    const { proposition } = req.body;
+
+    // Reset all proposition associations for this plat
+    await prisma.platTagAssociation.deleteMany({ 
+      where: { 
+        platId: parseInt(platId),
+        associationType: 'proposition'
+      } 
+    });
+
+    // Create proposition if provided
+    if (Array.isArray(proposition) && proposition.length > 0) {
+      await prisma.platTagAssociation.createMany({
+        data: proposition.map(id => ({
+          platId: parseInt(platId),
+          tagId: parseInt(id),
+          associationType: 'proposition'
+        }))
+      });
+    }
+
+    res.json({ message: 'Associations updated successfully' });
+  } catch (error) {
+    console.error('Update plat associations error:', error);
+    res.status(500).json({ error: 'Failed to update associations' });
+  }
+});
+
+app.delete('/admin/associations/:platId', authenticate, async (req, res) => {
+  try {
+    const { platId } = req.params;
+    await prisma.platTagAssociation.deleteMany({ 
+      where: { 
+        platId: parseInt(platId),
+        associationType: 'proposition'
+      } 
+    });
+    res.json({ message: 'Associations deleted successfully' });
+  } catch (error) {
+    console.error('Delete plat associations error:', error);
+    res.status(500).json({ error: 'Failed to delete associations' });
+  }
+});
+
+// Get all plats that are proposed for a given tag
+app.get('/tags/:tagId/proposition-plats', async (req, res) => {
+  try {
+    const { tagId } = req.params;
+    const associations = await prisma.platTagAssociation.findMany({
+      where: { 
+        tagId: parseInt(tagId),
+        associationType: 'proposition'
+      },
+      include: { 
+        plat: {
+          include: {
+            tags: true,
+            versions: true,
+            ingredients: true
+          }
+        }
+      }
+    });
+
+    const plats = associations.map(assoc => assoc.plat);
+    res.json(plats);
+  } catch (error) {
+    console.error('Get proposition plats error:', error);
+    res.status(500).json({ error: 'Failed to fetch proposition plats' });
+  }
+});
+
+// Public: get proposition tags configured for a given plat
+app.get('/plats/:platId/proposition-tags', async (req, res) => {
+  try {
+    const { platId } = req.params;
+    const associations = await prisma.platTagAssociation.findMany({
+      where: {
+        platId: parseInt(platId),
+        associationType: 'proposition'
+      },
+      include: { tag: true }
+    });
+    const tags = associations.map(a => a.tag);
+    res.json(tags);
+  } catch (error) {
+    console.error('Get proposition tags for plat error:', error);
+    res.status(500).json({ error: 'Failed to fetch proposition tags' });
+  }
+});
+
+// Admin: statistics for a plat
+app.get('/admin/stats/plat/:platId', authenticate, async (req, res) => {
+  try {
+    const { platId } = req.params;
+    const { from, to, compareTagId, limit } = req.query;
+    const pid = parseInt(platId);
+    const lim = Math.min(parseInt(limit) || 5, 20);
+
+    let fromDate = from ? new Date(from) : null;
+    let toDate = to ? new Date(to) : null;
+    
+    const orderDateFilter = {};
+    if (fromDate && fromDate.getTime && !isNaN(fromDate.getTime())) {
+      orderDateFilter.gte = fromDate;
+    }
+    if (toDate && toDate.getTime && !isNaN(toDate.getTime())) {
+      // include entire end day - add 1 day and set to start of next day
+      const endOfDay = new Date(toDate);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+      endOfDay.setHours(0, 0, 0, 0);
+      orderDateFilter.lt = endOfDay;
+    }
+
+    // Fetch items for this plat in range
+    const platItemsWhere = {
+      platId: pid,
+    };
+    if (Object.keys(orderDateFilter).length) {
+      platItemsWhere.order = { createdAt: orderDateFilter };
+    }
+    let platItems = [];
+    try {
+      platItems = await prisma.orderItem.findMany({
+        where: platItemsWhere,
+        select: {
+          id: true,
+          orderId: true,
+          quantity: true,
+          versionSize: true,
+          order: { select: { createdAt: true } },
+        },
+      });
+    } catch (e) {
+      console.error('Error fetching plat items:', e);
+      platItems = [];
+    }
+
+    // Also fetch oldest order date for this plat (unfiltered)
+    const oldestItem = await prisma.orderItem.findFirst({
+      where: { platId: pid },
+      select: { order: { select: { createdAt: true } } },
+      orderBy: { order: { createdAt: 'asc' } },
+    });
+    const oldestDate = oldestItem?.order?.createdAt ? new Date(oldestItem.order.createdAt) : null;
+
+    // Aggregate quantity by date
+    const ordersOverTimeMap = new Map();
+    const orderIds = new Set();
+    let totalQuantity = 0;
+    for (const it of platItems) {
+      const date = new Date(it.order.createdAt).toISOString().slice(0, 10);
+      ordersOverTimeMap.set(date, (ordersOverTimeMap.get(date) || 0) + (it.quantity || 0));
+      orderIds.add(it.orderId);
+      totalQuantity += it.quantity || 0;
+    }
+
+    const ordersOverTime = Array.from(ordersOverTimeMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, quantity]) => ({ date, quantity }));
+
+    // Popular versions
+    const versionsMap = new Map();
+    for (const it of platItems) {
+      const key = it.versionSize || 'standard';
+      versionsMap.set(key, (versionsMap.get(key) || 0) + (it.quantity || 0));
+    }
+    const mostPopularVersions = Array.from(versionsMap.entries())
+      .map(([versionSize, quantity]) => ({ versionSize, quantity }))
+      .sort((a, b) => b.quantity - a.quantity);
+
+    // Frequently bought with (other plats in same orders)
+    let frequentlyBoughtWith = [];
+    if (orderIds.size > 0) {
+      const coItemsWhere = {
+        orderId: { in: Array.from(orderIds) },
+        platId: { not: pid },
+      };
+      if (Object.keys(orderDateFilter).length) {
+        coItemsWhere.order = { createdAt: orderDateFilter };
+      }
+      try {
+        const coItems = await prisma.orderItem.findMany({
+          where: coItemsWhere,
+          select: {
+            platId: true,
+            quantity: true,
+            plat: { select: { id: true, name: true, nom: true } },
+          },
+        });
+        const coMap = new Map();
+        for (const it of coItems) {
+          if (!it.platId) continue;
+          const key = it.platId;
+          const prev = coMap.get(key) || { platId: key, name: it.plat?.nom || it.plat?.name || `#${key}`, quantity: 0 };
+          prev.quantity += it.quantity || 0;
+          coMap.set(key, prev);
+        }
+        frequentlyBoughtWith = Array.from(coMap.values()).sort((a, b) => b.quantity - a.quantity).slice(0, lim);
+      } catch (e) {
+        console.error('Error fetching frequently bought with:', e);
+        frequentlyBoughtWith = [];
+      }
+    }
+
+    // Compare within tag (optional)
+    let compareWithinTag = null;
+    if (compareTagId) {
+      const tid = parseInt(compareTagId);
+      const platsWithTag = await prisma.plat.findMany({
+        where: { tags: { some: { id: tid } } },
+        select: { id: true, name: true, nom: true },
+      });
+      const platIds = platsWithTag.map(p => p.id);
+      if (platIds.length) {
+        const itemsWhere = {
+          platId: { in: platIds },
+        };
+        if (Object.keys(orderDateFilter).length) {
+          itemsWhere.order = { createdAt: orderDateFilter };
+        }
+        const items = await prisma.orderItem.findMany({
+          where: itemsWhere,
+          select: { platId: true, quantity: true },
+        });
+        const map = new Map();
+        for (const it of items) {
+          const key = it.platId;
+          map.set(key, (map.get(key) || 0) + (it.quantity || 0));
+        }
+        const itemsAgg = platIds.map(id => ({
+          platId: id,
+          name: (platsWithTag.find(p => p.id === id)?.nom) || (platsWithTag.find(p => p.id === id)?.name) || `#${id}`,
+          quantity: map.get(id) || 0
+        }))
+          .sort((a, b) => b.quantity - a.quantity)
+          .slice(0, Math.max(lim, 8));
+        compareWithinTag = { tagId: tid, items: itemsAgg };
+      } else {
+        compareWithinTag = { tagId: tid, items: [] };
+      }
+    }
+
+    res.json({
+      totalOrders: totalQuantity,
+      ordersOverTime,
+      mostPopularVersions,
+      frequentlyBoughtWith,
+      compareWithinTag,
+      oldestOrderDate: oldestDate ? oldestDate.toISOString().slice(0,10) : null,
+    });
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    console.error('Error details:', { message: error?.message, stack: error?.stack });
+    res.status(500).json({ error: 'Failed to fetch statistics', details: error?.message });
+  }
+});
+
+
 // Tags CRUD endpoints
 // Get all tags
 app.get('/tags', async (req, res) => {

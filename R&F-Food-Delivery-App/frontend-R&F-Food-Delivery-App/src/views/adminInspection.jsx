@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Box,
   Paper,
@@ -73,6 +74,7 @@ function TabPanel(props) {
 }
 
 const AdminInspection = () => {
+  const { token } = useAuth();
   const [plats, setPlats] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedPlatId, setSelectedPlatId] = useState(null);
@@ -93,9 +95,7 @@ const AdminInspection = () => {
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [editingVersion, setEditingVersion] = useState(null);
   const [versionFormData, setVersionFormData] = useState({ size: '', extraPrice: 0, tagIds: [] });
-  const [platAssociations, setPlatAssociations] = useState(null);
-  const [associationFormData, setAssociationFormData] = useState({ relatifA: [], proposition: [] });
-  const [openAssociationDialog, setOpenAssociationDialog] = useState(false);
+  const [associationFormData, setAssociationFormData] = useState({ proposition: [] });
   const [tagClipboard, setTagClipboard] = useState(null);
   const [stats, setStats] = useState(null);
   const [statsRange, setStatsRange] = useState({ from: null, to: null });
@@ -152,22 +152,22 @@ const AdminInspection = () => {
   const fetchPlatAssociations = async (platId) => {
     try {
       const url = `${config.API_URL}/admin/associations/${platId}`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         if (response.status === 404) {
           // No associations found, that's okay
-          setPlatAssociations({ platId, relatifA: null, proposition: [] });
+          setAssociationFormData({ proposition: [] });
           return;
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      setPlatAssociations(data);
       setAssociationFormData({
-        // Support both array and single object from backend
-          relatifA: Array.isArray(data.relatifA)
-            ? data.relatifA.map(t => t.id)
-            : (data.relatifA?.id ? [data.relatifA.id] : []),
+        // Only get proposition associations - relatifA is now handled by standard plat.tags
         proposition: data.proposition?.map(p => p.id) || []
       });
     } catch (error) {
@@ -243,7 +243,11 @@ const AdminInspection = () => {
       if (statsRange.to) params.set('to', statsRange.to.toISOString().slice(0, 10));
       if (statsCompareTagId) params.set('compareTagId', statsCompareTagId);
       const url = `${config.API_URL}/admin/stats/plat/${pid}?${params.toString()}`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setStats(data);
@@ -259,7 +263,29 @@ const AdminInspection = () => {
   useEffect(() => {
     if (selectedPlatId) {
       // Debounce small updates
-      const t = setTimeout(() => reloadStats(), 200);
+      const t = setTimeout(() => {
+        const pid = selectedPlatId;
+        if (pid) {
+          const params = new URLSearchParams();
+          if (statsRange.from) params.set('from', statsRange.from.toISOString().slice(0, 10));
+          if (statsRange.to) params.set('to', statsRange.to.toISOString().slice(0, 10));
+          if (statsCompareTagId) params.set('compareTagId', statsCompareTagId);
+          const url = `${config.API_URL}/admin/stats/plat/${pid}?${params.toString()}`;
+          fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+            .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
+            .then(data => {
+              setStats(data);
+              if (!statsRange.from && data.oldestOrderDate) {
+                setStatsRange(prev => ({ ...prev, from: new Date(data.oldestOrderDate) }));
+              }
+            })
+            .catch(e => console.error('Failed to load stats', e));
+        }
+      }, 200);
       return () => clearTimeout(t);
     }
   }, [selectedPlatId, statsRange.from, statsRange.to, statsCompareTagId]);
@@ -288,6 +314,7 @@ const AdminInspection = () => {
           price: parseFloat(inlineEditData.price),
           saucePrice: parseFloat(inlineEditData.saucePrice || 0),
           ordre: inlineEditData.ordre,
+          available: currentPlat.available !== false,
           versions: currentPlat.versions || []
         }),
       });
@@ -323,7 +350,9 @@ const AdminInspection = () => {
         speciality: currentPlat.speciality === true,
         IncludesSauce: currentPlat.includesSauce !== false,
         saucePrice: currentPlat.saucePrice || 0,
-        versions: currentPlat.versions || []
+        versions: currentPlat.versions || [],
+        tags: (currentPlat.tags || []).map(tag => tag.id || tag),
+        proposition: (associationFormData.proposition || []).map(id => parseInt(id))
       };
 
       // Apply the patch
@@ -627,6 +656,7 @@ const AdminInspection = () => {
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
           description: currentPlat.description || '',
+          available: currentPlat.available !== false,
           versions: versions,
           versionTags: versionTags
         }),
@@ -669,6 +699,7 @@ const AdminInspection = () => {
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
           description: currentPlat.description || '',
+          available: currentPlat.available !== false,
           versions: versions,
           versionTags: versionTags
         }),
@@ -758,7 +789,8 @@ const AdminInspection = () => {
           price: currentPlat.price || currentPlat.basePrice,
           description: currentPlat.description || '',
           versions: currentPlat.versions,
-          versionTags: versionTags
+          versionTags: versionTags,
+          available: currentPlat.available !== false
         }),
       });
 
@@ -792,6 +824,7 @@ const AdminInspection = () => {
           description: editingPlat.description,
           price: editingPlat.price || editingPlat.basePrice,
           available: editingPlat.available !== false,
+          tags: (editingPlat.tags || []).map(t => t.id),
         }),
       });
 
@@ -845,10 +878,9 @@ const AdminInspection = () => {
   // Association handlers
   const handleCopyAssociations = () => {
     setTagClipboard({
-      relatifA: [...(associationFormData.relatifA || [])],
       proposition: [...(associationFormData.proposition || [])]
     });
-    showAlert("Tags copiés dans le presse‑papier");
+    showAlert("Tags de proposition copiés dans le presse‑papier");
   };
 
   const handlePasteAssociations = async () => {
@@ -858,20 +890,21 @@ const AdminInspection = () => {
       setLoading(true);
       const response = await fetch(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          relatifA: (tagClipboard.relatifA || []).map(id => parseInt(id)),
           proposition: (tagClipboard.proposition || []).map(id => parseInt(id))
         })
       });
 
       if (response.ok) {
         setAssociationFormData({
-          relatifA: [...(tagClipboard.relatifA || [])],
           proposition: [...(tagClipboard.proposition || [])]
         });
         await fetchPlatAssociations(selectedPlatId);
-        showAlert("Tags collés avec succès");
+        showAlert("Tags de proposition collés avec succès");
       } else {
         showAlert("Erreur lors du collage des tags", "error");
       }
@@ -882,42 +915,8 @@ const AdminInspection = () => {
       setLoading(false);
     }
   };
-  const handleToggleRelatifA = async (tagId) => {
-    if (!selectedPlatId) return;
-
-    const currentSelected = associationFormData.relatifA || [];
-    const isSelected = currentSelected.some(id => String(id) === String(tagId));
-    const newSelected = isSelected
-      ? currentSelected.filter(id => String(id) !== String(tagId))
-      : [...currentSelected, tagId];
-
-    try {
-      const response = await fetch(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          relatifA: newSelected.map(id => parseInt(id)),
-          proposition: (associationFormData.proposition || []).map(id => parseInt(id))
-        })
-      });
-
-      if (response.ok) {
-        setAssociationFormData(prev => ({
-          ...prev,
-          relatifA: newSelected
-        }));
-        await fetchPlatAssociations(selectedPlatId);
-      } else {
-        showAlert("Erreur lors de la mise à jour des associations", "error");
-      }
-    } catch (error) {
-      console.error("Error updating associations:", error);
-      showAlert("Erreur lors de la mise à jour", "error");
-    }
-  };
-
   const handleToggleProposition = async (tagId) => {
-    if (!selectedPlatId) return;
+    if (!selectedPlatId || loading) return;
 
     const currentSelected = associationFormData.proposition || [];
     const isSelected = currentSelected.some(id => String(id) === String(tagId));
@@ -926,20 +925,23 @@ const AdminInspection = () => {
       : [...currentSelected, tagId];
 
     try {
+      setLoading(true);
       const response = await fetch(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          relatifA: (associationFormData.relatifA || []).map(id => parseInt(id)),
           proposition: newSelected.map(id => parseInt(id))
         })
       });
 
       if (response.ok) {
         setAssociationFormData(prev => ({
-          ...prev,
           proposition: newSelected
         }));
+        showAlert("Association mise à jour", "success");
         await fetchPlatAssociations(selectedPlatId);
       } else {
         showAlert("Erreur lors de la mise à jour des associations", "error");
@@ -947,6 +949,47 @@ const AdminInspection = () => {
     } catch (error) {
       console.error("Error updating associations:", error);
       showAlert("Erreur lors de la mise à jour", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleRelatifTag = async (tagId) => {
+    if (!selectedPlatId || !currentPlat || loading) return;
+
+    const currentTagIds = (currentPlat.tags || []).map(t => t.id);
+    const isSelected = currentTagIds.some(id => String(id) === String(tagId));
+    const newTagIds = isSelected
+      ? currentTagIds.filter(id => String(id) !== String(tagId))
+      : [...currentTagIds, tagId];
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_URL}/plats/${selectedPlatId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: currentPlat.nom || currentPlat.name,
+          price: currentPlat.price || currentPlat.basePrice,
+          description: currentPlat.description || "",
+          available: currentPlat.available !== false,
+          tags: newTagIds
+        })
+      });
+
+      if (response.ok) {
+        await fetchPlats();
+        showAlert("Tag mis à jour avec succès", "success");
+      } else {
+        showAlert("Erreur lors de la mise à jour du tag", "error");
+      }
+    } catch (error) {
+      console.error("Error updating relatif tag:", error);
+      showAlert("Erreur lors de la mise à jour", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -960,16 +1003,17 @@ const AdminInspection = () => {
       setLoading(true);
       const response = await fetch(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          relatifA: (associationFormData.relatifA || []).map(id => parseInt(id)),
           proposition: (associationFormData.proposition || []).map(id => parseInt(id))
         })
       });
 
       if (response.ok) {
         await fetchPlatAssociations(selectedPlatId);
-        setOpenAssociationDialog(false);
         showAlert("Associations sauvegardées avec succès");
       } else {
         showAlert("Erreur lors de la sauvegarde des associations", "error");
@@ -992,12 +1036,14 @@ const AdminInspection = () => {
     try {
       setLoading(true);
       const response = await fetch(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (response.ok) {
-        setPlatAssociations({ platId: selectedPlatId, relatifA: null, proposition: [] });
-        setAssociationFormData({ relatifA: '', proposition: [] });
+        setAssociationFormData({ proposition: [] });
         showAlert("Associations supprimées avec succès");
       } else {
         showAlert("Erreur lors de la suppression", "error");
@@ -2070,7 +2116,7 @@ const AdminInspection = () => {
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box sx={{ flex: 1 }} />
-                    <Tooltip title="Copier les tags de ce plat">
+                    <Tooltip title="Copier les tags de proposition de ce plat">
                       <span>
                         <Button
                           startIcon={<ContentCopyIcon />}
@@ -2096,7 +2142,7 @@ const AdminInspection = () => {
                         </Button>
                       </span>
                     </Tooltip>
-                    {platAssociations?.relatifA && (
+                    {(associationFormData.proposition && associationFormData.proposition.length > 0) && (
                       <Button
                         variant="outlined"
                         color="error"
@@ -2110,11 +2156,11 @@ const AdminInspection = () => {
                   </Box>
 
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                    {/* Left column: Relatif à (single selection) */}
+                    {/* Left column: Relatif à (standard tags - editable) */}
                     <Box sx={{ p: 2, border: '1px solid rgba(255, 152, 0, 0.15)', borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>🏷️ Relatif</Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                        Quel tags permettent de trouver ce plat ?
+                        Tags standards du plat (cliquez pour ajouter/retirer)
                       </Typography>
                       <Box sx={{
                         display: 'grid',
@@ -2122,20 +2168,22 @@ const AdminInspection = () => {
                         gap: 0.75
                       }}>
                         {sortedTags.map(tag => {
-                          const selected = (associationFormData.relatifA || []).some(id => String(id) === String(tag.id));
+                          const selected = (currentPlat?.tags || []).some(t => String(t.id) === String(tag.id));
                           return (
                             <Box
                               key={tag.id}
-                              onClick={() => handleToggleRelatifA(tag.id)}
+                              onClick={() => handleToggleRelatifTag(tag.id)}
                               sx={{
                                 p: 0.5,
                                 borderRadius: 1,
                                 border: '1px solid',
                                 borderColor: selected ? 'primary.main' : 'rgba(255, 152, 0, 0.25)',
-                                backgroundColor: selected ? 'rgba(255, 152, 0, 0.12)' : 'transparent',
-                                cursor: 'pointer',
+                                backgroundColor: selected ? 'rgba(255, 152, 0, 0.15)' : 'transparent',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                opacity: loading ? 0.6 : 1,
                                 transition: 'all 0.15s ease',
-                                '&:hover': { borderColor: 'primary.main', backgroundColor: 'rgba(255, 152, 0, 0.08)' }
+                                pointerEvents: loading ? 'none' : 'auto',
+                                '&:hover': loading ? {} : { borderColor: 'primary.main', backgroundColor: 'rgba(255, 152, 0, 0.08)' }
                               }}
                             >
                               <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, lineHeight: 1.2 }}>
@@ -2152,7 +2200,7 @@ const AdminInspection = () => {
                     <Box sx={{ p: 2, border: '1px solid rgba(255, 152, 0, 0.15)', borderRadius: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>💡 Proposition</Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                        A quels tags ce plat peut être proposé en option ?
+                        Les plats de quel tags peuvent être proposés en plus en extra à ce plat?
                       </Typography>
                       <Box sx={{
                         display: 'grid',
@@ -2171,9 +2219,11 @@ const AdminInspection = () => {
                                 border: '1px solid',
                                 borderColor: selected ? 'secondary.main' : 'rgba(255, 152, 0, 0.25)',
                                 backgroundColor: selected ? 'rgba(156, 39, 176, 0.12)' : 'transparent',
-                                cursor: 'pointer',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                opacity: loading ? 0.6 : 1,
                                 transition: 'all 0.15s ease',
-                                '&:hover': { borderColor: 'secondary.main', backgroundColor: 'rgba(156, 39, 176, 0.08)' }
+                                pointerEvents: loading ? 'none' : 'auto',
+                                '&:hover': loading ? {} : { borderColor: 'secondary.main', backgroundColor: 'rgba(156, 39, 176, 0.08)' }
                               }}
                             >
                               <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, lineHeight: 1.2 }}>
@@ -2863,159 +2913,6 @@ const AdminInspection = () => {
       </Dialog>
 
       {/* (confirmation dialog removed - deletion is immediate) */}
-
-      {/* Association Dialog */}
-      <Dialog
-        open={openAssociationDialog}
-        onClose={() => setOpenAssociationDialog(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255, 152, 0, 0.1)",
-          },
-        }}
-      >
-        <DialogTitle sx={{ color: "#ffb74d", borderBottom: "1px solid rgba(255, 152, 0, 0.1)" }}>
-          Gérer les associations de tags
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-          <Box>
-            <Typography variant="subtitle2" sx={{ color: "white", mb: 1 }}>
-              🏷️ Relatif à (Composant du plat) *
-            </Typography>
-            <Select
-              fullWidth
-              value={associationFormData.relatifA}
-              onChange={(e) => setAssociationFormData({ ...associationFormData, relatifA: e.target.value })}
-              displayEmpty
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  '& fieldset': {
-                    borderColor: 'rgba(255, 152, 0, 0.2)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(255, 152, 0, 0.4)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#ff9800',
-                  },
-                },
-                '& .MuiSelect-select': {
-                  color: 'white',
-                },
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 152, 0, 0.1)',
-                  },
-                },
-              }}
-            >
-              <MenuItem value="">
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Sélectionner un tag...
-                </Typography>
-              </MenuItem>
-              {tags.map(tag => (
-                <MenuItem key={tag.id} value={tag.id}>
-                  <Typography variant="body2" sx={{ color: 'white' }}>
-                    {tag.emoji ? `${tag.emoji} ` : ""}{tag.nom}
-                  </Typography>
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
-
-          <Box>
-            <Typography variant="subtitle2" sx={{ color: "white", mb: 1 }}>
-              💡 Proposition (Tags à proposer à la commande)
-            </Typography>
-            <Select
-              fullWidth
-              multiple
-              value={associationFormData.proposition}
-              onChange={(e) => setAssociationFormData({ 
-                ...associationFormData, 
-                proposition: typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value 
-              })}
-              renderValue={(selected) => (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {selected.map((tagId) => {
-                    const tag = tags.find(t => t.id === parseInt(tagId));
-                    return (
-                      <Chip
-                        key={tagId}
-                        label={tag ? `${tag.emoji ? tag.emoji + " " : ""}${tag.nom}` : ""}
-                        size="small"
-                        color="secondary"
-                      />
-                    );
-                  })}
-                </Box>
-              )}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  '& fieldset': {
-                    borderColor: 'rgba(255, 152, 0, 0.2)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(255, 152, 0, 0.4)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#ff9800',
-                  },
-                },
-                '& .MuiSelect-select': {
-                  color: 'white',
-                },
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    backgroundColor: 'rgba(26, 26, 26, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 152, 0, 0.1)',
-                  },
-                },
-              }}
-            >
-              {tags.map(tag => (
-                <MenuItem key={tag.id} value={tag.id}>
-                  <Typography variant="body2" sx={{ color: 'white' }}>
-                    {tag.emoji ? `${tag.emoji} ` : ""}{tag.nom}
-                  </Typography>
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: "1px solid rgba(255, 152, 0, 0.1)", gap: 1 }}>
-          <Button onClick={() => setOpenAssociationDialog(false)}>
-            Annuler
-          </Button>
-          <Button
-            onClick={handleSaveAssociations}
-            variant="contained"
-            disabled={loading}
-            sx={{
-              backgroundColor: "#ff9800",
-              '&:hover': {
-                backgroundColor: "#f57c00",
-              },
-            }}
-          >
-            Sauvegarder
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Alert Snackbar */}
       <Snackbar

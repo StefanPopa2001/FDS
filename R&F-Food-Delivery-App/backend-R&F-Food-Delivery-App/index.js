@@ -1094,6 +1094,64 @@ app.post("/orders", authenticate, async (req, res) => {
         platSauceId: validatedPlatSauceId,
         message: item.message ? sanitizeInput(item.message) : null
       });
+
+      // Handle suggested plats from associations
+      // The frontend sends { selectedSuggestedPlats: { suggested: platId } } for one suggested plat
+      if (item.selectedSuggestedPlats && item.selectedSuggestedPlats.suggested) {
+        const suggestedPlatId = item.selectedSuggestedPlats.suggested;
+        
+        // Validate the suggested plat exists
+        const suggestedPlat = await prisma.plat.findUnique({
+          where: { id: suggestedPlatId }
+        });
+        if (!suggestedPlat) {
+          return res.status(400).json({ error: `Suggested plat with id ${suggestedPlatId} not found` });
+        }
+        
+        // Add suggested plat as a separate order item with quantity 1 and basePrice
+        const suggestedPlatPrice = suggestedPlat.basePrice || suggestedPlat.price || 0;
+        totalPrice += suggestedPlatPrice;
+
+        orderItems.push({
+          platId: suggestedPlat.id,
+          quantity: 1,
+          unitPrice: suggestedPlatPrice,
+          totalPrice: suggestedPlatPrice,
+          versionSize: null,
+          sauceId: null,
+          extraId: null,
+          platSauceId: null,
+          message: `Suggestion: ${suggestedPlat.name}`
+        });
+      }
+      // Keep backward compatibility with old suggestedPlats format for now
+      else if (item.suggestedPlats && Array.isArray(item.suggestedPlats) && item.suggestedPlats.length > 0) {
+        for (const suggestedPlat of item.suggestedPlats) {
+          // Validate the suggested plat exists
+          const platExists = await prisma.plat.findUnique({
+            where: { id: suggestedPlat.plat.id }
+          });
+          if (!platExists) {
+            return res.status(400).json({ error: `Suggested plat with id ${suggestedPlat.plat.id} not found` });
+          }
+          
+          // Add suggested plat as a separate order item with quantity 1 and basePrice
+          const suggestedPlatPrice = suggestedPlat.plat.basePrice || suggestedPlat.plat.price || 0;
+          totalPrice += suggestedPlatPrice;
+
+          orderItems.push({
+            platId: suggestedPlat.plat.id,
+            quantity: 1,
+            unitPrice: suggestedPlatPrice,
+            totalPrice: suggestedPlatPrice,
+            versionSize: null,
+            sauceId: null,
+            extraId: null,
+            platSauceId: null,
+            message: `Suggestion: ${suggestedPlat.plat.name}`
+          });
+        }
+      }
     }
 
     // For takeout orders, no delivery fee
@@ -1962,6 +2020,174 @@ app.delete('/tags/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete tag' });
   }
 });
+
+// ============ PLAT-TAG ASSOCIATIONS ENDPOINTS ============
+
+// Get all associations
+app.get('/admin/associations', authenticate, async (req, res) => {
+  try {
+    const associations = await prisma.platTagAssociation.findMany({
+      include: {
+        plat: {
+          select: { id: true, nom: true }
+        },
+        tag: {
+          select: { id: true, nom: true }
+        }
+      },
+      orderBy: {
+        platId: 'asc'
+      }
+    });
+
+    // Transform to simpler format for frontend
+    const formatted = associations.map(assoc => ({
+      id: assoc.id,
+      platId: assoc.platId,
+      platName: assoc.plat.nom,
+      isTagId: assoc.associationType === 'is' ? assoc.tag.id : null,
+      hasOnTagIds: assoc.associationType === 'hasOn' ? assoc.tag.id : null,
+      associationType: assoc.associationType
+    }));
+
+    // Group by platId to combine is and hasOn associations
+    const grouped = {};
+    formatted.forEach(item => {
+      if (!grouped[item.platId]) {
+        grouped[item.platId] = {
+          platId: item.platId,
+          platName: item.platName,
+          isTagId: null,
+          hasOnTagIds: []
+        };
+      }
+      if (item.isTagId) {
+        grouped[item.platId].isTagId = item.isTagId;
+      }
+      if (item.hasOnTagIds) {
+        grouped[item.platId].hasOnTagIds.push(item.hasOnTagIds);
+      }
+    });
+
+    res.json(Object.values(grouped));
+  } catch (error) {
+    console.error('Get associations error:', error);
+    res.status(500).json({ error: 'Failed to fetch associations' });
+  }
+});
+
+// Create association
+app.post('/admin/associations', authenticate, async (req, res) => {
+  try {
+    const { platId, isTag, hasOnTags } = req.body;
+
+    if (!platId || !isTag) {
+      return res.status(400).json({ error: 'platId and isTag are required' });
+    }
+
+    // Delete existing associations for this plat
+    await prisma.platTagAssociation.deleteMany({
+      where: { platId: parseInt(platId) }
+    });
+
+    // Create new "is" association
+    await prisma.platTagAssociation.create({
+      data: {
+        platId: parseInt(platId),
+        tagId: parseInt(isTag),
+        associationType: 'is'
+      }
+    });
+
+    // Create "hasOn" associations if provided
+    if (hasOnTags && Array.isArray(hasOnTags) && hasOnTags.length > 0) {
+      await prisma.platTagAssociation.createMany({
+        data: hasOnTags.map(tagId => ({
+          platId: parseInt(platId),
+          tagId: parseInt(tagId),
+          associationType: 'hasOn'
+        }))
+      });
+    }
+
+    res.status(201).json({ message: 'Associations created successfully' });
+  } catch (error) {
+    console.error('Create associations error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Association already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create associations' });
+  }
+});
+
+// Update association
+app.put('/admin/associations/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { platId, isTag, hasOnTags } = req.body;
+
+    if (!platId || !isTag) {
+      return res.status(400).json({ error: 'platId and isTag are required' });
+    }
+
+    // Delete existing associations for this plat
+    await prisma.platTagAssociation.deleteMany({
+      where: { platId: parseInt(platId) }
+    });
+
+    // Create new "is" association
+    await prisma.platTagAssociation.create({
+      data: {
+        platId: parseInt(platId),
+        tagId: parseInt(isTag),
+        associationType: 'is'
+      }
+    });
+
+    // Create "hasOn" associations if provided
+    if (hasOnTags && Array.isArray(hasOnTags) && hasOnTags.length > 0) {
+      await prisma.platTagAssociation.createMany({
+        data: hasOnTags.map(tagId => ({
+          platId: parseInt(platId),
+          tagId: parseInt(tagId),
+          associationType: 'hasOn'
+        }))
+      });
+    }
+
+    res.json({ message: 'Associations updated successfully' });
+  } catch (error) {
+    console.error('Update associations error:', error);
+    res.status(500).json({ error: 'Failed to update associations' });
+  }
+});
+
+// Delete association
+app.delete('/admin/associations/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the association to get platId
+    const association = await prisma.platTagAssociation.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!association) {
+      return res.status(404).json({ error: 'Association not found' });
+    }
+
+    // Delete all associations for this plat
+    await prisma.platTagAssociation.deleteMany({
+      where: { platId: association.platId }
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete association error:', error);
+    res.status(500).json({ error: 'Failed to delete association' });
+  }
+});
+
 // Get all sauces
 app.get('/sauces', async (req, res) => {
   try {
@@ -2342,6 +2568,60 @@ app.delete("/api/extras/:id", async (req, res) => {
       return res.status(404).json({ error: "Extra not found" });
     }
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Upload image for an extra
+app.post('/extras/:id/image', upload.single('image'), processImage, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const extra = await prisma.extra.findUnique({ where: { id: parseInt(id) } });
+    if (!extra) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Extra not found' });
+    }
+
+    let imageUrl = extra.image;
+    if (req.file) {
+      // Remove old image if any
+      if (extra.image && extra.image.startsWith('/uploads/')) {
+        const oldPath = path.join(__dirname, 'public', extra.image);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      imageUrl = `/uploads/${req.file.filename}`;
+    } else {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    const updated = await prisma.extra.update({
+      where: { id: parseInt(id) },
+      data: { image: imageUrl }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Update extra image error:', error);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete image from an extra
+app.delete('/extras/:id/image', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const extra = await prisma.extra.findUnique({ where: { id: parseInt(id) } });
+    if (!extra) return res.status(404).json({ error: 'Extra not found' });
+
+    if (extra.image && extra.image.startsWith('/uploads/')) {
+      const oldPath = path.join(__dirname, 'public', extra.image);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    await prisma.extra.update({ where: { id: parseInt(id) }, data: { image: null } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete extra image error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -3086,6 +3366,60 @@ app.delete('/ingredients/:id', async (req, res) => {
       return res.status(404).json({ error: 'Ingredient not found' });
     }
     res.status(500).json({ error: 'Failed to delete ingredient' });
+  }
+});
+
+// Upload image for an ingredient
+app.post('/ingredients/:id/image', upload.single('image'), processImage, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ingredient = await prisma.ingredient.findUnique({ where: { id: parseInt(id) } });
+    if (!ingredient) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Ingredient not found' });
+    }
+
+    let imageUrl = ingredient.image;
+    if (req.file) {
+      // Remove old image if any
+      if (ingredient.image && ingredient.image.startsWith('/uploads/')) {
+        const oldPath = path.join(__dirname, 'public', ingredient.image);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      imageUrl = `/uploads/${req.file.filename}`;
+    } else {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+
+    const updated = await prisma.ingredient.update({
+      where: { id: parseInt(id) },
+      data: { image: imageUrl }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Update ingredient image error:', error);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete image from an ingredient
+app.delete('/ingredients/:id/image', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ingredient = await prisma.ingredient.findUnique({ where: { id: parseInt(id) } });
+    if (!ingredient) return res.status(404).json({ error: 'Ingredient not found' });
+
+    if (ingredient.image && ingredient.image.startsWith('/uploads/')) {
+      const oldPath = path.join(__dirname, 'public', ingredient.image);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    await prisma.ingredient.update({ where: { id: parseInt(id) }, data: { image: null } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete ingredient image error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

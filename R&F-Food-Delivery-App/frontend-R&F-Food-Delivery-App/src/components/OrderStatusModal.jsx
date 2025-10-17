@@ -60,8 +60,10 @@ const OrderStatusModal = ({ open, onClose, orderId, status }) => {
       PaperProps={{
         sx: {
           borderRadius: 3,
-          background: 'linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))',
-          backdropFilter: 'blur(10px)',
+          background: 'rgba(26, 26, 26, 0.95)',
+          backdropFilter: 'none',
+          boxShadow: 'none',
+          border: '1px solid rgba(255, 152, 0, 0.2)',
         }
       }}
     >

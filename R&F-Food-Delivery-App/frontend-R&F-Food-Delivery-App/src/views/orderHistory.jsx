@@ -103,8 +103,8 @@ const darkTheme = createTheme({
         root: {
           borderRadius: 16,
           border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
+          background: "rgba(26, 26, 26, 0.9)",
+          backdropFilter: "none",
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           "&:hover": {
             transform: "translateY(-4px)",
@@ -119,8 +119,8 @@ const darkTheme = createTheme({
         root: {
           backgroundImage: "none",
           border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
+          background: "rgba(26, 26, 26, 0.9)",
+          backdropFilter: "none",
         },
       },
     },
@@ -483,20 +483,11 @@ export default function OrderHistory() {
       <>
         {orders.map((order) => (
           <Card key={order.id} sx={{ mb: 4 }}>
-            <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-              <Grid container spacing={3} alignItems="center" sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Box
-                      sx={{
-                        p: 1,
-                        borderRadius: 2,
-                        backgroundColor: "rgba(255, 152, 0, 0.1)",
-                        color: "primary.main",
-                      }}
-                    >
-                      {getStatusIcon(order.status)}
-                    </Box>
+            <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+              {/* Mobile View: Compact Header */}
+              {isMobile ? (
+                <Box sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700 }}>
                         Commande #{order.id}
@@ -505,49 +496,21 @@ export default function OrderHistory() {
                         {order.formattedDate}
                       </Typography>
                     </Box>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={2}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Statut actuel
-                    </Typography>
                     <Chip
                       label={order.statusText}
                       color={getStatusColor(order.status)}
                       icon={getStatusIcon(order.status)}
+                      size="small"
                       sx={{ fontWeight: 600 }}
                     />
                   </Box>
-                </Grid>
-
-                <Grid item xs={6} sm={6} md={2}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Total
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="h6" sx={{ color: "primary.main", fontWeight: 700 }}>
                       {formatPrice(order.totalPrice)}
                     </Typography>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={6} sm={6} md={2}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Articles
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                      {order.items.reduce((s, it) => s + (it.quantity || 0), 0)} article{order.items.reduce((s, it) => s + (it.quantity || 0), 0) > 1 ? "s" : ""}
-                    </Typography>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12} md={2}>
-                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                     <Button
                       variant="outlined"
+                      size="small"
                       startIcon={<ChatIcon />}
                       onClick={(event) => handleChatClick(event, order.id)}
                       sx={{
@@ -561,8 +524,89 @@ export default function OrderHistory() {
                       Chat
                     </Button>
                   </Box>
+                </Box>
+              ) : (
+                // Desktop View: Full Header
+                <Grid container spacing={3} alignItems="center" sx={{ mb: 3 }}>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box
+                        sx={{
+                          p: 1,
+                          borderRadius: 2,
+                          backgroundColor: "rgba(255, 152, 0, 0.1)",
+                          color: "primary.main",
+                        }}
+                      >
+                        {getStatusIcon(order.status)}
+                      </Box>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                          Commande #{order.id}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {order.formattedDate}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6} md={2}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Statut actuel
+                      </Typography>
+                      <Chip
+                        label={order.statusText}
+                        color={getStatusColor(order.status)}
+                        icon={getStatusIcon(order.status)}
+                        sx={{ fontWeight: 600 }}
+                      />
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={6} sm={6} md={2}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Total
+                      </Typography>
+                      <Typography variant="h6" sx={{ color: "primary.main", fontWeight: 700 }}>
+                        {formatPrice(order.totalPrice)}
+                      </Typography>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={6} sm={6} md={2}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Articles
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                        {order.items.reduce((s, it) => s + (it.quantity || 0), 0)} article{order.items.reduce((s, it) => s + (it.quantity || 0), 0) > 1 ? "s" : ""}
+                      </Typography>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} md={2}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<ChatIcon />}
+                        onClick={(event) => handleChatClick(event, order.id)}
+                        sx={{
+                          borderColor: 'primary.main',
+                          color: 'primary.main',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                          }
+                        }}
+                      >
+                        Chat
+                      </Button>
+                    </Box>
+                  </Grid>
                 </Grid>
-              </Grid>
+              )}
 
               {/* Admin Message Section */}
               {order.restaurantMessage && (
@@ -814,7 +858,7 @@ export default function OrderHistory() {
         </Box>
       </>
     )
-  }, [formatItemDetails, getOrderItemName, getStatusIcon, getStatusColor, handleChatClick, toggleTimelineExpansion, expandedItems, formatPrice])
+  }, [isMobile, formatItemDetails, getOrderItemName, getStatusIcon, getStatusColor, handleChatClick, toggleTimelineExpansion, expandedItems, formatPrice])
 
   if (loading) {
     return (

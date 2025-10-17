@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -50,45 +50,47 @@ import OrderStatusModal from './OrderStatusModal';
 import config from '../config.js';
 import useMobileBackToClose from '../hooks/useMobileBackToClose';
 
-const BasketItem = ({ item }) => {
+const BasketItem = React.memo(({ item }) => {
   const { updateQuantity, removeFromBasket, getItemDisplayName, getItemDescription, calculateItemPrice, updateMessage } = useBasket();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [isEditingMessage, setIsEditingMessage] = useState(false);
   const [messageText, setMessageText] = useState(item.message || "");
   
-  const handleQuantityChange = (newQuantity) => {
+  const handleQuantityChange = useCallback((newQuantity) => {
     if (newQuantity <= 0) {
       removeFromBasket(item.id);
     } else {
       updateQuantity(item.id, newQuantity);
     }
-  };
+  }, [item.id, updateQuantity, removeFromBasket]);
   
-  const handleMessageSave = () => {
+  const handleMessageSave = useCallback(() => {
     updateMessage(item.id, messageText);
     setIsEditingMessage(false);
-  };
+  }, [item.id, messageText, updateMessage]);
   
-  const handleMessageCancel = () => {
+  const handleMessageCancel = useCallback(() => {
     setMessageText(item.message || "");
     setIsEditingMessage(false);
-  };
+  }, [item.message]);
   
   return (
     <Card
       sx={{
         mb: 2,
-        background: 'linear-gradient(145deg, rgba(30, 30, 30, 0.9), rgba(25, 25, 25, 0.9))',
+        background: 'rgba(30, 30, 30, 0.9)',
         border: '1px solid rgba(255, 152, 0, 0.2)',
-        borderRadius: 2,
-        transition: 'all 0.2s ease-in-out',
-        '&:hover': {
+        borderRadius: isMobile ? 1 : 2,
+        transition: isMobile ? 'none' : 'all 0.2s ease-in-out',
+        '&:hover': isMobile ? {} : {
           transform: 'translateY(-2px)',
           boxShadow: '0 5px 10px rgba(0,0,0,0.2)',
           border: '1px solid rgba(255, 152, 0, 0.4)',
         },
       }}
     >
-      <CardContent sx={{ p: 2.5 }}>
+      <CardContent sx={{ p: isMobile ? 2 : 2.5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#ff9800', mb: 0.5 }}>
@@ -181,7 +183,8 @@ const BasketItem = ({ item }) => {
               onClick={() => removeFromBasket(item.id)}
               sx={{
                 color: '#f44336',
-                '&:hover': {
+                transition: isMobile ? 'none' : 'all 0.2s',
+                '&:hover': isMobile ? {} : {
                   backgroundColor: 'rgba(244, 67, 54, 0.2)',
                   transform: 'scale(1.1)',
                 },
@@ -199,7 +202,8 @@ const BasketItem = ({ item }) => {
               onClick={() => handleQuantityChange(item.quantity - 1)}
               sx={{
                 backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                '&:hover': {
+                transition: isMobile ? 'none' : 'all 0.2s',
+                '&:hover': isMobile ? {} : {
                   backgroundColor: 'rgba(255, 152, 0, 0.2)',
                 },
               }}
@@ -223,7 +227,8 @@ const BasketItem = ({ item }) => {
               onClick={() => handleQuantityChange(item.quantity + 1)}
               sx={{
                 backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                '&:hover': {
+                transition: isMobile ? 'none' : 'all 0.2s',
+                '&:hover': isMobile ? {} : {
                   backgroundColor: 'rgba(255, 152, 0, 0.2)',
                 },
               }}
@@ -239,7 +244,7 @@ const BasketItem = ({ item }) => {
       </CardContent>
     </Card>
   );
-};
+});
 
 const BasketDialog = ({ open, onClose }) => {
   const theme = useTheme();
@@ -357,7 +362,8 @@ const BasketDialog = ({ open, onClose }) => {
           platSauceId: item.platSauce?.id,
           addedExtras: item.extras?.map(e => e.id) || [],
           removedIngredients: item.removedIngredients?.map(r => r.id) || [],
-          message: item.message
+          message: item.message,
+          suggestedPlats: item.suggestedPlats || []
         })),
         OrderType: 'takeout',
         takeoutTime: takeoutData.takeoutTime,
@@ -418,7 +424,8 @@ const BasketDialog = ({ open, onClose }) => {
           platSauceId: item.platSauce?.id,
           addedExtras: item.extras?.map(e => e.id) || [],
           removedIngredients: item.removedIngredients?.map(r => r.id) || [],
-          message: item.message
+          message: item.message,
+          suggestedPlats: item.suggestedPlats || []
         })),
         deliveryAddress: {
           street: orderData.address?.street,
@@ -507,11 +514,13 @@ const BasketDialog = ({ open, onClose }) => {
         fullWidth
         fullScreen={isMobile}
         PaperProps={{
-          elevation: 24,
+          elevation: isMobile ? 0 : 24,
           sx: {
             borderRadius: isMobile ? 0 : 3,
-            background: 'linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))',
-            backdropFilter: 'blur(20px)',
+            background: isMobile 
+              ? 'rgba(26, 26, 26, 0.95)'
+              : 'rgba(26, 26, 26, 0.95)',
+            backdropFilter: 'none',
             border: '1px solid rgba(255, 152, 0, 0.2)',
           },
         }}
@@ -862,8 +871,8 @@ const BasketDialog = ({ open, onClose }) => {
   );
 };
 
-// Takeout Modal Component
-const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours = [], loadingHours = false, settings = {} }) => {
+// Takeout Modal Component - Memoized for performance
+const TakeoutModal = React.memo(({ open, onClose, onConfirm, items, totalPrice, orderHours = [], loadingHours = false, settings = {} }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { getItemDisplayName, getItemDescription, calculateItemPrice } = useBasket();
@@ -875,7 +884,7 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
   });
 
   // Generate time slots from configured order hours + ASAP option
-  const generateTimeSlots = () => {
+  const generateTimeSlots = useCallback(() => {
     const slots = [];
 
     // Add ASAP option first
@@ -935,10 +944,10 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
     }
 
     return slots;
-  };
+  }, [orderHours, settings]);
 
-  // Recompute timeSlots when orderHours or settings change
-  const timeSlots = useMemo(() => generateTimeSlots(), [orderHours, settings]);
+  // Compute timeSlots by calling generateTimeSlots
+  const timeSlots = useMemo(() => generateTimeSlots(), [generateTimeSlots]);
 
   const handleSubmit = () => {
     // Allow takeoutTime to be null (ASAP) or a valid time
@@ -958,11 +967,13 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        elevation: 24,
+        elevation: isMobile ? 0 : 24,
         sx: {
           borderRadius: isMobile ? 0 : 3,
-          background: 'linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))',
-          backdropFilter: 'blur(20px)',
+          background: isMobile 
+            ? 'rgba(26, 26, 26, 0.95)'
+            : 'rgba(26, 26, 26, 0.95)',
+          backdropFilter: 'none',
           border: '1px solid rgba(255, 152, 0, 0.2)',
         },
       }}
@@ -1202,7 +1213,7 @@ const TakeoutModal = ({ open, onClose, onConfirm, items, totalPrice, orderHours 
       </DialogActions>
     </Dialog>
   );
-};
+});
 
 const BasketIcon = () => {
   const { totalItems, isOpen, toggleBasket } = useBasket();

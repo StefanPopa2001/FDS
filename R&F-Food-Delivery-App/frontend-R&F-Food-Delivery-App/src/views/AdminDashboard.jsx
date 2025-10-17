@@ -45,6 +45,7 @@ import AdminExtra from "./adminExtra.jsx"
 import AdminOrders from "./adminOrders.jsx"
 import AdminSettings from "./adminSettings.jsx"
 import AdminIngredients from "./adminIngredients.jsx"
+import AdminInspection from "./adminInspection.jsx"
 import HelpModal from "../components/HelpModal.jsx"
 
 // Create dark theme with black/orange design
@@ -209,6 +210,12 @@ const AdminDashboard = () => {
       label: "Commandes",
       icon: <OrdersIcon />,
       description: "Gérer les commandes des clients",
+    },
+    {
+      id: "inspection",
+      label: "Inspection Menu",
+      icon: <FastfoodIcon />,
+      description: "Vérifier et modifier facilement les plats",
     },
     {
       id: "plats",
@@ -440,6 +447,8 @@ const AdminDashboard = () => {
     switch (activeView) {
       case "orders":
         return <AdminOrders />
+      case "inspection":
+        return <AdminInspection />
       case "plats":
         return <AdminPlat />
       case "sauces":

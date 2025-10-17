@@ -14,6 +14,7 @@ import {
   Checkbox,
   Autocomplete,
   Chip,
+  IconButton,
 } from "@mui/material"
 import { DataGrid, GridToolbar } from "@mui/x-data-grid"
 import {
@@ -23,6 +24,8 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   LocalOffer as TagIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material"
 import config from '../config.js';
 
@@ -40,7 +43,8 @@ export default function AdminExtra() {
     availableForDelivery: true,
     speciality: false,
     tags: []
-  });
+  })
+  const [uploadingImage, setUploadingImage] = useState({})
 
   // Fetch extras
   const fetchExtras = async () => {
@@ -203,6 +207,55 @@ export default function AdminExtra() {
     } catch (error) {
       console.error("Add extra error:", error)
       showAlert("Échec de l'ajout de l'extra", "error")
+    }
+  }
+
+  // Handle image upload for extra
+  const handleImageUpload = async (id, file) => {
+    if (!file) return
+
+    setUploadingImage({ ...uploadingImage, [id]: true })
+    const formData = new FormData()
+    formData.append('image', file)
+
+    try {
+      const response = await fetch(`${config.API_URL}/extras/${id}/image`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (response.ok) {
+        showAlert("Image ajoutée avec succès")
+        fetchExtras()
+      } else {
+        const data = await response.json()
+        showAlert(data.error || "Échec de l'ajout de l'image", "error")
+      }
+    } catch (error) {
+      showAlert("Erreur lors de l'ajout de l'image", "error")
+    } finally {
+      setUploadingImage({ ...uploadingImage, [id]: false })
+    }
+  }
+
+  // Handle delete image
+  const handleDeleteImage = async (id) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette image ?")) {
+      try {
+        const response = await fetch(`${config.API_URL}/extras/${id}/image`, {
+          method: "DELETE",
+        })
+
+        if (response.ok) {
+          showAlert("Image supprimée avec succès")
+          fetchExtras()
+        } else {
+          const data = await response.json()
+          showAlert(data.error || "Échec de la suppression de l'image", "error")
+        }
+      } catch (error) {
+        showAlert("Erreur lors de la suppression de l'image", "error")
+      }
     }
   }
 
@@ -447,6 +500,52 @@ export default function AdminExtra() {
           }
           label=""
         />
+      ),
+    },
+    {
+      field: "image",
+      headerName: "Image",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {params.row.image && (
+            <>
+              <Box
+                component="img"
+                src={`${config.API_URL}${params.row.image}`}
+                alt={params.row.nom}
+                sx={{ width: 40, height: 40, borderRadius: 1, objectFit: 'cover' }}
+              />
+              <IconButton
+                size="small"
+                onClick={() => handleDeleteImage(params.row.id)}
+                disabled={uploadingImage[params.row.id]}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </>
+          )}
+          <Button
+            component="label"
+            size="small"
+            startIcon={<PhotoCameraIcon />}
+            sx={{ minWidth: 'auto' }}
+            disabled={uploadingImage[params.row.id]}
+          >
+            {params.row.image ? "Changer" : "Ajouter"}
+            <input
+              hidden
+              accept="image/*"
+              type="file"
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  handleImageUpload(params.row.id, e.target.files[0])
+                }
+              }}
+            />
+          </Button>
+        </Box>
       ),
     },
     {

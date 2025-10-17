@@ -94,8 +94,8 @@ const darkTheme = createTheme({
         root: {
           backgroundImage: "none",
           border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
+          background: "rgba(26, 26, 26, 0.9)",
+          backdropFilter: "none",
         },
       },
     },
@@ -111,9 +111,9 @@ const darkTheme = createTheme({
           },
         },
         contained: {
-          background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+          background: "#ff9800",
           "&:hover": {
-            background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
+            background: "#f57c00",
           },
         },
         outlined: {
@@ -130,8 +130,8 @@ const darkTheme = createTheme({
         root: {
           borderRadius: 16,
           border: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "linear-gradient(145deg, rgba(26, 26, 26, 0.9), rgba(20, 20, 20, 0.9))",
-          backdropFilter: "blur(10px)",
+          background: "rgba(26, 26, 26, 0.9)",
+          backdropFilter: "none",
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           "&:hover": {
             transform: "translateY(-4px)",
@@ -167,7 +167,7 @@ export default function UserProfile() {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
-  // Fetch user profile from backend
+  // Fetch user profile from backend - with memoization
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -185,25 +185,29 @@ export default function UserProfile() {
           if (!res || !res.headers) return null;
           const ct = res.headers.get('content-type') || '';
           if (!ct.toLowerCase().includes('application/json')) {
-            console.warn('Non-JSON response received:', { status: res.status, contentType: ct });
             return null;
           }
           try {
             return await res.json();
           } catch (e) {
-            console.error('JSON parse error:', e);
             return null;
           }
         };
 
-        // Make API call to get user profile
+        // Make API call with timeout to prevent hanging on slow networks
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         const response = await fetch(`${config.API_URL}/users/profile`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          signal: controller.signal
         })
+        
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -216,16 +220,17 @@ export default function UserProfile() {
         if (!responseData || !responseData.user) {
           throw new Error("Réponse invalide du serveur");
         }
-        const userData = responseData.user // The API returns { user: {...} }
+        const userData = responseData.user
         
-        // Set user data from backend response
         setUser(userData)
         setEditForm({
           phone: userData.phone || ''
         })
       } catch (err) {
-        console.error('Error fetching user profile:', err)
-        setError(err.message || "Erreur lors du chargement du profil")
+        if (err.name !== 'AbortError') {
+          console.error('Error fetching user profile:', err)
+          setError(err.message || "Erreur lors du chargement du profil")
+        }
       } finally {
         setLoading(false)
       }
@@ -363,7 +368,7 @@ export default function UserProfile() {
                 fontSize: 60,
                 color: "primary.main",
                 mb: 2,
-                animation: "spin 2s linear infinite",
+                animation: isMobile ? "none" : "spin 2s linear infinite",
                 "@keyframes spin": {
                   "0%": { transform: "rotate(0deg)" },
                   "100%": { transform: "rotate(360deg)" },
@@ -417,10 +422,10 @@ export default function UserProfile() {
       >
         <Container maxWidth="xl">
           {/* Profile Header Card */}
-          <Fade in timeout={800}>
+          <Fade in timeout={isMobile ? 0 : 800}>
             <Card sx={{ mb: 3 }}>
               <CardContent sx={{ textAlign: "center", p: { xs: 2, md: 3 } }}>
-                <Zoom in timeout={1000}>
+                <Zoom in timeout={isMobile ? 0 : 1000}>
                   <Avatar
                     sx={{
                       width: { xs: 80, md: 100 },
@@ -753,8 +758,8 @@ export default function UserProfile() {
           fullWidth
           PaperProps={{
             sx: {
-              background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
-              backdropFilter: "blur(20px)",
+              background: "rgba(26, 26, 26, 0.95)",
+              backdropFilter: "none",
               border: "1px solid rgba(255, 152, 0, 0.2)",
             },
           }}
@@ -827,9 +832,9 @@ export default function UserProfile() {
               onClick={handleSaveChanges}
               startIcon={<SaveIcon />}
               sx={{
-                background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                background: "#ff9800",
                 "&:hover": {
-                  background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
+                  background: "#f57c00",
                 },
               }}
             >
@@ -846,8 +851,8 @@ export default function UserProfile() {
           fullWidth
           PaperProps={{
             sx: {
-              background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
-              backdropFilter: "blur(20px)",
+              background: "rgba(26, 26, 26, 0.95)",
+              backdropFilter: "none",
               border: "1px solid rgba(255, 152, 0, 0.2)",
             },
           }}
@@ -947,9 +952,9 @@ export default function UserProfile() {
               onClick={handleChangePassword}
               startIcon={<SaveIcon />}
               sx={{
-                background: "linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)",
+                background: "#ff9800",
                 "&:hover": {
-                  background: "linear-gradient(45deg, #f57c00 30%, #ff9800 90%)",
+                  background: "#f57c00",
                 },
               }}
             >

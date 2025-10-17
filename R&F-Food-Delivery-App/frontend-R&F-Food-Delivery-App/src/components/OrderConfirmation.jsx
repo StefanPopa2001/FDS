@@ -43,6 +43,38 @@ import { useBasket } from '../contexts/BasketContext';
 import config from '../config';
 import useMobileBackToClose from '../hooks/useMobileBackToClose';
 
+// Memoized card component for order items
+const OrderItemCard = React.memo(({ item, getItemDisplayName, getItemDescription, calculateItemPrice }) => (
+  <Card sx={{ 
+    mb: 1, 
+    backgroundColor: 'rgba(255, 152, 0, 0.05)',
+    border: '1px solid rgba(255, 152, 0, 0.1)',
+    boxShadow: 'none',
+    transition: 'none'
+  }}>
+    <CardContent sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
+            {getItemDisplayName(item)} x{item.quantity}
+          </Typography>
+          {getItemDescription(item) && (
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+              {getItemDescription(item)}
+            </Typography>
+          )}
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+            {(calculateItemPrice(item) / item.quantity).toFixed(2)}€ / unité
+          </Typography>
+        </Box>
+        <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
+          {calculateItemPrice(item).toFixed(2)}€
+        </Typography>
+      </Box>
+    </CardContent>
+  </Card>
+));
+
 const OrderConfirmation = ({ open, onClose, onConfirm }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -215,7 +247,17 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
     const origin = `${addressData.restaurantAddress.street}, ${addressData.restaurantAddress.city} ${addressData.restaurantAddress.postalCode}, ${addressData.restaurantAddress.country}`;
     const destination = `${orderData.address.street}, ${orderData.address.city} ${orderData.address.postalCode}, Belgium`;
     
-    return `https://www.google.com/maps/embed/v1/directions?key=AIzaSyDu-sJV3QBGJYzWXBZkpBFBRrv4wGKoSfA&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&mode=driving`;
+    // Use simplified maps URL for faster loading on mobile
+    return `https://www.google.com/maps/search/${encodeURIComponent(destination)}/`;
+  };
+  
+  // Generate lightweight map link instead of embedded iframe
+  const generateMapLink = () => {
+    if (!orderData.address.street || !orderData.address.city || !orderData.address.postalCode) {
+      return null;
+    }
+    const destination = `${orderData.address.street}, ${orderData.address.city} ${orderData.address.postalCode}, Belgium`;
+    return `https://www.google.com/maps/search/${encodeURIComponent(destination)}/`;
   };
 
   const handleNext = () => {
@@ -332,7 +374,7 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
               />
             </Box>
 
-            {/* OpenStreetMap Preview */}
+            {/* Lightweight Map Link */}
             {orderData.address.street && orderData.address.city && orderData.address.postalCode && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="h6" sx={{ mb: 2, color: '#ff9800', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -358,29 +400,27 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
                   </Box>
                 )}
                 
-                <Box sx={{ 
-                  border: '1px solid rgba(255, 152, 0, 0.3)',
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                  height: 300,
-                  position: 'relative'
-                }}>
-                  {/* Google Maps Embed with Directions */}
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    allowFullScreen
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={generateDirectionsUrl() || `https://www.google.com/maps/embed/v1/place?key=AIzaSyDu-sJV3QBGJYzWXBZkpBFBRrv4wGKoSfA&q=${encodeURIComponent(`${orderData.address.street}, ${orderData.address.postalCode} ${orderData.address.city}, Belgium`)}&zoom=16`}
-                    title={`Itinéraire vers ${orderData.address.street}, ${orderData.address.city}`}
-                  />
-                </Box>
+                {/* Lightweight map button instead of iframe */}
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => window.open(generateMapLink())}
+                  sx={{
+                    borderColor: '#ff9800',
+                    color: '#ff9800',
+                    py: 2,
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                      borderColor: '#ffb74d',
+                    }
+                  }}
+                >
+                  Voir sur Google Maps
+                </Button>
                 
                 <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', textAlign: 'center' }}>
                   {addressData.distance ? 
-                    `Itinéraire du restaurant vers votre adresse (${addressData.distance} km)` :
+                    `Distance: ${addressData.distance} km` :
                     'Vérifiez que l\'adresse affichée correspond bien à votre adresse de livraison'
                   }
                 </Typography>
@@ -664,28 +704,13 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
             {/* Order Items */}
             <Box sx={{ mb: 3 }}>
               {items.map((item) => (
-                <Card key={item.id} sx={{ mb: 1, backgroundColor: 'rgba(255, 152, 0, 0.05)' }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
-                          {getItemDisplayName(item)} x{item.quantity}
-                        </Typography>
-                        {getItemDescription(item) && (
-                          <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                            {getItemDescription(item)}
-                          </Typography>
-                        )}
-                        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                          {(calculateItemPrice(item) / item.quantity).toFixed(2)}€ / unité
-                        </Typography>
-                      </Box>
-                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#ff9800' }}>
-                        {calculateItemPrice(item).toFixed(2)}€
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
+                <OrderItemCard 
+                  key={item.id} 
+                  item={item} 
+                  getItemDisplayName={getItemDisplayName}
+                  getItemDescription={getItemDescription}
+                  calculateItemPrice={calculateItemPrice}
+                />
               ))}
             </Box>
 
@@ -756,11 +781,13 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        elevation: 24,
+        elevation: isMobile ? 0 : 24,
         sx: {
           borderRadius: isMobile ? 0 : 3,
-          background: 'linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))',
-          backdropFilter: 'blur(20px)',
+          background: isMobile 
+            ? 'rgba(26, 26, 26, 0.95)'
+            : 'rgba(26, 26, 26, 0.95)',
+          backdropFilter: 'none',
           border: '1px solid rgba(255, 152, 0, 0.2)',
           minHeight: isMobile ? '100vh' : '600px',
         },
@@ -786,7 +813,18 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
 
       <DialogContent sx={{ p: 3 }}>
         {/* Stepper */}
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+        <Stepper 
+          activeStep={activeStep} 
+          sx={{ 
+            mb: 4,
+            '& .MuiStepIcon-root': {
+              transition: isMobile ? 'none' : 'all 0.3s ease',
+            },
+            '& .MuiStep-root': {
+              transition: isMobile ? 'none' : 'all 0.2s ease',
+            }
+          }}
+        >
           {steps.map((label, index) => (
             <Step key={label}>
               <StepLabel
@@ -819,7 +857,8 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
           sx={{
             borderColor: 'rgba(255, 152, 0, 0.5)',
             color: '#ff9800',
-            '&:hover': {
+            transition: isMobile ? 'none' : 'all 0.2s',
+            '&:hover': isMobile ? {} : {
               borderColor: '#ff9800',
               backgroundColor: 'rgba(255, 152, 0, 0.1)',
             },
@@ -838,7 +877,8 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
             sx={{
               borderColor: 'rgba(255, 152, 0, 0.5)',
               color: '#ff9800',
-              '&:hover': {
+              transition: isMobile ? 'none' : 'all 0.2s',
+              '&:hover': isMobile ? {} : {
                 borderColor: '#ff9800',
                 backgroundColor: 'rgba(255, 152, 0, 0.1)',
               },
@@ -855,9 +895,10 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
             disabled={!isStepValid(activeStep)}
             endIcon={<ArrowForwardIcon />}
             sx={{
-              background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)',
-              '&:hover': {
-                background: 'linear-gradient(45deg, #f57c00 30%, #ff9800 90%)',
+              background: '#ff9800',
+              transition: isMobile ? 'none' : 'all 0.2s',
+              '&:hover': isMobile ? {} : {
+                background: '#f57c00',
               },
               '&:disabled': {
                 background: 'rgba(255, 152, 0, 0.3)',
@@ -872,9 +913,10 @@ const OrderConfirmation = ({ open, onClose, onConfirm }) => {
             onClick={handleConfirmOrder}
             startIcon={<CheckCircleIcon />}
             sx={{
-              background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
-              '&:hover': {
-                background: 'linear-gradient(45deg, #388e3c 30%, #4caf50 90%)',
+              background: '#4caf50',
+              transition: isMobile ? 'none' : 'all 0.2s',
+              '&:hover': isMobile ? {} : {
+                background: '#388e3c',
               },
               fontWeight: 600,
               px: 4,

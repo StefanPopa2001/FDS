@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Box,
   Paper,
@@ -7,6 +7,7 @@ import {
   Typography,
   Card,
   CardMedia,
+  CardContent,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -16,6 +17,7 @@ import {
   Tabs,
   IconButton,
   Switch,
+  Checkbox,
   FormControlLabel,
   Divider,
   List,
@@ -42,6 +44,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import RestaurantIcon from "@mui/icons-material/Restaurant";
 import PhotoIcon from "@mui/icons-material/Photo";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import StarIcon from "@mui/icons-material/Star";
+import TextFormatIcon from "@mui/icons-material/TextFormat";
 import config from "../config";
 
 // Tab panel component
@@ -74,6 +79,10 @@ const AdminInspection = () => {
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState({ show: false, message: "", severity: "success" });
   const [inlineEditData, setInlineEditData] = useState({});
+  const [ingredientImageUploads, setIngredientImageUploads] = useState({});
+  const [availableIngredients, setAvailableIngredients] = useState([]);
+  const [addIngredientDialogOpen, setAddIngredientDialogOpen] = useState(false);
+  const fileInputRef = useRef(null);
 
   const showAlert = (message, severity = "success") => {
     setAlert({ show: true, message, severity });
@@ -157,7 +166,12 @@ const AdminInspection = () => {
         nom: plat.nom || plat.name || "",
         description: plat.description || "",
         price: plat.price || plat.basePrice || 0,
-        available: plat.available !== false
+        available: plat.available !== false,
+        availableForDelivery: plat.availableForDelivery !== false,
+        speciality: plat.speciality === true,
+        includesSauce: plat.IncludesSauce !== false,
+        saucePrice: plat.saucePrice || 0,
+        ordre: plat.ordre || ""
       });
     }
     setSelectedPlatId(platId);
@@ -187,6 +201,11 @@ const AdminInspection = () => {
           description: inlineEditData.description,
           price: parseFloat(inlineEditData.price),
           available: inlineEditData.available,
+          availableForDelivery: inlineEditData.availableForDelivery,
+          speciality: inlineEditData.speciality,
+          IncludesSauce: inlineEditData.includesSauce,
+          saucePrice: parseFloat(inlineEditData.saucePrice || 0),
+          ordre: inlineEditData.ordre
         }),
       });
 
@@ -199,6 +218,268 @@ const AdminInspection = () => {
     } catch (error) {
       console.error("Error saving plat:", error);
       showAlert("Erreur lors de la sauvegarde", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update single plat fields immediately (used by checkboxes)
+  const updatePlatField = async (patch) => {
+    if (!currentPlat) return;
+    try {
+      setLoading(true);
+
+      // Always include required fields from current plat data
+      const body = {
+        name: currentPlat.nom || currentPlat.name,
+        price: currentPlat.price || currentPlat.basePrice,
+        description: currentPlat.description || '',
+        ordre: currentPlat.ordre || '',
+        available: currentPlat.available !== false,
+        availableForDelivery: currentPlat.availableForDelivery !== false,
+        speciality: currentPlat.speciality === true,
+        IncludesSauce: currentPlat.includesSauce !== false,
+        saucePrice: currentPlat.saucePrice || 0,
+      };
+
+      // Apply the patch
+      if (patch.hasOwnProperty('available')) body.available = patch.available;
+      if (patch.hasOwnProperty('availableForDelivery')) body.availableForDelivery = patch.availableForDelivery;
+      if (patch.hasOwnProperty('speciality')) body.speciality = patch.speciality;
+      if (patch.hasOwnProperty('includesSauce')) body.IncludesSauce = patch.includesSauce;
+      if (patch.hasOwnProperty('ordre')) body.ordre = patch.ordre;
+      if (patch.hasOwnProperty('saucePrice')) body.saucePrice = parseFloat(patch.saucePrice || 0);
+
+      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        // refresh and update local state
+        fetchPlats();
+        setInlineEditData({ ...inlineEditData, ...patch });
+        showAlert('Mise à jour effectuée');
+      } else {
+        showAlert("Erreur lors de la mise à jour", 'error');
+      }
+    } catch (error) {
+      console.error('Error updating plat field:', error);
+      showAlert("Erreur lors de la mise à jour", 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !currentPlat) return;
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}/image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the inline edit data and refresh plats
+        setInlineEditData({ ...inlineEditData, image: data.image });
+        fetchPlats();
+        showAlert("Image téléchargée avec succès");
+      } else {
+        showAlert("Erreur lors du téléchargement de l'image", "error");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      showAlert("Erreur lors du téléchargement de l'image", "error");
+    } finally {
+      setLoading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Handle image removal
+  const handleImageRemove = async () => {
+    if (!currentPlat || !currentPlat.image) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}/image`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setInlineEditData({ ...inlineEditData, image: null });
+        fetchPlats();
+        showAlert("Image supprimée avec succès");
+      } else {
+        showAlert("Erreur lors de la suppression de l'image", "error");
+      }
+    } catch (error) {
+      console.error("Error removing image:", error);
+      showAlert("Erreur lors de la suppression de l'image", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Ingredient management functions
+  const handleIngredientNameEdit = async (ingredientId, newName) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_URL}/ingredients/${ingredientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nom: newName }),
+      });
+
+      if (response.ok) {
+        fetchPlats();
+        showAlert("Nom de l'ingrédient modifié avec succès");
+      } else {
+        showAlert("Erreur lors de la modification du nom", "error");
+      }
+    } catch (error) {
+      console.error("Error updating ingredient name:", error);
+      showAlert("Erreur lors de la modification du nom", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleIngredientImageUpload = async (ingredientId, file) => {
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`${config.API_URL}/ingredients/${ingredientId}/image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        fetchPlats();
+        showAlert("Image de l'ingrédient ajoutée avec succès");
+      } else {
+        showAlert("Erreur lors de l'ajout de l'image", "error");
+      }
+    } catch (error) {
+      console.error("Error uploading ingredient image:", error);
+      showAlert("Erreur lors de l'ajout de l'image", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleIngredientImageRemove = async (ingredientId) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_URL}/ingredients/${ingredientId}/image`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        fetchPlats();
+        showAlert("Image de l'ingrédient supprimée avec succès");
+      } else {
+        showAlert("Erreur lors de la suppression de l'image", "error");
+      }
+    } catch (error) {
+      console.error("Error removing ingredient image:", error);
+      showAlert("Erreur lors de la suppression de l'image", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveIngredientFromPlat = async (platId, ingredientId) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_URL}/plats/${platId}/ingredients/${ingredientId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        fetchPlats();
+        showAlert("Ingrédient retiré du plat avec succès");
+      } else {
+        showAlert("Erreur lors du retrait de l'ingrédient", "error");
+      }
+    } catch (error) {
+      console.error("Error removing ingredient from plat:", error);
+      showAlert("Erreur lors du retrait de l'ingrédient", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleIngredientRemovable = async (platId, ingredientId, removable) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_URL}/plats/${platId}/ingredients/${ingredientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removable }),
+      });
+
+      if (response.ok) {
+        fetchPlats();
+        showAlert(`Ingrédient marqué comme ${removable ? 'removable' : 'non-removable'}`);
+      } else {
+        showAlert("Erreur lors de la mise à jour", "error");
+      }
+    } catch (error) {
+      console.error("Error updating ingredient removable status:", error);
+      showAlert("Erreur lors de la mise à jour", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  
+
+  const fetchAvailableIngredients = async () => {
+    try {
+      const response = await fetch(`${config.API_URL}/ingredients`);
+      if (response.ok) {
+        const ingredients = await response.json();
+        setAvailableIngredients(ingredients);
+      }
+    } catch (error) {
+      console.error("Error fetching ingredients:", error);
+    }
+  };
+
+  const handleAddIngredientToPlat = async (platId, ingredientId) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_URL}/plats/${platId}/ingredients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredientId, removable: true }),
+      });
+
+      if (response.ok) {
+        fetchPlats();
+        // keep the add dialog open so admins can add multiple ingredients quickly
+        showAlert("Ingrédient ajouté au plat avec succès");
+      } else {
+        showAlert("Erreur lors de l'ajout de l'ingrédient", "error");
+      }
+    } catch (error) {
+      console.error("Error adding ingredient to plat:", error);
+      showAlert("Erreur lors de l'ajout de l'ingrédient", "error");
     } finally {
       setLoading(false);
     }
@@ -440,27 +721,15 @@ const AdminInspection = () => {
                     onClick={() => handleSelectPlat(plat.id)}
                   >
                     <ListItemAvatar sx={{ minWidth: 50 }}>
-                      {plat.image ? (
+                      {plat.image && (
                         <Avatar
                           src={`${config.API_URL}/uploads/${plat.image}`}
                           variant="rounded"
                           sx={{
-                            width: 40,
-                            height: 40,
+                            width: 32,
+                            height: 32,
                           }}
                         />
-                      ) : (
-                        <Avatar
-                          variant="rounded"
-                          sx={{
-                            width: 40,
-                            height: 40,
-                            bgcolor: 'rgba(255, 152, 0, 0.2)',
-                            border: '1px solid rgba(255, 152, 0, 0.3)'
-                          }}
-                        >
-                          <PhotoIcon sx={{ color: '#ff9800', fontSize: '1.5rem' }} />
-                        </Avatar>
                       )}
                     </ListItemAvatar>
                     <ListItemText
@@ -539,40 +808,94 @@ const AdminInspection = () => {
               {/* Thumbnail Image */}
               <Box
                 sx={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: 1,
-                  overflow: "hidden",
-                  backgroundColor: "#f5f5f5",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 1,
                   flexShrink: 0,
                 }}
               >
-                {currentPlat.image ? (
-                  <CardMedia
-                    component="img"
-                    image={
-                      currentPlat.image.startsWith("http")
-                        ? currentPlat.image
-                        : `${config.API_URL}${currentPlat.image}`
-                    }
-                    alt={currentPlat.nom || currentPlat.name}
-                    sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                <Box
+                  sx={{
+                    width: 100,
+                    height: 100,
+                    borderRadius: 1,
+                    overflow: "hidden",
+                    backgroundColor: "#f5f5f5",
+                  }}
+                >
+                  {currentPlat.image ? (
+                    <CardMedia
+                      component="img"
+                      image={
+                        currentPlat.image.startsWith("http")
+                          ? currentPlat.image
+                          : `${config.API_URL}${currentPlat.image}`
+                      }
+                      alt={currentPlat.nom || currentPlat.name}
+                      sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "#e0e0e0",
+                        fontSize: "2rem",
+                      }}
+                    >
+                      🍽️
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Image Controls */}
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    accept="image/*"
+                    style={{ display: 'none' }}
                   />
-                ) : (
-                  <Box
-                    sx={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: "#e0e0e0",
-                      fontSize: "2rem",
-                    }}
-                  >
-                    🍽️
-                  </Box>
-                )}
+                  <Tooltip title="Télécharger une nouvelle image">
+                    <IconButton
+                      size="small"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                      sx={{
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        '&:hover': {
+                          color: '#ff9800',
+                          backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                        },
+                      }}
+                    >
+                      <PhotoIcon />
+                    </IconButton>
+                  </Tooltip>
+                  {currentPlat?.image && (
+                    <Tooltip title="Supprimer l'image">
+                      <IconButton
+                        size="small"
+                        onClick={handleImageRemove}
+                        disabled={loading}
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          '&:hover': {
+                            color: '#f44336',
+                            backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                          },
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
               </Box>
 
               {/* Info */}
@@ -632,51 +955,207 @@ const AdminInspection = () => {
                         '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
                       }}
                     />
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={handleInlineEditSave}
+                      sx={{ backgroundColor: '#ff9800', ml: 1, '&:hover': { backgroundColor: '#f57c00' } }}
+                    >
+                      Sauvegarder
+                    </Button>
+                  </Box>
+
+                  {/* Additional Options Row */}
+                  <Box sx={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
                     <FormControlLabel
                       control={
-                        <Switch
+                        <Checkbox
                           size="small"
                           checked={inlineEditData.available !== false}
-                          onChange={(e) => setInlineEditData({ ...inlineEditData, available: e.target.checked })}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setInlineEditData({ ...inlineEditData, available: val });
+                            updatePlatField({ available: val });
+                          }}
                           sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': {
+                            color: 'rgba(255, 152, 0, 0.5)',
+                            '&.Mui-checked': {
                               color: '#ff9800',
-                              '&:hover': { backgroundColor: 'rgba(255, 152, 0, 0.1)' },
-                            },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#ff9800',
                             },
                           }}
                         />
                       }
-                      label="Disponible"
-                      sx={{ color: 'white', '& .MuiFormControlLabel-label': { fontSize: '0.875rem' } }}
+                      label={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: 'white', fontSize: '0.875rem' }}>
+                            Disponible
+                          </Typography>
+                        </Box>
+                      }
                     />
+
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={inlineEditData.availableForDelivery !== false}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setInlineEditData({ ...inlineEditData, availableForDelivery: val });
+                            updatePlatField({ availableForDelivery: val });
+                          }}
+                          sx={{
+                            color: 'rgba(255, 152, 0, 0.5)',
+                            '&.Mui-checked': {
+                              color: '#ff9800',
+                            },
+                          }}
+                        />
+                      }
+                      label={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <LocalShippingIcon sx={{ fontSize: '1rem', color: 'rgba(255, 255, 255, 0.7)' }} />
+                          <Typography variant="body2" sx={{ color: 'white', fontSize: '0.875rem' }}>
+                            Livraison
+                          </Typography>
+                        </Box>
+                      }
+                    />
+
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={inlineEditData.speciality === true}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setInlineEditData({ ...inlineEditData, speciality: val });
+                            updatePlatField({ speciality: val });
+                          }}
+                          sx={{
+                            color: 'rgba(255, 152, 0, 0.5)',
+                            '&.Mui-checked': {
+                              color: '#ff9800',
+                            },
+                          }}
+                        />
+                      }
+                      label={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <StarIcon sx={{ fontSize: '1rem', color: 'rgba(255, 255, 255, 0.7)' }} />
+                          <Typography variant="body2" sx={{ color: 'white', fontSize: '0.875rem' }}>
+                            Spécialité
+                          </Typography>
+                        </Box>
+                      }
+                    />
+
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={inlineEditData.includesSauce !== false}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setInlineEditData({ ...inlineEditData, includesSauce: val });
+                            updatePlatField({ includesSauce: val });
+                          }}
+                          sx={{
+                            color: 'rgba(255, 152, 0, 0.5)',
+                            '&.Mui-checked': {
+                              color: '#ff9800',
+                            },
+                          }}
+                        />
+                      }
+                      label={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <RestaurantIcon sx={{ fontSize: '1rem', color: 'rgba(255, 255, 255, 0.7)' }} />
+                          <Typography variant="body2" sx={{ color: 'white', fontSize: '0.875rem' }}>
+                            Choix de sauce
+                          </Typography>
+                        </Box>
+                      }
+                    />
+
+                    {inlineEditData.includesSauce && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TextField
+                          label="Prix sauce (€)"
+                          type="number"
+                          size="small"
+                          inputProps={{ step: "0.01", min: "0" }}
+                          value={inlineEditData.saucePrice || 0}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setInlineEditData({ ...inlineEditData, saucePrice: val });
+                          }}
+                          sx={{
+                            width: 120,
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                              '& fieldset': { borderColor: 'rgba(255, 152, 0, 0.2)' },
+                              '&:hover fieldset': { borderColor: 'rgba(255, 152, 0, 0.4)' },
+                              '&.Mui-focused fieldset': { borderColor: '#ff9800' },
+                            },
+                            '& .MuiInputBase-input': { color: 'white' },
+                            '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
+                          }}
+                        />
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => updatePlatField({ saucePrice: inlineEditData.saucePrice || 0 })}
+                          sx={{ ml: 1, backgroundColor: '#ff9800', '&:hover': { backgroundColor: '#f57c00' } }}
+                        >
+                          Sauvegarder
+                        </Button>
+                      </Box>
+                    )}
+
+                    <TextField
+                      label="Ordre"
+                      size="small"
+                      value={inlineEditData.ordre || ""}
+                      onChange={(e) => setInlineEditData({ ...inlineEditData, ordre: e.target.value })}
+                      sx={{
+                        width: 100,
+                        '& .MuiOutlinedInput-root': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          '& fieldset': { borderColor: 'rgba(255, 152, 0, 0.2)' },
+                          '&:hover fieldset': { borderColor: 'rgba(255, 152, 0, 0.4)' },
+                          '&.Mui-focused fieldset': { borderColor: '#ff9800' },
+                        },
+                        '& .MuiInputBase-input': { color: 'white' },
+                        '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
+                      }}
+                    />
+
+                    <Tooltip title="Formater le texte (Première lettre en majuscule)">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          const formattedName = inlineEditData.nom.charAt(0).toUpperCase() + inlineEditData.nom.slice(1).toLowerCase();
+                          const formattedDescription = inlineEditData.description.charAt(0).toUpperCase() + inlineEditData.description.slice(1).toLowerCase();
+                          setInlineEditData({
+                            ...inlineEditData,
+                            nom: formattedName,
+                            description: formattedDescription
+                          });
+                        }}
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          '&:hover': {
+                            color: '#ff9800',
+                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                          },
+                        }}
+                      >
+                        <TextFormatIcon />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
                 </Box>
-              </Box>
-
-              {/* Action Buttons */}
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Tooltip title="Save">
-                  <IconButton
-                    size="small"
-                    color="success"
-                    onClick={handleInlineEditSave}
-                    disabled={loading}
-                  >
-                    <CheckIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Delete">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDeleteClick(currentPlat)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
               </Box>
             </Box>
 
@@ -698,65 +1177,222 @@ const AdminInspection = () => {
                 },
               }}
             >
-              <Tab label="Tags & Associations" id="tab-0" />
+              <Tab label="Composition" id="tab-0" />
               <Tab label="Versions" id="tab-1" />
-              <Tab label="Ingredients" id="tab-2" />
+              <Tab label="Tags & Associations" id="tab-2" />
             </Tabs>
 
             {/* Tab Content */}
             <Box sx={{ flex: 1, overflow: "auto" }}>
-              {/* TAB 0: Tags & Associations */}
+              {/* TAB 0: Composition */}
               <TabPanel value={tabIndex} index={0}>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  {/* Current Tags */}
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
-                      Tags attachés ({currentPlat.tags?.length || 0})
+                <Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
+                      Composition ({currentPlat.ingredients?.length || 0} ingrédients)
                     </Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
-                      {currentPlat.tags && currentPlat.tags.length > 0 ? (
-                        currentPlat.tags.map(tag => (
-                          <Chip
-                            key={tag.id}
-                            label={`${tag.emoji ? tag.emoji + " " : ""}${tag.nom}`}
-                            variant="filled"
-                            color="primary"
-                            size="small"
-                          />
-                        ))
-                      ) : (
-                        <Typography variant="caption" color="error">
-                          ⚠️ Aucun tag attribué
-                        </Typography>
-                      )}
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      variant="contained"
+                      onClick={() => {
+                        fetchAvailableIngredients();
+                        setAddIngredientDialogOpen(true);
+                      }}
+                      sx={{
+                        backgroundColor: "#ff9800",
+                        '&:hover': {
+                          backgroundColor: "#f57c00",
+                        },
+                      }}
+                    >
+                      Ajouter un ingrédient
+                    </Button>
+                  </Box>
+
+                  {currentPlat.ingredients && currentPlat.ingredients.length > 0 ? (
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 2 }}>
+                      {currentPlat.ingredients.map(ing => (
+                        <Card
+                          key={ing.ingredient?.id || ing.id}
+                          sx={{
+                            background: "linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02))",
+                            border: "1px solid rgba(255, 152, 0, 0.1)",
+                            borderRadius: 2,
+                            overflow: "hidden",
+                          }}
+                        >
+                          {/* Ingredient Image */}
+                          <Box sx={{ position: "relative", height: 60, backgroundColor: "#f5f5f5" }}>
+                            {ing.ingredient?.image ? (
+                              <CardMedia
+                                component="img"
+                                image={`${config.API_URL}/uploads/${ing.ingredient.image}`}
+                                alt={ing.ingredient.name}
+                                sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : (
+                              <Box
+                                sx={{
+                                  width: "100%",
+                                  height: "100%",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  backgroundColor: "rgba(255, 152, 0, 0.1)",
+                                  border: "2px dashed rgba(255, 152, 0, 0.3)",
+                                }}
+                              >
+                                <RestaurantIcon
+                                  sx={{
+                                    fontSize: 32,
+                                    color: "rgba(255, 152, 0, 0.5)",
+                                    opacity: 0.7,
+                                  }}
+                                />
+                              </Box>
+                            )}
+
+                            {/* Image Controls */}
+                            <Box sx={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 0.5 }}>
+                              <input
+                                type="file"
+                                style={{ display: 'none' }}
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file && ing.ingredient?.id) {
+                                    handleIngredientImageUpload(ing.ingredient.id, file);
+                                  }
+                                  e.target.value = null; // Reset input
+                                }}
+                                id={`ingredient-image-upload-${ing.ingredient?.id || ing.id}`}
+                              />
+                              <Tooltip title="Changer l'image">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => document.getElementById(`ingredient-image-upload-${ing.ingredient?.id || ing.id}`).click()}
+                                  sx={{
+                                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                                    color: "white",
+                                    '&:hover': {
+                                      backgroundColor: "rgba(0, 0, 0, 0.7)",
+                                    },
+                                  }}
+                                >
+                                  <PhotoIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              {ing.ingredient?.image && (
+                                <Tooltip title="Supprimer l'image">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => ing.ingredient?.id && handleIngredientImageRemove(ing.ingredient.id)}
+                                    sx={{
+                                      backgroundColor: "rgba(244, 67, 54, 0.8)",
+                                      color: "white",
+                                      '&:hover': {
+                                        backgroundColor: "rgba(244, 67, 54, 1)",
+                                      },
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
+                          </Box>
+
+                          {/* Ingredient Content */}
+                          <CardContent sx={{ p: 2 }}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={ing.ingredient?.name || ing.name || ""}
+                              onChange={(e) => {
+                                // Update local state for immediate UI feedback
+                                const updatedIngredients = currentPlat.ingredients.map(i =>
+                                  (i.ingredient?.id || i.id) === (ing.ingredient?.id || ing.id)
+                                    ? { ...i, ingredient: { ...i.ingredient, name: e.target.value } }
+                                    : i
+                                );
+                                setInlineEditData({ ...inlineEditData, ingredients: updatedIngredients });
+                              }}
+                              onBlur={(e) => {
+                                if (ing.ingredient?.id && e.target.value !== (ing.ingredient?.name || ing.name)) {
+                                  handleIngredientNameEdit(ing.ingredient.id, e.target.value);
+                                }
+                              }}
+                              sx={{
+                                mb: 1,
+                                '& .MuiOutlinedInput-root': {
+                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                  '& fieldset': { borderColor: 'rgba(255, 152, 0, 0.2)' },
+                                  '&:hover fieldset': { borderColor: 'rgba(255, 152, 0, 0.4)' },
+                                  '&.Mui-focused fieldset': { borderColor: '#ff9800' },
+                                },
+                                '& .MuiInputBase-input': { color: 'white' },
+                              }}
+                            />
+
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    size="small"
+                                    checked={ing.removable !== false}
+                                    onChange={(e) => {
+                                      if (currentPlat?.id && ing.ingredient?.id) {
+                                        handleToggleIngredientRemovable(currentPlat.id, ing.ingredient.id, e.target.checked);
+                                      }
+                                    }}
+                                    sx={{
+                                      '& .MuiSwitch-switchBase.Mui-checked': {
+                                        color: '#ff9800',
+                                      },
+                                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: '#ff9800',
+                                      },
+                                    }}
+                                  />
+                                }
+                                label="Retirable"
+                                sx={{ m: 0, '& .MuiFormControlLabel-label': { fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.7)' } }}
+                              />
+
+                              <Tooltip title="Retirer de ce plat">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    if (currentPlat?.id && ing.ingredient?.id) {
+                                      handleRemoveIngredientFromPlat(currentPlat.id, ing.ingredient.id);
+                                    }
+                                  }}
+                                  sx={{
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                    },
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </Box>
-                    <Button
-                      size="small"
-                      startIcon={<AddIcon />}
-                      variant="outlined"
-                    >
-                      Ajouter un tag
-                    </Button>
-                  </Box>
-
-                  <Divider />
-
-                  {/* Tag Associations (if applicable) */}
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
-                      Associations & Endpoints
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-                      Manage how this plat associates with tags (e.g., "is", "hasOn")
-                    </Typography>
-                    <Button
-                      size="small"
-                      startIcon={<AddIcon />}
-                      variant="outlined"
-                    >
-                      Ajouter une association
-                    </Button>
-                  </Box>
+                  ) : (
+                    <Box sx={{ textAlign: "center", py: 4 }}>
+                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                        Aucun ingrédient
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Cliquez sur "Ajouter un ingrédient" pour commencer
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </TabPanel>
 
@@ -821,66 +1457,58 @@ const AdminInspection = () => {
                 </Box>
               </TabPanel>
 
-              {/* TAB 2: Ingredients */}
+              {/* TAB 2: Tags & Associations */}
               <TabPanel value={tabIndex} index={2}>
-                <Box>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-                      Composition ({currentPlat.ingredients?.length || 0})
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {/* Current Tags */}
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                      Tags attachés ({currentPlat.tags?.length || 0})
+                    </Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                      {currentPlat.tags && currentPlat.tags.length > 0 ? (
+                        currentPlat.tags.map(tag => (
+                          <Chip
+                            key={tag.id}
+                            label={`${tag.emoji ? tag.emoji + " " : ""}${tag.nom}`}
+                            variant="filled"
+                            color="primary"
+                            size="small"
+                          />
+                        ))
+                      ) : (
+                        <Typography variant="caption" color="error">
+                          ⚠️ Aucun tag attribué
+                        </Typography>
+                      )}
+                    </Box>
+                    <Button
+                      size="small"
+                      startIcon={<AddIcon />}
+                      variant="outlined"
+                    >
+                      Ajouter un tag
+                    </Button>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Tag Associations (if applicable) */}
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                      Associations & Endpoints
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                      Manage how this plat associates with tags (e.g., "is", "hasOn")
                     </Typography>
                     <Button
                       size="small"
                       startIcon={<AddIcon />}
-                      variant="contained"
-                      color="primary"
+                      variant="outlined"
                     >
-                      Ajouter
+                      Ajouter une association
                     </Button>
                   </Box>
-
-                  {currentPlat.ingredients && currentPlat.ingredients.length > 0 ? (
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      {currentPlat.ingredients.map(ing => (
-                        <Paper
-                          key={ing.ingredient?.id || ing.id}
-                          sx={{
-                            p: 2,
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            backgroundColor: "#f9f9f9",
-                          }}
-                        >
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: "500" }}>
-                              {ing.ingredient?.name || ing.name}
-                            </Typography>
-                            <FormControlLabel
-                              control={<Switch size="small" defaultChecked={ing.removable} />}
-                              label="Removable"
-                              sx={{ m: 0 }}
-                            />
-                          </Box>
-                          <Box sx={{ display: "flex", gap: 1 }}>
-                            <Tooltip title="Edit">
-                              <IconButton size="small" color="primary">
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <IconButton size="small" color="error">
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </Paper>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      Aucun ingrédient
-                    </Typography>
-                  )}
                 </Box>
               </TabPanel>
             </Box>
@@ -1105,6 +1733,134 @@ const AdminInspection = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add Ingredient Dialog */}
+      <Dialog
+        open={addIngredientDialogOpen}
+        onClose={() => setAddIngredientDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 152, 0, 0.1)",
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: "#ffb74d", borderBottom: "1px solid rgba(255, 152, 0, 0.1)" }}>
+          ➕ Ajouter un ingrédient
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography sx={{ color: 'white', mb: 2 }}>
+            Sélectionnez un ingrédient à ajouter au plat <strong style={{ color: '#ffb74d' }}>{currentPlat?.nom || currentPlat?.name}</strong>
+          </Typography>
+          <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+            {availableIngredients.length > 0 ? (
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 2 }}>
+                {availableIngredients
+                  .filter(ing => !currentPlat?.ingredients?.some(existing => existing.ingredient?.id === ing.id))
+                  .sort((a, b) => ((a.nom || a.name || '').localeCompare(b.nom || b.name || '')))
+                  .map(ingredient => (
+                    <Card
+                      key={ingredient.id}
+                      sx={{
+                        background: "linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02))",
+                        border: "1px solid rgba(255, 152, 0, 0.1)",
+                        borderRadius: 2,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        '&:hover': {
+                          borderColor: '#ff9800',
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(255, 152, 0, 0.2)',
+                        },
+                      }}
+                      onClick={() => {
+                        if (currentPlat?.id) {
+                          handleAddIngredientToPlat(currentPlat.id, ingredient.id);
+                        }
+                      }}
+                    >
+                      <Box sx={{ position: "relative", height: 80, backgroundColor: "#f5f5f5" }}>
+                        {ingredient.image ? (
+                          <CardMedia
+                            component="img"
+                            image={`${config.API_URL}/uploads/${ingredient.image}`}
+                            alt={ingredient.nom || ingredient.name}
+                            sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              backgroundColor: "rgba(255, 152, 0, 0.1)",
+                              border: "2px dashed rgba(255, 152, 0, 0.3)",
+                            }}
+                          >
+                            <RestaurantIcon
+                              sx={{
+                                fontSize: 32,
+                                color: "rgba(255, 152, 0, 0.5)",
+                                opacity: 0.7,
+                              }}
+                            />
+                          </Box>
+                        )}
+                      </Box>
+                      <CardContent
+                        sx={{
+                          p: 1,
+                          textAlign: 'center',
+                          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                          borderRadius: '0 0 6px 6px',
+                          position: 'relative',
+                          zIndex: 2,
+                          minHeight: 34,
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#ff9800',
+                            fontWeight: '700',
+                            fontSize: '0.9rem',
+                            textShadow: '0 1px 0 rgba(0,0,0,0.6)',
+                            lineHeight: 1.1,
+                          }}
+                        >
+                          {ingredient.nom || ingredient.name}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </Box>
+            ) : (
+              <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 4 }}>
+                Chargement des ingrédients...
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{
+          p: 2,
+          borderTop: "1px solid rgba(255, 152, 0, 0.1)",
+          gap: 1
+        }}>
+          <Button
+            onClick={() => setAddIngredientDialogOpen(false)}
+            sx={{ color: 'text.secondary' }}
+          >
+            Fermer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* (confirmation dialog removed - deletion is immediate) */}
 
       {/* Alert Snackbar */}
       <Snackbar

@@ -2345,24 +2345,73 @@ const Menu = () => {
                               )
                             }
                             return (
-                              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 1 }}>
-                                <Box onClick={() => setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: null })} sx={{ p: 1, border: `1px solid ${!selectedSuggestedPlats[tagId] ? '#ff9800' : 'rgba(255,255,255,0.1)'}`, borderRadius: 1, cursor: 'pointer', backgroundColor: !selectedSuggestedPlats[tagId] ? 'rgba(255,152,0,0.1)' : 'transparent', minHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Typography variant="caption" sx={{ fontWeight: 600, textAlign: 'center', fontSize: '0.8rem' }}>Non, merci</Typography>
+                              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' }, gap: 0.75 }}>
+                                <Box
+                                  onClick={() => setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: null })}
+                                  sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    p: 0.75,
+                                    border: `2px solid ${!selectedSuggestedPlats[tagId] ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                    borderRadius: 1,
+                                    backgroundColor: !selectedSuggestedPlats[tagId] ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                  }}
+                                >
+                                  {/* Placeholder for image */}
+                                  <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                    <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                  </Box>
+                                  
+                                  {/* Name */}
+                                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                    Non, merci
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                    0.00€
+                                  </Typography>
                                 </Box>
                                 {proposedPlats.map(plat => {
                                   const isSelected = selectedSuggestedPlats[tagId] === plat.id
                                   const imgSrc = plat.image ? `${config.API_URL}${plat.image}` : null
                                   const price = (plat.basePrice ?? plat.price ?? 0)
                                   return (
-                                    <Box key={plat.id} onClick={() => setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: plat.id })} sx={{ p: 1, border: `1px solid ${isSelected ? '#ff9800' : 'rgba(255,255,255,0.1)'}`, borderRadius: 1, cursor: 'pointer', backgroundColor: isSelected ? 'rgba(255,152,0,0.1)' : 'transparent' }}>
-                                      {imgSrc && (
-                                        <Box sx={{ width: '100%', height: 80, mb: 0.75, borderRadius: 0.75, overflow: 'hidden', flexShrink: 0 }}>
+                                    <Box
+                                      key={plat.id}
+                                      onClick={() => setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: plat.id })}
+                                      sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        p: 0.75,
+                                        border: `2px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                        borderRadius: 1,
+                                        backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                      }}
+                                    >
+                                      {/* Image */}
+                                      {imgSrc ? (
+                                        <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, overflow: 'hidden', mb: 0.5, flexShrink: 0 }}>
                                           <img src={imgSrc} alt={plat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         </Box>
+                                      ) : (
+                                        <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                          <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                        </Box>
                                       )}
-                                      <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{plat.name}</Typography>
-                                      <Typography variant="body1" color="primary" sx={{ fontWeight: 600, mt: 0.5, fontSize: '0.9rem' }}>
-                                        {price > 0 ? `${price.toFixed(2)}€` : 'Prix à confirmer'}
+                                      
+                                      {/* Name and price */}
+                                      <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                        {plat.name}
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                        +{price > 0 ? price.toFixed(2) : '0.00'}€
                                       </Typography>
                                     </Box>
                                   )
@@ -2405,13 +2454,13 @@ const Menu = () => {
                                 {Object.entries(selectedSuggestedPlats).filter(([_, platId]) => platId).length > 0 && (
                                   <Box sx={{ p: 0.75, backgroundColor: 'rgba(76, 175, 80, 0.08)', borderRadius: 1, border: '1px solid rgba(76, 175, 80, 0.2)' }}>
                                     <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#4caf50', display: 'block', mb: 0.25 }}>
-                                      ✓ Propositions:
+                                      ✓ Articles suggérés (ajoutés séparément):
                                     </Typography>
                                     {Object.entries(selectedSuggestedPlats).filter(([_, platId]) => platId).map(([tagId, platId]) => {
                                       const plat = plats.find(p => p.id === platId)
                                       return (
                                         <Typography key={platId} variant="caption" sx={{ display: 'block', fontSize: '0.7rem', pl: 0.5 }}>
-                                          • {plat?.name} (+{plat?.basePrice?.toFixed(2) || '?'}€)
+                                          • {plat?.name}
                                         </Typography>
                                       )
                                     })}
@@ -2498,16 +2547,8 @@ const Menu = () => {
                         const allExtras = selectedPlat.tags?.flatMap(tag => tag.extras || []) || [];
                         const selectedExtrasDetails = selectedExtras.map(extraId => allExtras.find(e => e.id === extraId)).filter(Boolean);
                         const removedIngredientsDetails = selectedIngredients.map(ingredientId => selectedPlat.ingredients?.find(pi => pi.ingredient.id === ingredientId)?.ingredient).filter(Boolean);
-                        // Build suggested plats array (only those actually selected)
-                        const suggestedPlats = Object.entries(selectedSuggestedPlats)
-                          .filter(([tagId, platId]) => platId)
-                          .map(([tagId, platId]) => {
-                            const suggestedPlat = plats.find(p => p.id === platId)
-                            return {
-                              plat: suggestedPlat,
-                              tagId: Number(tagId)
-                            }
-                          });
+                        
+                        // Add the main plat to basket
                         addToBasket({
                           type: 'plat',
                           plat: selectedPlat,
@@ -2517,8 +2558,31 @@ const Menu = () => {
                           removedIngredients: removedIngredientsDetails,
                           quantity: quantity,
                           message: itemMessage.trim() || null,
-                          suggestedPlats: suggestedPlats.length > 0 ? suggestedPlats : null,
                         });
+                        
+                        // Add each suggested plat as a separate basket item
+                        Object.entries(selectedSuggestedPlats)
+                          .filter(([tagId, platId]) => platId)
+                          .forEach(([tagId, platId]) => {
+                            const suggestedPlat = plats.find(p => p.id === platId);
+                            if (suggestedPlat) {
+                              // Get the first available version for the suggested plat
+                              const versions = getVersionsWithDefault(suggestedPlat);
+                              const defaultVersion = versions.length > 0 ? versions[0] : null;
+                              
+                              addToBasket({
+                                type: 'plat',
+                                plat: suggestedPlat,
+                                version: defaultVersion,
+                                sauce: null,
+                                extras: [],
+                                removedIngredients: [],
+                                quantity: 1,
+                                message: null,
+                              });
+                            }
+                          });
+                        
                         setPlatVersionModalOpen(false);
                         setItemMessage("");
                       }}

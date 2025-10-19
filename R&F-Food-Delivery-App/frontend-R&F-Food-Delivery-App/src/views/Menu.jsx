@@ -1192,7 +1192,7 @@ const Menu = () => {
     }
     // Step 4: Proposed plats - one step per proposition tag configured for this plat
     (propositionTags || []).forEach(tag => {
-      steps.push({ key: `proposition-${tag.id}`, label: `Ajouter à votre ${tag.emoji || ''} ${tag.nom}`.trim() })
+      steps.push({ key: `proposition-${tag.id}`, label: `Ajouter ${tag.emoji || ''} ${tag.nom}`.trim() })
     })
     // Step 5: Extras: one step per tag that has extras on the main plat
     const extraTags = (selectedPlat.tags || []).filter(t => Array.isArray(t.extras) && t.extras.length > 0)
@@ -2388,157 +2388,160 @@ const Menu = () => {
                             return (
                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' }, gap: 0.75 }}>
-                                  <Box
-                                    onClick={() => {
-                                      setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: null })
-                                      const newQuantities = { ...suggestedPlatsQuantities }
-                                      delete newQuantities[tagId]
-                                      setSuggestedPlatsQuantities(newQuantities)
-                                      const newVersions = { ...selectedSuggestedVersions }
-                                      delete newVersions[tagId]
-                                      setSelectedSuggestedVersions(newVersions)
-                                      const newSauces = { ...selectedSuggestedSauces }
-                                      delete newSauces[tagId]
-                                      setSelectedSuggestedSauces(newSauces)
-                                    }}
-                                    sx={{
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      alignItems: 'center',
-                                      p: 0.75,
-                                      border: `2px solid ${!selectedPlatId ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
-                                      borderRadius: 1,
-                                      backgroundColor: !selectedPlatId ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                      '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
-                                    }}
-                                  >
-                                    {/* Placeholder for image */}
-                                    <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
-                                      <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                    <Box
+                                      onClick={() => {
+                                        setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: null })
+                                        const newQuantities = { ...suggestedPlatsQuantities }
+                                        delete newQuantities[tagId]
+                                        setSuggestedPlatsQuantities(newQuantities)
+                                        const newVersions = { ...selectedSuggestedVersions }
+                                        delete newVersions[tagId]
+                                        setSelectedSuggestedVersions(newVersions)
+                                        const newSauces = { ...selectedSuggestedSauces }
+                                        delete newSauces[tagId]
+                                        setSelectedSuggestedSauces(newSauces)
+                                      }}
+                                      sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        p: 0.75,
+                                        border: `2px solid ${!selectedPlatId ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                        borderRadius: 1,
+                                        backgroundColor: !selectedPlatId ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                      }}
+                                    >
+                                      {/* Placeholder for image */}
+                                      <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                        <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                      </Box>
+                                      
+                                      {/* Name */}
+                                      <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                        Non, merci
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                        0.00€
+                                      </Typography>
                                     </Box>
-                                    
-                                    {/* Name */}
-                                    <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
-                                      Non, merci
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
-                                      0.00€
-                                    </Typography>
                                   </Box>
                                   {proposedPlats.map(plat => {
                                     const isSelected = selectedPlatId === plat.id
                                     const imgSrc = plat.image ? `${config.API_URL}${plat.image}` : null
                                     const price = (plat.basePrice ?? plat.price ?? 0)
                                     return (
-                                      <Box
-                                        key={plat.id}
-                                        onClick={() => {
-                                          setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: plat.id })
-                                          setSuggestedPlatsQuantities({ ...suggestedPlatsQuantities, [tagId]: 1 })
-                                          // Set default version and sauce
-                                          const versions = getVersionsWithDefault(plat)
-                                          const defaultVersion = versions.length > 0 ? versions[0] : null
-                                          setSelectedSuggestedVersions({ ...selectedSuggestedVersions, [tagId]: defaultVersion?.id })
-                                          setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: null })
-                                        }}
-                                        sx={{
-                                          display: 'flex',
-                                          flexDirection: 'column',
-                                          alignItems: 'center',
-                                          p: 0.75,
-                                          border: `2px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
-                                          borderRadius: 1,
-                                          backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.2s ease',
-                                          '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
-                                        }}
-                                      >
-                                        {/* Image */}
-                                        {imgSrc ? (
-                                          <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, overflow: 'hidden', mb: 0.5, flexShrink: 0 }}>
-                                            <img src={imgSrc} alt={plat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                          </Box>
-                                        ) : (
-                                          <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
-                                            <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                      <Box key={plat.id} sx={{ display: 'flex', flexDirection: 'column' }}>
+                                        <Box
+                                          onClick={() => {
+                                            setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: plat.id })
+                                            setSuggestedPlatsQuantities({ ...suggestedPlatsQuantities, [tagId]: 1 })
+                                            // Set default version and sauce
+                                            const versions = getVersionsWithDefault(plat)
+                                            const defaultVersion = versions.length > 0 ? versions[0] : null
+                                            setSelectedSuggestedVersions({ ...selectedSuggestedVersions, [tagId]: defaultVersion?.id })
+                                            setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: null })
+                                          }}
+                                          sx={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            p: 0.75,
+                                            border: `2px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                            borderRadius: 1,
+                                            backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                          }}
+                                        >
+                                          {/* Image */}
+                                          {imgSrc ? (
+                                            <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, overflow: 'hidden', mb: 0.5, flexShrink: 0 }}>
+                                              <img src={imgSrc} alt={plat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </Box>
+                                          ) : (
+                                            <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                              <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                            </Box>
+                                          )}
+                                          
+                                          {/* Name and price */}
+                                          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                            {plat.name}
+                                          </Typography>
+                                          <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                            +{price > 0 ? price.toFixed(2) : '0.00'}€
+                                          </Typography>
+                                        </Box>
+                                        
+                                        {/* Customization for selected plat */}
+                                        {isSelected && (
+                                          <Box sx={{ mt: 1, p: 1, border: '1px solid rgba(255, 152, 0, 0.3)', borderRadius: 1, backgroundColor: 'rgba(255, 152, 0, 0.05)' }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, fontSize: '0.85rem' }}>
+                                              Personnaliser {plat.name}
+                                            </Typography>
+                                            
+                                            {/* Version selector */}
+                                            {plat.versions && plat.versions.length > 1 && (
+                                              <Box sx={{ mb: 1 }}>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
+                                                  Taille:
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                  {sortVersionsByPrice(plat.versions, plat.price).map(version => (
+                                                    <Button
+                                                      key={version.id}
+                                                      size="small"
+                                                      variant={selectedSuggestedVersions[tagId] === version.id ? "contained" : "outlined"}
+                                                      onClick={() => setSelectedSuggestedVersions({ ...selectedSuggestedVersions, [tagId]: version.id })}
+                                                      sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
+                                                    >
+                                                      {version.size} (+{version.extraPrice.toFixed(2)}€)
+                                                    </Button>
+                                                  ))}
+                                                </Box>
+                                              </Box>
+                                            )}
+                                            
+                                            {/* Sauce selector */}
+                                            {sauces.length > 0 && plat.IncludesSauce !== false && (
+                                              <Box>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
+                                                  Sauce:
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                  <Button
+                                                    size="small"
+                                                    variant={!selectedSuggestedSauces[tagId] ? "contained" : "outlined"}
+                                                    onClick={() => setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: null })}
+                                                    sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
+                                                  >
+                                                    Aucune
+                                                  </Button>
+                                                  {sauces.filter(s => s.available && s.price > 0).map(sauce => (
+                                                    <Button
+                                                      key={sauce.id}
+                                                      size="small"
+                                                      variant={selectedSuggestedSauces[tagId] === sauce.id ? "contained" : "outlined"}
+                                                      onClick={() => setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: sauce.id })}
+                                                      sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
+                                                    >
+                                                      {sauce.name} (+{sauce.price.toFixed(2)}€)
+                                                    </Button>
+                                                  ))}
+                                                </Box>
+                                              </Box>
+                                            )}
                                           </Box>
                                         )}
-                                        
-                                        {/* Name and price */}
-                                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
-                                          {plat.name}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
-                                          +{price > 0 ? price.toFixed(2) : '0.00'}€
-                                        </Typography>
                                       </Box>
                                     )
                                   })}
                                 </Box>
-                                
-                                {/* Customization for selected plat */}
-                                {selectedPlatForTag && (
-                                  <Box sx={{ mt: 1, p: 1, border: '1px solid rgba(255, 152, 0, 0.3)', borderRadius: 1, backgroundColor: 'rgba(255, 152, 0, 0.05)' }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, fontSize: '0.85rem' }}>
-                                      Personnaliser {selectedPlatForTag.name}
-                                    </Typography>
-                                    
-                                    {/* Version selector */}
-                                    {selectedPlatForTag.versions && selectedPlatForTag.versions.length > 1 && (
-                                      <Box sx={{ mb: 1 }}>
-                                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
-                                          Taille:
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                          {sortVersionsByPrice(selectedPlatForTag.versions, selectedPlatForTag.price).map(version => (
-                                            <Button
-                                              key={version.id}
-                                              size="small"
-                                              variant={selectedSuggestedVersions[tagId] === version.id ? "contained" : "outlined"}
-                                              onClick={() => setSelectedSuggestedVersions({ ...selectedSuggestedVersions, [tagId]: version.id })}
-                                              sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
-                                            >
-                                              {version.size} (+{version.extraPrice.toFixed(2)}€)
-                                            </Button>
-                                          ))}
-                                        </Box>
-                                      </Box>
-                                    )}
-                                    
-                                    {/* Sauce selector */}
-                                    {sauces.length > 0 && selectedPlatForTag.IncludesSauce !== false && (
-                                      <Box>
-                                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
-                                          Sauce:
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                          <Button
-                                            size="small"
-                                            variant={!selectedSuggestedSauces[tagId] ? "contained" : "outlined"}
-                                            onClick={() => setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: null })}
-                                            sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
-                                          >
-                                            Aucune
-                                          </Button>
-                                          {sauces.filter(s => s.available && s.price > 0).map(sauce => (
-                                            <Button
-                                              key={sauce.id}
-                                              size="small"
-                                              variant={selectedSuggestedSauces[tagId] === sauce.id ? "contained" : "outlined"}
-                                              onClick={() => setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: sauce.id })}
-                                              sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
-                                            >
-                                              {sauce.name} (+{sauce.price.toFixed(2)}€)
-                                            </Button>
-                                          ))}
-                                        </Box>
-                                      </Box>
-                                    )}
-                                  </Box>
-                                )}
                               </Box>
                             )
                           }

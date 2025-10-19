@@ -360,11 +360,11 @@ export default function AdminOrders() {
   // Format item details for display
   const formatItemDetails = (item) => {
     const details = []
-
+    // Show version/size once
     if (item.versionSize) {
       details.push(
         <Box key="version" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.info.main }}>
+          <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.info.main }}>
             📏 Taille: {item.versionSize}
           </Typography>
         </Box>
@@ -374,7 +374,7 @@ export default function AdminOrders() {
     if (item.sauce) {
       details.push(
         <Box key="sauce" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.secondary.main }}>
+          <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.secondary.main }}>
             🥄 Sauce: {item.sauce.name}
           </Typography>
         </Box>
@@ -384,7 +384,7 @@ export default function AdminOrders() {
     if (item.extra) {
       details.push(
         <Box key="extra" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.warning.main }}>
+          <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.warning.main }}>
             ➕ Extra: {item.extra.nom || item.extra.name}
           </Typography>
         </Box>
@@ -394,40 +394,94 @@ export default function AdminOrders() {
     if (item.platSauce) {
       details.push(
         <Box key="platSauce" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.secondary.main }}>
+          <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.secondary.main }}>
             🍯 Sauce plat: {item.platSauce.name}
           </Typography>
         </Box>
       )
     }
 
-    if (item.addedExtras && item.addedExtras.length > 0) {
-      const extras = item.addedExtras.map((e) => `${e.extra.nom || e.extra.name} (+€${e.price.toFixed(2)})`).join(", ")
-      details.push(
-        <Box key="added" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 600, color: theme.palette.success.main }}>
-            ➕ Extras ajoutés: {extras}
-          </Typography>
-        </Box>
-      )
-    }
+    // Always show plat's standard ingredients when available.
+    // Highlight removed ingredients in red (line-through) and added extras in green.
+    if (item.plat && Array.isArray(item.plat.ingredients) && item.plat.ingredients.length > 0) {
+      // build lookup sets for removed ingredients and added extras
+      const removedSet = new Set((item.removedIngredients || []).map((r) => r?.ingredient?.id || r?.id || r?.name))
+      const addedSet = new Set((item.addedExtras || []).map((a) => a?.extra?.id || a?.id || a?.extra?.name || a?.name))
 
-    if (item.removedIngredients && item.removedIngredients.length > 0) {
-      const removed = item.removedIngredients.map((r) => r.ingredient.name).join(", ")
       details.push(
-        <Box key="removed" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 600, color: theme.palette.error.main }}>
-            ❌ Sans: {removed}
+        <Box key="standardIngredients" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 600, color: theme.palette.text.primary }}>
+            🥘 Ingrédients:
           </Typography>
+          <Box sx={{ pl: 2, display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+            {item.plat.ingredients.map((pi, idx) => {
+              const ing = pi?.ingredient || pi
+              const idOrName = ing?.id || ing?.name
+              const isRemoved = removedSet.has(idOrName) || (item.removedIngredients || []).some(r => (r?.ingredient?.name || r?.name) === (ing?.name))
+              return (
+                <Typography
+                  key={`plat-ing-${idx}`}
+                  variant="body2"
+                  sx={{
+                    fontSize: "1.2rem",
+                    fontWeight: 500,
+                    color: isRemoved ? theme.palette.error.main : theme.palette.text.primary,
+                    textDecoration: isRemoved ? 'line-through' : 'none',
+                  }}
+                >
+                  {isRemoved ? '❌ ' : '• '}{ing?.name}
+                </Typography>
+              )
+            })}
+
+            {/* Show any removed ingredients that are not part of the standard list (extra removals) */}
+            {(item.removedIngredients || []).filter(r => {
+              const name = r?.ingredient?.name || r?.name
+              return !item.plat.ingredients.some(pi => (pi?.ingredient?.name || pi?.name) === name)
+            }).map((r, idx) => (
+              <Typography key={`removed-extra-${idx}`} variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.error.main, textDecoration: 'line-through' }}>
+                ❌ {r?.ingredient?.name || r?.name}
+              </Typography>
+            ))}
+
+            {/* Show added extras inline in green */}
+            {(item.addedExtras || []).map((added, idx) => (
+              <Typography key={`added-extra-${idx}`} variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.success.main }}>
+                ➕ {added?.extra?.nom || added?.extra?.name || added?.name} {added?.price != null ? `( +€${added.price.toFixed(2)})` : ''}
+              </Typography>
+            ))}
+          </Box>
         </Box>
       )
+    } else {
+      // If no plat standard ingredients, still show removed/added lists if present
+      if (item.removedIngredients && item.removedIngredients.length > 0) {
+        const removed = item.removedIngredients.map((r) => r.ingredient?.name || r.name).join(", ")
+        details.push(
+          <Box key="removed" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 600, color: theme.palette.error.main }}>
+              ❌ Sans: {removed}
+            </Typography>
+          </Box>
+        )
+      }
+      if (item.addedExtras && item.addedExtras.length > 0) {
+        const extras = item.addedExtras.map((e) => `${e.extra?.nom || e.extra?.name || e.name} (+€${e.price.toFixed(2)})`).join(", ")
+        details.push(
+          <Box key="added" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 600, color: theme.palette.success.main }}>
+              ➕ Extras ajoutés: {extras}
+            </Typography>
+          </Box>
+        )
+      }
     }
 
     // Add item message if it exists
     if (item.message && item.message.trim()) {
       details.push(
         <Box key="message" sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 500, color: theme.palette.info.main }}>
+          <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.info.main }}>
             💬 Message: {item.message}
           </Typography>
         </Box>
@@ -1642,114 +1696,250 @@ export default function AdminOrders() {
                 <Box sx={{ flex: 1, overflowY: "auto", pr: 1, minHeight: 0 }}>
                   {selectedOrder.items.map((item) => {
                     const itemDetails = formatItemDetails(item)
+                    const hasModifications = itemDetails.length > 0
+                    const hasAdded = item.addedExtras && item.addedExtras.length > 0
+                    const hasRemoved = item.removedIngredients && item.removedIngredients.length > 0
+                    const hasMessage = item.message && item.message.trim()
+
                     return (
                       <Paper
                         key={item.id}
                         sx={{
-                          p: 3,
-                          mb: 2,
-                          borderRadius: 3,
+                          p: 2,
+                          mb: 1.5,
+                          borderRadius: 2,
                           border: item.isReady ? `2px solid ${theme.palette.success.main}` : `2px solid ${theme.palette.warning.main}`,
-                          backgroundColor: item.isReady ? "rgba(76, 175, 80, 0.08)" : "rgba(255, 152, 0, 0.08)",
-                          transition: "all 0.3s ease",
+                          backgroundColor: item.isReady ? "rgba(76, 175, 80, 0.06)" : "rgba(255, 152, 0, 0.06)",
+                          transition: "all 0.2s ease",
                           width: "100%",
                           boxSizing: "border-box",
                           overflow: "hidden",
+                          cursor: "pointer",
+                          "&:hover": {
+                            transform: "translateY(-1px)",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                            backgroundColor: item.isReady ? "rgba(76, 175, 80, 0.08)" : "rgba(255, 152, 0, 0.08)",
+                          },
+                        }}
+                        onClick={(e) => {
+                          // Only toggle if clicking on the card itself, not on interactive elements
+                          if (e.target.type !== 'checkbox') {
+                            const checkbox = e.currentTarget.querySelector('input[type="checkbox"]')
+                            if (checkbox) {
+                              checkbox.click()
+                            }
+                          }
                         }}
                       >
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                          <FormControlLabel
-                            control={
-                              <input
-                                type="checkbox"
-                                checked={!!item.isReady}
-                                onChange={async (e) => {
-                                  const checked = e.target.checked
-                                  try {
-                                    const token = localStorage.getItem("authToken")
-                                    const res = await fetch(
-                                      `${config.API_URL}/admin/orders/${selectedOrder.id}/items/${item.id}/ready`,
-                                      {
-                                        method: "PUT",
-                                        headers: {
-                                          "Content-Type": "application/json",
-                                          Authorization: `Bearer ${token}`,
-                                        },
-                                        body: JSON.stringify({ isReady: checked }),
-                                      },
-                                    )
-                                    if (res.ok) {
-                                      setSelectedOrder((prev) => ({
-                                        ...prev,
-                                        items: prev.items.map((it) =>
-                                          it.id === item.id ? { ...it, isReady: checked } : it,
-                                        ),
-                                      }))
-                                      fetchOrders()
-                                    }
-                                  } catch (err) {
-                                    console.error("Error updating item ready:", err)
-                                  }
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          {/* Main content - takes most space */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            {/* Item header with quantity and name */}
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                              <Typography
+                                variant="h6"
+                                sx={{
+                                  fontWeight: 700,
+                                  fontSize: "1.5rem",
+                                  color: item.isReady ? theme.palette.success.main : theme.palette.text.primary,
+                                  textDecoration: item.isReady ? "line-through" : "none",
+                                  opacity: item.isReady ? 0.8 : 1,
                                 }}
-                                style={{
-                                  width: "24px",
-                                  height: "24px",
-                                  accentColor: theme.palette.success.main,
-                                }}
-                              />
-                            }
-                            label=""
-                            sx={{ mr: 0 }}
-                          />
-
-                          <Box sx={{ flex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                              >
                                 <Typography
                                   component="span"
                                   sx={{
                                     color: getStatusColor(selectedOrder.status),
-                                    fontSize: "1.3rem",
-                                    mr: 1,
+                                    fontSize: "1.2rem",
+                                    mr: 0.5,
+                                    fontWeight: 800,
                                   }}
                                 >
                                   {item.quantity}×
                                 </Typography>
                                 {item.plat ? item.plat.name : item.sauce.name}
                               </Typography>
-                              {shouldShowMissingImageIcon(item) && (
-                                <PhotoCameraIcon fontSize="small" sx={{ color: theme.palette.text.secondary, opacity: 0.7 }} />
+
+                              {/* Modification indicators */}
+                              {hasModifications && (
+                                <Box sx={{ display: "flex", gap: 0.5 }}>
+                                  {hasAdded && (
+                                    <Chip
+                                      label="+"
+                                      size="small"
+                                      sx={{
+                                        height: "18px",
+                                        fontSize: "0.7rem",
+                                        backgroundColor: theme.palette.success.main,
+                                        color: "white",
+                                        fontWeight: 700,
+                                      }}
+                                    />
+                                  )}
+                                  {hasRemoved && (
+                                    <Chip
+                                      label="−"
+                                      size="small"
+                                      sx={{
+                                        height: "18px",
+                                        fontSize: "0.7rem",
+                                        backgroundColor: theme.palette.error.main,
+                                        color: "white",
+                                        fontWeight: 700,
+                                      }}
+                                    />
+                                  )}
+                                  {hasMessage && (
+                                    <Chip
+                                      label="💬"
+                                      size="small"
+                                      sx={{
+                                        height: "18px",
+                                        fontSize: "0.7rem",
+                                        backgroundColor: theme.palette.info.main,
+                                        color: "white",
+                                        fontWeight: 700,
+                                      }}
+                                    />
+                                  )}
+                                </Box>
                               )}
+
+                              {shouldShowMissingImageIcon(item) && (
+                                <PhotoCameraIcon
+                                  sx={{
+                                    fontSize: "1rem",
+                                    color: theme.palette.text.secondary,
+                                    opacity: 0.6,
+                                  }}
+                                />
+                              )}
+
+                              {/* Checkbox aligned to the right */}
+                              <Box sx={{ ml: "auto", position: "relative" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!item.isReady}
+                                  onChange={async (e) => {
+                                    const checked = e.target.checked
+                                    try {
+                                      const token = localStorage.getItem("authToken")
+                                      const res = await fetch(
+                                        `${config.API_URL}/admin/orders/${selectedOrder.id}/items/${item.id}/ready`,
+                                        {
+                                          method: "PUT",
+                                          headers: {
+                                            "Content-Type": "application/json",
+                                            Authorization: `Bearer ${token}`,
+                                          },
+                                          body: JSON.stringify({ isReady: checked }),
+                                        },
+                                      )
+                                      if (res.ok) {
+                                        setSelectedOrder((prev) => ({
+                                          ...prev,
+                                          items: prev.items.map((it) =>
+                                            it.id === item.id ? { ...it, isReady: checked } : it,
+                                          ),
+                                        }))
+                                        fetchOrders()
+                                      }
+                                    } catch (err) {
+                                      console.error("Error updating item ready:", err)
+                                    }
+                                  }}
+                                  style={{
+                                    width: "32px",
+                                    height: "32px",
+                                    accentColor: theme.palette.success.main,
+                                    cursor: "pointer",
+                                  }}
+                                />
+                                {/* Status indicator overlay */}
+                                <Box
+                                  sx={{
+                                    position: "absolute",
+                                    top: "-4px",
+                                    right: "-4px",
+                                    width: "16px",
+                                    height: "16px",
+                                    borderRadius: "50%",
+                                    backgroundColor: item.isReady ? theme.palette.success.main : theme.palette.warning.main,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "10px",
+                                  }}
+                                >
+                                  {item.isReady ? "✓" : "⏳"}
+                                </Box>
+                              </Box>
                             </Box>
 
-                            {item.versionSize && (
-                              <Chip
-                                label={item.versionSize}
-                                size="small"
+                            {/* Compact modification preview */}
+                            {hasModifications && (
+                              <Typography
+                                variant="caption"
                                 sx={{
+                                  color: "text.secondary",
+                                  fontSize: "1.0rem",
+                                  fontStyle: "italic",
+                                  maxWidth: "300px",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
                                   mb: 1,
-                                  fontWeight: 600,
-                                  backgroundColor: "rgba(33, 150, 243, 0.2)",
-                                  color: "#2196f3",
-                                }}
-                              />
-                            )}
-
-                            {itemDetails.length > 0 && (
-                              <Box
-                                sx={{
-                                  mt: 1,
-                                  p: 2,
-                                  borderRadius: 2,
-                                  backgroundColor: "rgba(255, 152, 0, 0.08)",
-                                  border: "1px solid rgba(255, 152, 0, 0.15)",
                                 }}
                               >
-                                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: "text.secondary", fontSize: "0.8rem" }}>
-                                  📝 Détails de la commande:
+                                {hasAdded && `+${item.addedExtras.length} extra${item.addedExtras.length > 1 ? 's' : ''}`}
+                                {hasAdded && hasRemoved && " • "}
+                                {hasRemoved && `−${item.removedIngredients.length} ingrédient${item.removedIngredients.length > 1 ? 's' : ''}`}
+                                {(hasAdded || hasRemoved) && hasMessage && " • "}
+                                {hasMessage && "message"}
+                              </Typography>
+                            )}
+
+                            {/* Expandable details section */}
+                            {hasModifications && (
+                              <Box
+                                sx={{
+                                  mt: 1.5,
+                                  p: 1.5,
+                                  borderRadius: 1.5,
+                                  backgroundColor: "rgba(255, 152, 0, 0.05)",
+                                  border: `1px solid rgba(255, 152, 0, 0.2)`,
+                                  borderLeft: `3px solid ${theme.palette.warning.main}`,
+                                }}
+                              >
+          
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    fontWeight: 700,
+                                    mb: 0.5,
+                                    color: "text.secondary",
+                                    fontSize: "1.1rem",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                  }}
+                                >
+                                  Modifications
                                 </Typography>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                  {itemDetails}
+                                  {/* Make all modification details bigger and bold */}
+                                  {itemDetails.map((detail, index) => (
+                                    <Typography
+                                      key={index}
+                                      variant="body2"
+                                      sx={{
+                                        fontWeight: 700,
+                                        fontSize: "1.3rem",
+                                        color: "text.primary",
+                                      }}
+                                    >
+                                      {detail}
+                                    </Typography>
+                                  ))}
                                 </Box>
                               </Box>
                             )}

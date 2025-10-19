@@ -2041,9 +2041,11 @@ const Menu = () => {
                                   <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.85rem', display: 'block' }}>
                                     {version.size}
                                   </Typography>
-                                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                                    +{version.extraPrice.toFixed(2)}€
-                                  </Typography>
+                                  {version.extraPrice > 0 && (
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                                      +{version.extraPrice.toFixed(2)}€
+                                    </Typography>
+                                  )}
                                 </Box>
                               ))}
                             </Box>
@@ -2181,7 +2183,7 @@ const Menu = () => {
                                     0.00€
                                   </Typography>
                                 </Box>
-                                {sauces.filter(s => s.available && s.price > 0).map((sauce) => {
+                                {sauces.filter(s => s.available).map((sauce) => {
                                   const isSelected = selectedSauceForPlat && selectedSauceForPlat.id === sauce.id
                                   const imgSrc = sauce.image ? `${config.API_URL}${sauce.image}` : null
                                   return (
@@ -2216,9 +2218,11 @@ const Menu = () => {
                                       <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
                                         {sauce.name}
                                       </Typography>
-                                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
-                                        +{sauce.price.toFixed(2)}€
-                                      </Typography>
+                                      {sauce.price > 0 && (
+                                        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                          +{sauce.price.toFixed(2)}€
+                                        </Typography>
+                                      )}
                                     </Box>
                                   )
                                 })}
@@ -2267,15 +2271,15 @@ const Menu = () => {
                                           </Box>
                                         )}
                                         
-                                        {/* Name and price */}
-                                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
-                                          {extra.nom}
-                                        </Typography>
+                                      {/* Name and price */}
+                                      <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                        {extra.nom}
+                                      </Typography>
+                                      {extra.price > 0 && (
                                         <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
                                           +{extra.price.toFixed(2)}€
                                         </Typography>
-                                        
-                                        {/* Selection indicator */}
+                                      )}                                        {/* Selection indicator */}
                                         <Box sx={{ mt: 0.5 }}>
                                           {isSelected ? (
                                             <CheckCircleIcon sx={{ color: '#4caf50', fontSize: 20 }} />
@@ -2310,9 +2314,11 @@ const Menu = () => {
                                         {/* Name and price */}
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                           <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{extra.nom} {count > 0 && `(${count})`}</Typography>
-                                          <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#ff9800' }}>
-                                            +{extra.price.toFixed(2)}€
-                                          </Typography>
+                                          {extra.price > 0 && (
+                                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#ff9800' }}>
+                                              +{extra.price.toFixed(2)}€
+                                            </Typography>
+                                          )}
                                         </Box>
                                         
                                         {/* Quantity controls */}
@@ -2383,9 +2389,11 @@ const Menu = () => {
                                       <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
                                         {extra.nom}
                                       </Typography>
-                                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
-                                        +{extra.price.toFixed(2)}€
-                                      </Typography>
+                                      {extra.price > 0 && (
+                                        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                          +{extra.price.toFixed(2)}€
+                                        </Typography>
+                                      )}
                                     </Box>
                                   )
                                 })}
@@ -2406,64 +2414,54 @@ const Menu = () => {
                             }
                             const selectedPlatId = selectedSuggestedPlats[tagId]
                             const selectedPlatForTag = selectedPlatId ? proposedPlats.find(p => p.id === selectedPlatId) : null
+                            const hasPersonalization = selectedPlatForTag && (selectedPlatForTag.versions?.length > 1 || (sauces.length > 0 && selectedPlatForTag.IncludesSauce !== false))
                             return (
                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                 {/* Floating personalization above the selection zone */}
-                                {selectedPlatId && selectedPlatForTag && (
+                                {selectedPlatId && selectedPlatForTag && hasPersonalization && (
                                   <Box sx={{ p: 2, backgroundColor: 'rgba(255, 152, 0, 0.1)', borderRadius: 1, border: '1px solid rgba(255, 152, 0, 0.3)', position: 'relative', zIndex: 1 }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, fontSize: '0.85rem' }}>
                                       Personnaliser {selectedPlatForTag.name}
                                     </Typography>
                                     
-                                    {/* Version selector */}
+                                    {/* Version selector - dropdown, obligatory */}
                                     {selectedPlatForTag.versions && selectedPlatForTag.versions.length > 1 && (
                                       <Box sx={{ mb: 1 }}>
-                                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
-                                          Taille:
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                          {sortVersionsByPrice(selectedPlatForTag.versions, selectedPlatForTag.price).map(version => (
-                                            <Button
-                                              key={version.id}
-                                              size="small"
-                                              variant={selectedSuggestedVersions[tagId] === version.id ? "contained" : "outlined"}
-                                              onClick={() => setSelectedSuggestedVersions({ ...selectedSuggestedVersions, [tagId]: version.id })}
-                                              sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
-                                            >
-                                              {version.size} (+{version.extraPrice.toFixed(2)}€)
-                                            </Button>
-                                          ))}
-                                        </Box>
+                                        <FormControl fullWidth size="small">
+                                          <InputLabel>Taille</InputLabel>
+                                          <Select
+                                            value={selectedSuggestedVersions[tagId] || ''}
+                                            label="Taille"
+                                            onChange={(e) => setSelectedSuggestedVersions({ ...selectedSuggestedVersions, [tagId]: e.target.value })}
+                                          >
+                                            {sortVersionsByPrice(selectedPlatForTag.versions, selectedPlatForTag.price).map(version => (
+                                              <MenuItem key={version.id} value={version.id}>
+                                                {version.size}{version.extraPrice > 0 ? ` (+${version.extraPrice.toFixed(2)}€)` : ''}
+                                              </MenuItem>
+                                            ))}
+                                          </Select>
+                                        </FormControl>
                                       </Box>
                                     )}
                                     
-                                    {/* Sauce selector */}
+                                    {/* Sauce selector - dropdown, optional */}
                                     {sauces.length > 0 && selectedPlatForTag.IncludesSauce !== false && (
                                       <Box>
-                                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem', mb: 0.5, display: 'block' }}>
-                                          Sauce:
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                          <Button
-                                            size="small"
-                                            variant={!selectedSuggestedSauces[tagId] ? "contained" : "outlined"}
-                                            onClick={() => setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: null })}
-                                            sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
+                                        <FormControl fullWidth size="small">
+                                          <InputLabel>Sauce</InputLabel>
+                                          <Select
+                                            value={selectedSuggestedSauces[tagId] || ''}
+                                            label="Sauce"
+                                            onChange={(e) => setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: e.target.value || null })}
                                           >
-                                            Aucune
-                                          </Button>
-                                          {sauces.filter(s => s.available && s.price > 0).map(sauce => (
-                                            <Button
-                                              key={sauce.id}
-                                              size="small"
-                                              variant={selectedSuggestedSauces[tagId] === sauce.id ? "contained" : "outlined"}
-                                              onClick={() => setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: sauce.id })}
-                                              sx={{ fontSize: '0.7rem', py: 0.25, px: 0.75, minWidth: 'auto' }}
-                                            >
-                                              {sauce.name} (+{sauce.price.toFixed(2)}€)
-                                            </Button>
-                                          ))}
-                                        </Box>
+                                            <MenuItem value="">Aucune</MenuItem>
+                                            {sauces.filter(s => s.available).map(sauce => (
+                                              <MenuItem key={sauce.id} value={sauce.id}>
+                                                {sauce.name}{sauce.price > 0 ? ` (+${sauce.price.toFixed(2)}€)` : ''}
+                                              </MenuItem>
+                                            ))}
+                                          </Select>
+                                        </FormControl>
                                       </Box>
                                     )}
                                   </Box>
@@ -2518,11 +2516,15 @@ const Menu = () => {
                                       <Box key={plat.id} sx={{ display: 'flex', flexDirection: 'column' }}>
                                         <Box
                                           onClick={() => {
+                                            const platHasPersonalization = plat.versions?.length > 1 || (sauces.length > 0 && plat.IncludesSauce !== false)
+                                            if (platHasPersonalization) {
+                                              window.scrollTo(0, 0);
+                                            }
                                             setSelectedSuggestedPlats({ ...selectedSuggestedPlats, [tagId]: plat.id })
                                             setSuggestedPlatsQuantities({ ...suggestedPlatsQuantities, [tagId]: 1 })
-                                            // Set default version and sauce
+                                            // Set default cheapest version
                                             const versions = getVersionsWithDefault(plat)
-                                            const defaultVersion = versions.length > 0 ? versions[0] : null
+                                            const defaultVersion = versions.sort((a, b) => a.extraPrice - b.extraPrice)[0]
                                             setSelectedSuggestedVersions({ ...selectedSuggestedVersions, [tagId]: defaultVersion?.id })
                                             setSelectedSuggestedSauces({ ...selectedSuggestedSauces, [tagId]: null })
                                           }}
@@ -2531,9 +2533,9 @@ const Menu = () => {
                                             flexDirection: 'column',
                                             alignItems: 'center',
                                             p: 0.75,
-                                            border: `2px solid rgba(255, 255, 255, 0.2)`,
+                                            border: `2px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
                                             borderRadius: 1,
-                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                            backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
                                             cursor: 'pointer',
                                             transition: 'all 0.2s ease',
                                             '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
@@ -2651,21 +2653,21 @@ const Menu = () => {
                                         {/* Version */}
                                         {item.version && (
                                           <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                                            + Taille: {item.version.size} (+{item.version.extraPrice.toFixed(2)}€)
+                                            + Taille: {item.version.size}{item.version.extraPrice > 0 ? ` (+${item.version.extraPrice.toFixed(2)}€)` : ''}
                                           </Typography>
                                         )}
                                         
                                         {/* Sauce */}
                                         {item.sauce && (
                                           <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                                            + Sauce: {item.sauce.name} (+{item.sauce.price.toFixed(2)}€)
+                                            + Sauce: {item.sauce.name}{item.sauce.price > 0 ? ` (+${item.sauce.price.toFixed(2)}€)` : ''}
                                           </Typography>
                                         )}
                                         
                                         {/* Extras */}
                                         {item.extras.map(e => (
                                           <Typography key={e.id} variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                                            + Extra: {e.nom}{e.count > 1 ? ` (x${e.count})` : ''} (+{(e.price * e.count).toFixed(2)}€)
+                                            + Extra: {e.nom}{e.count > 1 ? ` (x${e.count})` : ''}{e.price > 0 ? ` (+${(e.price * e.count).toFixed(2)}€)` : ''}
                                           </Typography>
                                         ))}
                                         

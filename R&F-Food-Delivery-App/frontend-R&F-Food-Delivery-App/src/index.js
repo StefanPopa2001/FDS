@@ -21,6 +21,7 @@ import AdminOrders from './views/adminOrders';
 import OrderHistory from './views/orderHistory';
 import { AuthProvider } from './contexts/AuthContext';
 import { BasketProvider } from './contexts/BasketContext';
+import { AdminNavProvider } from './contexts/AdminNavContext';
 import { clientLogger } from './utils/clientLogger';
 
 // Example startup log
@@ -42,27 +43,23 @@ root.render(
   <React.StrictMode>
     <AuthProvider>
       <BasketProvider>
-        <Router>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Menu />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/sauces" element={<AdminSauce />} />
-              <Route path="/admin/plats" element={<AdminPlat />} />
-              <Route path="/admin/tags" element={<AdminTags />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/extras" element={<AdminExtra />} />
-              <Route path="/admin/orders" element={<AdminOrders />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/orders" element={<OrderHistory />} />
-              <Route path="/menu" element={<Menu />} />
-              <Route path="/borne" element={<MenuView />} />
-              <Route path="/caisse" element={<CashierView />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-            <Route path="/login" element={<Login />} />
-          </Routes>
-        </Router>
+        <AdminNavProvider>
+          <Router>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Menu />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/orders" element={<OrderHistory />} />
+                <Route path="/menu" element={<Menu />} />
+                <Route path="/borne" element={<MenuView />} />
+                <Route path="/caisse" element={<CashierView />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+              <Route path="/login" element={<Login />} />
+            </Routes>
+          </Router>
+        </AdminNavProvider>
       </BasketProvider>
     </AuthProvider>
   </React.StrictMode>

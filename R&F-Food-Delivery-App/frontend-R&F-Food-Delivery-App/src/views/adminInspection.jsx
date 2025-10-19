@@ -86,7 +86,7 @@ const AdminInspection = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [platToDelete, setPlatToDelete] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({ show: false, message: "", severity: "success" });
+  const [alert, setAlert] = useState({ show: false, message: "", severity: "success", image: null });
   const [inlineEditData, setInlineEditData] = useState({});
   const [ingredientImageUploads, setIngredientImageUploads] = useState({});
   const [availableIngredients, setAvailableIngredients] = useState([]);
@@ -107,8 +107,8 @@ const AdminInspection = () => {
   }, [tags]);
   const fileInputRef = useRef(null);
 
-  const showAlert = (message, severity = "success") => {
-    setAlert({ show: true, message, severity });
+  const showAlert = (message, severity = "success", image = null) => {
+    setAlert({ show: true, message, severity, image });
   };
 
   // Fetch plats and tags
@@ -314,8 +314,11 @@ const AdminInspection = () => {
           price: parseFloat(inlineEditData.price),
           saucePrice: parseFloat(inlineEditData.saucePrice || 0),
           ordre: inlineEditData.ordre,
+          // Preserve boolean flags explicitly; avoid sending versions to prevent side-effects
           available: currentPlat.available !== false,
-          versions: currentPlat.versions || []
+          availableForDelivery: currentPlat.availableForDelivery !== false,
+          speciality: currentPlat.speciality === true,
+          IncludesSauce: currentPlat.IncludesSauce === true || currentPlat.includesSauce === true
         }),
       });
 
@@ -339,20 +342,18 @@ const AdminInspection = () => {
     try {
       setLoading(true);
 
-      // Always include required fields from current plat data
+      // Send complete plat data to prevent any field resets
       const body = {
         name: currentPlat.nom || currentPlat.name,
         price: currentPlat.price || currentPlat.basePrice,
         description: currentPlat.description || '',
-        ordre: currentPlat.ordre || '',
+        ordre: currentPlat.ordre,
         available: currentPlat.available !== false,
         availableForDelivery: currentPlat.availableForDelivery !== false,
         speciality: currentPlat.speciality === true,
-        IncludesSauce: currentPlat.includesSauce !== false,
+        IncludesSauce: currentPlat.IncludesSauce === true || currentPlat.includesSauce === true,
         saucePrice: currentPlat.saucePrice || 0,
-        versions: currentPlat.versions || [],
-        tags: (currentPlat.tags || []).map(tag => tag.id || tag),
-        proposition: (associationFormData.proposition || []).map(id => parseInt(id))
+        tags: (currentPlat.tags || []).map(tag => tag.id)
       };
 
       // Apply the patch
@@ -405,7 +406,7 @@ const AdminInspection = () => {
         // Update the inline edit data and refresh plats
         setInlineEditData({ ...inlineEditData, image: data.image });
         fetchPlats();
-        showAlert("Image téléchargée avec succès");
+        showAlert("Image téléchargée avec succès", "success", `${config.API_URL}${data.image}`);
       } else {
         showAlert("Erreur lors du téléchargement de l'image", "error");
       }
@@ -482,8 +483,9 @@ const AdminInspection = () => {
       });
 
       if (response.ok) {
+        const data = await response.json();
         fetchPlats();
-        showAlert("Image de l'ingrédient ajoutée avec succès");
+        showAlert("Image de l'ingrédient ajoutée avec succès", "success", `${config.API_URL}/uploads/${data.image}`);
       } else {
         showAlert("Erreur lors de l'ajout de l'image", "error");
       }
@@ -632,10 +634,14 @@ const AdminInspection = () => {
         // Update existing version
         const index = versions.findIndex(v => v.id === editingVersion.id);
         if (index !== -1) {
-          versions[index] = { ...versions[index], size: versionFormData.size, extraPrice: parseFloat(versionFormData.extraPrice) };
+          versions[index] = { 
+            id: editingVersion.id,
+            size: versionFormData.size, 
+            extraPrice: parseFloat(versionFormData.extraPrice) 
+          };
         }
       } else {
-        // Add new version
+        // Add new version (no ID yet, will be created on server)
         versions.push({ size: versionFormData.size, extraPrice: parseFloat(versionFormData.extraPrice) });
       }
 
@@ -643,11 +649,13 @@ const AdminInspection = () => {
       const versionTags = {};
       (currentPlat.versions || []).forEach(v => {
         if (v.tags && v.tags.length > 0) {
-          versionTags[v.size] = v.tags.map(tag => tag.id);
+          // Use ID if available, otherwise use size
+          versionTags[v.id || v.size] = v.tags.map(tag => tag.id);
         }
       });
-      // Override with the current version's tags
-      versionTags[versionFormData.size] = versionFormData.tagIds;
+      // Override with the current version's tags (use ID if available)
+      const versionKey = editingVersion ? editingVersion.id : versionFormData.size;
+      versionTags[versionKey] = versionFormData.tagIds;
 
       const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}`, {
         method: 'PUT',
@@ -656,7 +664,14 @@ const AdminInspection = () => {
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
           description: currentPlat.description || '',
+          ordre: currentPlat.ordre,
+          // Explicitly preserve all relevant flags and tags when editing versions
+          availableForDelivery: currentPlat.availableForDelivery !== false,
           available: currentPlat.available !== false,
+          speciality: currentPlat.speciality === true,
+          IncludesSauce: currentPlat.IncludesSauce === true || currentPlat.includesSauce === true,
+          saucePrice: currentPlat.saucePrice || 0,
+          tags: (currentPlat.tags || []).map(tag => tag.id),
           versions: versions,
           versionTags: versionTags
         }),
@@ -684,11 +699,11 @@ const AdminInspection = () => {
       setLoading(true);
       const versions = (currentPlat.versions || []).filter(v => v.id !== versionId);
 
-      // Build versionTags for remaining versions
+      // Build versionTags for remaining versions, using IDs as keys
       const versionTags = {};
       versions.forEach(v => {
         if (v.tags && v.tags.length > 0) {
-          versionTags[v.size] = v.tags.map(tag => tag.id);
+          versionTags[v.id] = v.tags.map(tag => tag.id);
         }
       });
 
@@ -699,7 +714,13 @@ const AdminInspection = () => {
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
           description: currentPlat.description || '',
+          ordre: currentPlat.ordre || '',
+          availableForDelivery: currentPlat.availableForDelivery !== false,
           available: currentPlat.available !== false,
+          speciality: currentPlat.speciality === true,
+          IncludesSauce: currentPlat.IncludesSauce === true || currentPlat.includesSauce === true,
+          saucePrice: currentPlat.saucePrice || 0,
+          tags: (currentPlat.tags || []).map(tag => tag.id),
           versions: versions,
           versionTags: versionTags
         }),
@@ -731,8 +752,9 @@ const AdminInspection = () => {
       });
 
       if (response.ok) {
+        const data = await response.json();
         fetchPlats();
-        showAlert("Image de la version ajoutée avec succès");
+        showAlert("Image de la version ajoutée avec succès", "success", `${config.API_URL}${data.image}`);
       } else {
         showAlert("Erreur lors de l'ajout de l'image", "error");
       }
@@ -770,16 +792,24 @@ const AdminInspection = () => {
       setLoading(true);
 
       // Build versionTags object with all existing tags for other versions plus the updated tags for this version
+      // Use version IDs as keys to properly track versions even if their size changes
       const versionTags = {};
       (currentPlat.versions || []).forEach(v => {
         if (v.id === versionId) {
-          // Use the new tag IDs for this version
-          versionTags[versionSize] = tagIds;
+          // Use the new tag IDs for this version (keyed by ID)
+          versionTags[versionId] = tagIds;
         } else if (v.tags && v.tags.length > 0) {
-          // Keep existing tags for other versions
-          versionTags[v.size] = v.tags.map(tag => tag.id);
+          // Keep existing tags for other versions (keyed by ID)
+          versionTags[v.id] = v.tags.map(tag => tag.id);
         }
       });
+
+      // Also include version data with IDs for proper matching
+      const versionsWithIds = (currentPlat.versions || []).map(v => ({
+        id: v.id,
+        size: v.size,
+        extraPrice: v.extraPrice
+      }));
 
       const response = await fetch(`${config.API_URL}/plats/${platId}`, {
         method: 'PUT',
@@ -788,9 +818,16 @@ const AdminInspection = () => {
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
           description: currentPlat.description || '',
-          versions: currentPlat.versions,
-          versionTags: versionTags,
-          available: currentPlat.available !== false
+          ordre: currentPlat.ordre || '',
+          availableForDelivery: currentPlat.availableForDelivery !== false,
+          available: currentPlat.available !== false,
+          speciality: currentPlat.speciality === true,
+          IncludesSauce: currentPlat.IncludesSauce === true || currentPlat.includesSauce === true,
+          saucePrice: currentPlat.saucePrice || 0,
+          // Preserve current plat tags so they don't get cleared
+          tags: (currentPlat.tags || []).map(tag => tag.id),
+          versions: versionsWithIds,
+          versionTags: versionTags
         }),
       });
 
@@ -974,6 +1011,7 @@ const AdminInspection = () => {
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
           description: currentPlat.description || "",
+          ordre: currentPlat.ordre || '',
           available: currentPlat.available !== false,
           tags: newTagIds
         })
@@ -1732,7 +1770,7 @@ const AdminInspection = () => {
                                 component="img"
                                 image={`${config.API_URL}/uploads/${ing.ingredient.image}`}
                                 alt={ing.ingredient.name}
-                                sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                sx={{ width: "100%", height: "100%", objectFit: "fill" }}
                               />
                             ) : (
                               <Box
@@ -2014,7 +2052,7 @@ const AdminInspection = () => {
                                   +{version.extraPrice?.toFixed(2) || "0.00"}€
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.65rem" }}>
-                                  {(currentPlat.price || currentPlat.basePrice || 0) + (version.extraPrice || 0)}€
+                                  {((currentPlat.price || currentPlat.basePrice || 0) + (version.extraPrice || 0)).toFixed(2)}€
                                 </Typography>
                               </Box>
                             </Box>
@@ -2666,7 +2704,7 @@ const AdminInspection = () => {
                             component="img"
                             image={`${config.API_URL}/uploads/${ingredient.image}`}
                             alt={ingredient.nom || ingredient.name}
-                            sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            sx={{ width: "100%", height: "100%", objectFit: "fill" }}
                           />
                         ) : (
                           <Box
@@ -2918,15 +2956,31 @@ const AdminInspection = () => {
       <Snackbar
         open={alert.show}
         autoHideDuration={4000}
-        onClose={() => setAlert({ ...alert, show: false })}
+        onClose={() => setAlert({ show: false, message: "", severity: "success", image: null })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
-          onClose={() => setAlert({ ...alert, show: false })}
+          onClose={() => setAlert({ show: false, message: "", severity: "success", image: null })}
           severity={alert.severity}
           sx={{ width: '100%' }}
         >
-          {alert.message}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {alert.image && (
+              <Box
+                component="img"
+                src={alert.image}
+                alt="Preview"
+                sx={{
+                  width: 40,
+                  height: 40,
+                  objectFit: 'cover',
+                  borderRadius: 1,
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}
+              />
+            )}
+            {alert.message}
+          </Box>
         </Alert>
       </Snackbar>
         </Box>

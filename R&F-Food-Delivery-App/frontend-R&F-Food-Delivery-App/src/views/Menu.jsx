@@ -526,14 +526,16 @@ const Menu = () => {
   const handlePlatClick = useCallback((plat) => {
     if (!plat || !plat.available) return
     setSelectedPlat(plat)
-    // Preselect version by active tag if available; otherwise if single version, select it
+    // Always preselect the first version or a version matching the active tag
+    const versions = getVersionsWithDefault(plat)
     let initialVersion = null
-    if (selectedTagFilter !== "all" && Array.isArray(plat.versions)) {
+    if (selectedTagFilter !== "all" && Array.isArray(versions)) {
       const tagId = Number(selectedTagFilter)
-      initialVersion = plat.versions.find(v => Array.isArray(v.tags) && v.tags.some(t => t.id === tagId)) || null
+      initialVersion = versions.find(v => Array.isArray(v.tags) && v.tags.some(t => t.id === tagId)) || null
     }
-    if (!initialVersion && plat.versions && plat.versions.length === 1) {
-      initialVersion = plat.versions[0]
+    // If no tag-matched version, select the first version (always, even if only one)
+    if (!initialVersion && versions.length > 0) {
+      initialVersion = versions[0]
     }
     setSelectedVersion(initialVersion)
     setSelectedSauceForPlat(null)
@@ -556,6 +558,19 @@ const Menu = () => {
   const handleSauceSelect = (sauceId) => {
     const sauce = sauces.find(s => s.id === sauceId);
     setSelectedSauceForPlat(sauce || null);
+  }
+
+  // Helper function to get versions with a default "Standard" if none exist
+  const getVersionsWithDefault = (plat) => {
+    if (plat.versions && plat.versions.length > 0) {
+      return plat.versions;
+    }
+    // Return a default "Standard" version if no versions exist
+    return [{
+      id: 'standard',
+      size: 'Standard',
+      extraPrice: 0,
+    }];
   }
 
   // Build version image list for the selected plat
@@ -1126,10 +1141,8 @@ const Menu = () => {
   const stepDescriptors = useMemo(() => {
     if (!selectedPlat) return []
     const steps = []
-    // Step 1: Version/Size selection (only if multiple versions exist)
-    if (selectedPlat.versions && selectedPlat.versions.length > 1) {
-      steps.push({ key: 'version', label: 'Taille' })
-    }
+    // Step 1: Version/Size selection (always shown, even if single version)
+    steps.push({ key: 'version', label: 'Taille' })
     // Step 2: Ingredients (composition) - skip if empty
     if (selectedPlat.ingredients && selectedPlat.ingredients.length > 0) {
       steps.push({ key: 'ingredients', label: 'Composition' })
@@ -1949,38 +1962,42 @@ const Menu = () => {
                       </Box>
 
                       {/* Size/Version selector grid - SORTED BY PRICE */}
-                      {selectedPlat.versions && selectedPlat.versions.length > 0 && (
-                        <Box>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.75, fontSize: '0.9rem' }}>
-                            Taille
-                          </Typography>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 0.75 }}>
-                            {sortVersionsByPrice(selectedPlat.versions, selectedPlat.price).map(version => (
-                              <Box
-                                key={version.id}
-                                onClick={() => handleVersionSelect(version)}
-                                sx={{
-                                  p: 1,
-                                  border: `2px solid ${selectedVersion?.id === version.id ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
-                                  borderRadius: 1,
-                                  cursor: 'pointer',
-                                  backgroundColor: selectedVersion?.id === version.id ? 'rgba(255, 152, 0, 0.2)' : 'transparent',
-                                  textAlign: 'center',
-                                  transition: 'all 0.2s ease',
-                                  '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
-                                }}
-                              >
-                                <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.85rem', display: 'block' }}>
-                                  {version.size}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                                  +{version.extraPrice.toFixed(2)}€
-                                </Typography>
-                              </Box>
-                            ))}
+                      {(() => {
+                        const versions = getVersionsWithDefault(selectedPlat);
+                        return versions && versions.length > 0 && (
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.75, fontSize: '0.9rem' }}>
+                              Version
+                            </Typography>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 0.75 }}>
+                              {sortVersionsByPrice(versions, selectedPlat.price).map(version => (
+                                <Box
+                                  key={version.id}
+                                  onClick={() => handleVersionSelect(version)}
+                                  sx={{
+                                    p: 1,
+                                    border: `2px solid ${selectedVersion?.id === version.id ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                    borderRadius: 1,
+                                    cursor: 'pointer',
+                                    backgroundColor: selectedVersion?.id === version.id ? 'rgba(255, 152, 0, 0.2)' : 'transparent',
+                                    textAlign: 'center',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                  }}
+                                >
+                                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.85rem', display: 'block' }}>
+                                    {version.size}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                                    +{version.extraPrice.toFixed(2)}€
+                                  </Typography>
+                                </Box>
+                              ))}
+                            </Box>
                           </Box>
-                        </Box>
-                      )}
+                        );
+                      })()}
+
                     </Box>
                   )}
 
@@ -2349,14 +2366,14 @@ const Menu = () => {
                   </Button>
                   {/* Right: Suivant or Ajouter button */}
                   {activeStep < Math.max(0, stepDescriptors.length - 1) ? (
-                    <Button onClick={handleNextStep} variant="contained" sx={{ fontSize: '0.85rem', py: 0.75 }} disabled={(selectedPlat?.versions?.length > 1) && !selectedVersion}>
+                    <Button onClick={handleNextStep} variant="contained" sx={{ fontSize: '0.85rem', py: 0.75 }} disabled={!selectedVersion}>
                       Suivant →
                     </Button>
                   ) : (
                     <Button
                       onClick={() => {
                         if (isOrderingDisabled()) return;
-                        if (selectedPlat.versions && selectedPlat.versions.length > 1 && !selectedVersion) {
+                        if (!selectedVersion) {
                           return; // require version selection
                         }
                         const allExtras = selectedPlat.tags?.flatMap(tag => tag.extras || []) || [];
@@ -2387,7 +2404,7 @@ const Menu = () => {
                         setItemMessage("");
                       }}
                       variant="contained"
-                      disabled={(selectedPlat.versions && selectedPlat.versions.length > 1 && !selectedVersion) || isOrderingDisabled()}
+                      disabled={!selectedVersion || isOrderingDisabled()}
                       sx={{ fontSize: '0.85rem', py: 0.75, background: 'linear-gradient(45deg, #ff9800 30%, #ffb74d 90%)', '&:hover': { background: 'linear-gradient(45deg, #f57c00 30%, #ff9800 90%)' }, fontWeight: 600 }}
                     >
                       Ajouter

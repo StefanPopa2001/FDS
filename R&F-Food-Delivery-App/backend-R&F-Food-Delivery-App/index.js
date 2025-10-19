@@ -2948,6 +2948,26 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
     versionTags // Optional mapping { [size]: [tagIds] }
   } = req.body;
   try {
+    // Diagnostic logging to detect unintended field resets from clients
+    try {
+      logger.info('PUT /plats/:id incoming', {
+        platId: parseInt(id),
+        bodyKeys: Object.keys(req.body || {}),
+        flags: {
+          available: req.body?.available,
+          availableForDelivery: req.body?.availableForDelivery,
+          speciality: req.body?.speciality,
+          IncludesSauce: req.body?.IncludesSauce
+        },
+        has: {
+          versions: Object.prototype.hasOwnProperty.call(req.body || {}, 'versions'),
+          tags: Object.prototype.hasOwnProperty.call(req.body || {}, 'tags'),
+          versionTags: Object.prototype.hasOwnProperty.call(req.body || {}, 'versionTags')
+        }
+      });
+    } catch (e) {
+      // avoid crashing route due to logging errors
+    }
     // Validate required fields
     if (!name || price === undefined || !description) {
       // Delete the uploaded file if it exists
@@ -3027,32 +3047,82 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
     // Update plat using transaction to handle versions (preserve existing to keep images)
     const updatedPlat = await prisma.$transaction(async (tx) => {
       // Update main plat fields first
+      // Build update data but only include optional boolean fields if they're present
+      const updateData = {
+        name,
+        price: parseFloat(price),
+        description,
+        image: imageUrl
+      };
+
+      // Only set these fields if they were provided in the incoming request. This prevents
+      // accidental overwrites when clients omit boolean flags.
+      if (Object.prototype.hasOwnProperty.call(req.body, 'availableForDelivery')) {
+        updateData.availableForDelivery = (availableForDelivery === 'true' || availableForDelivery === true);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'available')) {
+        updateData.available = (available === 'true' || available === true);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'speciality')) {
+        updateData.speciality = (speciality === 'true' || speciality === true);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'IncludesSauce')) {
+        updateData.IncludesSauce = (IncludesSauce === 'true' || IncludesSauce === true);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'saucePrice')) {
+        updateData.saucePrice = saucePrice ? parseFloat(saucePrice) : 0.0;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'ordre')) {
+        updateData.ordre = ordre || null; // Allow null for ordre
+      }
+      if (Array.isArray(parsedTags) && parsedTags.length > 0) {
+        updateData.tags = { set: parsedTags };
+      } else if (Object.prototype.hasOwnProperty.call(req.body, 'tags')) {
+        // If tags were provided but empty, clear existing tags
+        updateData.tags = { set: parsedTags };
+      }
+
+      try {
+        logger.info('PUT /plats/:id computed updateData', {
+          platId: parseInt(id),
+          updateKeys: Object.keys(updateData),
+          flags: {
+            available: updateData.available,
+            availableForDelivery: updateData.availableForDelivery,
+            speciality: updateData.speciality,
+            IncludesSauce: updateData.IncludesSauce
+          }
+        });
+      } catch (e) {}
+
       const platUpdated = await tx.plat.update({
         where: { id: parseInt(id) },
-        data: {
-          name,
-          price: parseFloat(price),
-          description,
-          ordre: ordre || "",
-          image: imageUrl,
-          availableForDelivery: availableForDelivery === 'true' || availableForDelivery === true,
-          available: available === 'true' || available === true,
-          speciality: speciality === 'true' || speciality === true,
-          IncludesSauce: IncludesSauce === 'true' || IncludesSauce === true,
-          saucePrice: saucePrice ? parseFloat(saucePrice) : 0.0,
-          tags: {
-            set: parsedTags // This replaces all existing tag connections
-          }
-        }
+        data: updateData
       });
 
       // Sync versions: delete removed, update existing, create new
       const existingVersions = await tx.platVersion.findMany({ where: { platId: platUpdated.id } });
-      const incomingSizes = (parsedVersions || []).map(v => v.size);
+      
+      // Only delete versions that have explicit delete markers (if provided), otherwise preserve all
+      // This prevents accidental deletion when version names are changed
+      let toDeleteIds = [];
+      if (Array.isArray(parsedVersions)) {
+        // Check if any version explicitly marked for deletion (e.g., has a deleteFlag)
+        // Otherwise, match by ID to update existing versions
+        const incomingIds = (parsedVersions || []).filter(v => v.id).map(v => v.id);
+        const explicitlyDeleted = (parsedVersions || []).filter(v => v.deleteFlag === true).map(v => v.id);
+        
+        if (explicitlyDeleted.length > 0) {
+          toDeleteIds = explicitlyDeleted;
+        } else if (incomingIds.length > 0) {
+          // If IDs are provided, only delete those explicitly in delete list
+          toDeleteIds = existingVersions.filter(ev => !incomingIds.includes(ev.id)).map(v => v.id);
+        }
+        // If no IDs provided, don't delete anything (safer fallback)
+      }
 
-  // Delete versions not present anymore (and remove their images from FS)
-      const toDelete = existingVersions.filter(v => !incomingSizes.includes(v.size));
-      const toDeleteIds = toDelete.map(v => v.id);
+      // Delete only marked/unmatched versions and remove their images from FS
+      const toDelete = existingVersions.filter(v => toDeleteIds.includes(v.id));
       for (const v of toDelete) {
         if (v.image && v.image.startsWith('/uploads/')) {
           const oldPath = path.join(__dirname, 'public', v.image);
@@ -3065,15 +3135,31 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
         await tx.platVersion.deleteMany({ where: { id: { in: toDeleteIds } } });
       }
 
-      // Upsert remaining/new versions by size
+      // Upsert remaining/new versions: match by ID first, then by size
       for (const v of (parsedVersions || [])) {
-        const match = existingVersions.find(ev => ev.size === v.size);
+        let match = null;
+        
+        // First try to match by ID if provided
+        if (v.id) {
+          match = existingVersions.find(ev => ev.id === v.id);
+        }
+        // Fallback: match by size for backward compatibility
+        if (!match && v.size) {
+          match = existingVersions.find(ev => ev.size === v.size);
+        }
+        
         if (match) {
+          // Update existing version, preserving tags and image if not changed
           await tx.platVersion.update({
             where: { id: match.id },
-            data: { extraPrice: parseFloat(v.extraPrice || 0) }
+            data: { 
+              size: v.size,
+              extraPrice: parseFloat(v.extraPrice || 0)
+              // Don't touch image or tags here - they're managed separately
+            }
           });
         } else {
+          // Create new version only if it doesn't exist
           await tx.platVersion.create({
             data: {
               platId: platUpdated.id,
@@ -3094,7 +3180,8 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
         }
         const updatedVersions = await tx.platVersion.findMany({ where: { platId: platUpdated.id } });
         for (const v of updatedVersions) {
-          const vTags = parsedVersionTags[v.size];
+          // Try to find tags by ID first, then fall back to size
+          let vTags = parsedVersionTags[v.id] || parsedVersionTags[v.size];
           if (Array.isArray(vTags)) {
             await tx.platVersion.update({
               where: { id: v.id },
@@ -3102,6 +3189,12 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
             });
           }
         }
+        try {
+          logger.info('PUT /plats/:id applied versionTags', {
+            platId: parseInt(id),
+            keys: Object.keys(parsedVersionTags || {})
+          });
+        } catch (e) {}
       }
 
       // Return plat with relations

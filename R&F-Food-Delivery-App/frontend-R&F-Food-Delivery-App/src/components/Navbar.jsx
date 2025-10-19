@@ -28,9 +28,10 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Receipt as ReceiptIcon,
 } from "@mui/icons-material"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import Basket from './Basket'
 import NotificationCenter from './NotificationCenter'
+import AdminBar from './AdminBar'
 import { useAuth } from '../contexts/AuthContext'
 import { useBasket } from '../contexts/BasketContext'
 
@@ -135,6 +136,7 @@ const Navbar = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Use real authentication
   const { user, isLoggedIn, isAdmin, getUserInitials, logout: authLogout, loading } = useAuth()
@@ -258,7 +260,7 @@ const Navbar = () => {
       <AppBar
         position="sticky"
         sx={{
-          mb: 2,
+          mb: (isLoggedIn && isAdmin()) ? 0 : 2,
           background: "linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))",
           backdropFilter: "blur(20px)",
           border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -266,7 +268,7 @@ const Navbar = () => {
         }}
       >
         <Container maxWidth="xl">
-          <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 70 } }}>
+          <Toolbar disableGutters sx={{ minHeight: (isLoggedIn && isAdmin()) ? { xs: 56, md: 60 } : { xs: 64, md: 70 } }}>
             {/* Logo and Title - left aligned */}
             <Box
               component="img"
@@ -428,6 +430,8 @@ const Navbar = () => {
           </Toolbar>
         </Container>
       </AppBar>
+      {/* AdminBar: show for admin users below the main navbar */}
+      {isLoggedIn && isAdmin() && <AdminBar />}
     </ThemeProvider>
   )
 }

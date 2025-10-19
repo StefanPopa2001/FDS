@@ -470,11 +470,12 @@ export default function AdminPlat() {
       formData.append("IncludesSauce", field === "IncludesSauce" ? value : plat.IncludesSauce)
       formData.append("saucePrice", plat.saucePrice || "0")
       formData.append("versions", JSON.stringify(plat.versions || []))
-      // Include versionTags mapping from current plat versions
+      // Include versionTags mapping from current plat versions (keyed by id when available)
       const versionTags = {}
       ;(plat.versions || []).forEach(v => {
-        const t = (v.tags && v.tags[0]) ? v.tags[0].id : null
-        versionTags[v.size] = t ? [t] : []
+        const key = v.id || v.size
+        const tagsArray = (v.tags && v.tags.length > 0) ? v.tags.map(tag => tag.id) : (v.tagId ? [v.tagId] : [])
+        versionTags[key] = tagsArray
       })
       formData.append("versionTags", JSON.stringify(versionTags))
       formData.append("keepExistingImage", "true")
@@ -520,11 +521,12 @@ export default function AdminPlat() {
       formData.append("IncludesSauce", newPlat.IncludesSauce)
       formData.append("saucePrice", newPlat.saucePrice || "0")
       formData.append("versions", JSON.stringify(newPlat.versions))
-      // Build versionTags mapping keyed by size -> [tagIds]
+      // Build versionTags mapping keyed by version id when available, otherwise size -> [tagIds]
       const versionTags = {}
       ;(newPlat.versions || []).forEach(v => {
+        const key = v.id || v.size
         const tagId = v.tagId != null ? parseInt(v.tagId) : null
-        versionTags[v.size] = tagId ? [tagId] : []
+        versionTags[key] = tagId ? [tagId] : []
       })
       formData.append("versionTags", JSON.stringify(versionTags))
       formData.append("tags", JSON.stringify(newPlat.selectedTags))
@@ -740,10 +742,21 @@ export default function AdminPlat() {
         formData.append("keepExistingImage", "true")
       }
 
-      // For now, we'll keep existing versions - could be enhanced later
+      // For now, we'll keep existing versions - include ids so backend can match safely
       const originalPlat = plats.find(p => p.id === id)
       if (originalPlat && originalPlat.versions) {
-        formData.append("versions", JSON.stringify(originalPlat.versions))
+        // Ensure we send versions with ids where available
+        const versionsWithIds = originalPlat.versions.map(v => ({ id: v.id, size: v.size, extraPrice: v.extraPrice }))
+        formData.append("versions", JSON.stringify(versionsWithIds))
+
+        // Include versionTags keyed by id when possible to avoid accidental overwrites
+        const versionTags = {}
+        originalPlat.versions.forEach(v => {
+          const key = v.id || v.size
+          const tagsArray = (v.tags && v.tags.length > 0) ? v.tags.map(tag => tag.id) : []
+          versionTags[key] = tagsArray
+        })
+        formData.append("versionTags", JSON.stringify(versionTags))
       }
       
       // Include tags if present in the original plat

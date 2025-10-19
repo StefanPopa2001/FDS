@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAdminNav } from '../contexts/AdminNavContext'
 import {
   Box,
   Typography,
@@ -192,7 +194,9 @@ const darkTheme = createTheme({
 })
 
 const AdminDashboard = () => {
-  const [activeView, setActiveView] = useState("dashboard")
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { activeView, setActiveView } = useAdminNav()
   const [helpOpen, setHelpOpen] = useState(false)
 
   const theme = useTheme()
@@ -264,60 +268,6 @@ const AdminDashboard = () => {
   const handleTabChange = (event, newValue) => {
     setActiveView(newValue)
   }
-
-  const renderTopNavigation = () => (
-    <Box
-      sx={{
-        borderBottom: 1,
-        borderColor: "divider",
-        bgcolor: "background.paper",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        mb: { xs: 2, md: 3 },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Tabs
-          value={activeView}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            flex: 1,
-            minHeight: { xs: 48, md: 56 },
-            "& .MuiTab-root": {
-              minHeight: { xs: 48, md: 56 },
-              fontSize: { xs: "0.875rem", md: "1rem" },
-            },
-          }}
-        >
-          {menuItems.map((item) => (
-            <Tab
-              key={item.id}
-              value={item.id}
-              icon={React.cloneElement(item.icon, {
-                sx: { fontSize: { xs: 20, md: 24 } },
-              })}
-              label={item.label}
-              iconPosition="start"
-              sx={{
-                textTransform: "none",
-                fontWeight: 500,
-                gap: { xs: 0.5, md: 1 },
-                px: { xs: 1, md: 2 },
-              }}
-            />
-          ))}
-        </Tabs>
-        <Tooltip title="Aide">
-          <IconButton color="primary" onClick={() => setHelpOpen(true)} aria-label="ouvrir l'aide" sx={{ mr: 1 }}>
-            <HelpIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
-    </Box>
-  )
 
   const renderDashboardOverview = () => (
     <Fade in={true} timeout={500}>
@@ -515,7 +465,7 @@ const AdminDashboard = () => {
         }}
       >
         {/* Top Navigation for all screen sizes */}
-        {renderTopNavigation()}
+        {/* Removed: now handled by AdminBar */}
 
         {/* Main content */}
         <Box

@@ -1838,6 +1838,8 @@ const Menu = () => {
                 border: "1px solid rgba(255, 152, 0, 0.2)",
                 display: 'flex',
                 flexDirection: 'column',
+                height: { xs: 'auto', md: '80vh' },
+                maxHeight: { xs: 'none', md: '80vh' },
               },
             }}
           >
@@ -2090,24 +2092,73 @@ const Menu = () => {
                           }
                           if (step === 'sauce') {
                             return (
-                              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 0.75 }}>
-                                <Box onClick={() => setSelectedSauceForPlat(null)} sx={{ display: 'flex', flexDirection: 'column', p: 0.75, border: `1px solid ${!selectedSauceForPlat ? '#ff9800' : 'rgba(255, 255, 255, 0.1)'}`, borderRadius: 1, cursor: 'pointer', backgroundColor: !selectedSauceForPlat ? 'rgba(255, 152, 0, 0.1)' : 'transparent', minHeight: '70px', justifyContent: 'center' }}>
-                                  <Typography variant="caption" sx={{ fontWeight: 600, textAlign: 'center', fontSize: '0.8rem' }}>Aucune</Typography>
+                              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' }, gap: 0.75 }}>
+                                <Box
+                                  onClick={() => setSelectedSauceForPlat(null)}
+                                  sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    p: 0.75,
+                                    border: `2px solid ${!selectedSauceForPlat ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                    borderRadius: 1,
+                                    backgroundColor: !selectedSauceForPlat ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                  }}
+                                >
+                                  {/* Placeholder for image */}
+                                  <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                    <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                  </Box>
+                                  
+                                  {/* Name */}
+                                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                    Aucune
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                    0.00€
+                                  </Typography>
                                 </Box>
                                 {sauces.filter(s => s.available && s.price > 0).map((sauce) => {
                                   const isSelected = selectedSauceForPlat && selectedSauceForPlat.id === sauce.id
                                   const imgSrc = sauce.image ? `${config.API_URL}${sauce.image}` : null
                                   return (
-                                    <Box key={sauce.id} onClick={() => setSelectedSauceForPlat(sauce)} sx={{ display: 'flex', flexDirection: 'column', p: 0.75, border: `1px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.1)'}`, borderRadius: 1, cursor: 'pointer', backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.1)' : 'transparent', minHeight: '100px' }}>
-                                      <Box sx={{ width: '100%', height: '50px', mb: 0.5, borderRadius: 0.5, overflow: 'hidden', flexShrink: 0 }}>
-                                        {imgSrc ? (
-                                          <LazyImage src={imgSrc} alt={sauce.name} reduceMotion={isMobile} sizes={isMobile ? '(max-width: 600px) 50vw' : '(min-width: 600px) 220px'} onError={() => setImageErrors(prev => ({ ...prev, [`sauce-${sauce.id}`]: true }))} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                          <PlaceholderImage sx={{ height: '100%', borderRadius: 0.5 }} />
-                                        )}
-                                      </Box>
-                                      <Typography variant="caption" sx={{ fontWeight: 600, textAlign: 'center', fontSize: '0.75rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sauce.name}</Typography>
-                                      <Typography variant="caption" sx={{ fontWeight: 600, textAlign: 'center', fontSize: '0.7rem', color: '#ff9800' }}>+{sauce.price.toFixed(2)}€</Typography>
+                                    <Box
+                                      key={sauce.id}
+                                      onClick={() => setSelectedSauceForPlat(sauce)}
+                                      sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        p: 0.75,
+                                        border: `2px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                        borderRadius: 1,
+                                        backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                      }}
+                                    >
+                                      {/* Image */}
+                                      {imgSrc ? (
+                                        <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, overflow: 'hidden', mb: 0.5, flexShrink: 0 }}>
+                                          <img src={imgSrc} alt={sauce.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </Box>
+                                      ) : (
+                                        <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                          <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                        </Box>
+                                      )}
+                                      
+                                      {/* Name and price */}
+                                      <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                        {sauce.name}
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                        +{sauce.price.toFixed(2)}€
+                                      </Typography>
                                     </Box>
                                   )
                                 })}
@@ -2120,24 +2171,58 @@ const Menu = () => {
                             if (!tag) return null
                             if (tag.choixUnique) {
                               return (
-                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 1 }}>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' }, gap: 0.75 }}>
                                   {tag.extras.map(extra => {
                                     const isSelected = selectedExtras.includes(extra.id)
                                     const imgSrc = extra.image ? `${config.API_URL}${extra.image}` : null
                                     return (
-                                      <Box key={extra.id} onClick={() => {
-                                        const tagExtraIds = tag.extras.map(e => e.id)
-                                        const other = selectedExtras.filter(eid => !tagExtraIds.includes(eid))
-                                        setSelectedExtras([...other, extra.id])
-                                      }} sx={{ p: 1, border: `1px solid ${isSelected ? '#ff9800' : 'rgba(255,255,255,0.1)'}`, borderRadius: 1, cursor: 'pointer', backgroundColor: isSelected ? 'rgba(255,152,0,0.1)' : 'transparent' }}>
-                                        {imgSrc && (
-                                          <Box sx={{ width: '100%', height: 80, mb: 0.75, borderRadius: 0.75, overflow: 'hidden', flexShrink: 0 }}>
+                                      <Box
+                                        key={extra.id}
+                                        onClick={() => {
+                                          const tagExtraIds = tag.extras.map(e => e.id)
+                                          const other = selectedExtras.filter(eid => !tagExtraIds.includes(eid))
+                                          setSelectedExtras([...other, extra.id])
+                                        }}
+                                        sx={{
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          p: 0.75,
+                                          border: `2px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                          borderRadius: 1,
+                                          backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s ease',
+                                          '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                        }}
+                                      >
+                                        {/* Image */}
+                                        {imgSrc ? (
+                                          <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, overflow: 'hidden', mb: 0.5, flexShrink: 0 }}>
                                             <img src={imgSrc} alt={extra.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                           </Box>
+                                        ) : (
+                                          <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                            <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                          </Box>
                                         )}
-                                        <Typography variant="body1" sx={{ fontWeight: 600 }}>{extra.nom}</Typography>
-                                        {extra.description && (<Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>{extra.description}</Typography>)}
-                                        <Typography variant="body1" color="primary" sx={{ fontWeight: 600, mt: 0.5 }}>+{extra.price.toFixed(2)}€</Typography>
+                                        
+                                        {/* Name and price */}
+                                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                          {extra.nom}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                          +{extra.price.toFixed(2)}€
+                                        </Typography>
+                                        
+                                        {/* Selection indicator */}
+                                        <Box sx={{ mt: 0.5 }}>
+                                          {isSelected ? (
+                                            <CheckCircleIcon sx={{ color: '#4caf50', fontSize: 20 }} />
+                                          ) : (
+                                            <Box sx={{ width: 20, height: 20, border: '2px solid rgba(255, 152, 0, 0.5)', borderRadius: '50%' }} />
+                                          )}
+                                        </Box>
                                       </Box>
                                     )
                                   })}
@@ -2145,23 +2230,33 @@ const Menu = () => {
                               )
                             } else if (tag.doublonsAutorises) {
                               return (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                                   {tag.extras.map(extra => {
                                     const count = selectedExtras.filter(id => id === extra.id).length
                                     const imgSrc = extra.image ? `${config.API_URL}${extra.image}` : null
                                     return (
-                                      <Box key={extra.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 1, backgroundColor: count > 0 ? 'rgba(255,152,0,0.1)' : 'transparent', gap: 1 }}>
-                                        {imgSrc && (
-                                          <Box sx={{ width: 50, height: 50, borderRadius: 0.5, overflow: 'hidden', flexShrink: 0 }}>
+                                      <Box key={extra.id} sx={{ display: 'flex', alignItems: 'center', p: 0.75, border: `2px solid ${count > 0 ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`, borderRadius: 1, backgroundColor: count > 0 ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)', gap: 1 }}>
+                                        {/* Image */}
+                                        <Box sx={{ width: 60, height: 60, borderRadius: 1, overflow: 'hidden', flexShrink: 0 }}>
+                                          {imgSrc ? (
                                             <img src={imgSrc} alt={extra.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                          </Box>
-                                        )}
-                                        <Box sx={{ flex: 1, pr: 1 }}>
-                                          <Typography variant="body1" sx={{ fontWeight: 600 }}>{extra.nom} {count > 0 && `(${count})`}</Typography>
-                                          {extra.description && (<Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>{extra.description}</Typography>)}
+                                          ) : (
+                                            <Box sx={{ width: '100%', height: '100%', backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                              <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 24 }} />
+                                            </Box>
+                                          )}
                                         </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                          <Typography variant="body1" color="primary" sx={{ fontWeight: 600 }}>+{extra.price.toFixed(2)}€</Typography>
+                                        
+                                        {/* Name and price */}
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{extra.nom} {count > 0 && `(${count})`}</Typography>
+                                          <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#ff9800' }}>
+                                            +{extra.price.toFixed(2)}€
+                                          </Typography>
+                                        </Box>
+                                        
+                                        {/* Quantity controls */}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                           <IconButton size="small" onClick={() => {
                                             const idx = selectedExtras.lastIndexOf(extra.id)
                                             if (idx >= 0) {
@@ -2169,12 +2264,12 @@ const Menu = () => {
                                               copy.splice(idx, 1)
                                               setSelectedExtras(copy)
                                             }
-                                          }} disabled={count === 0} sx={{ color: '#ff9800' }}>
-                                            <RemoveIcon />
+                                          }} disabled={count === 0} sx={{ color: '#ff9800', p: 0.25 }}>
+                                            <RemoveIcon sx={{ fontSize: 16 }} />
                                           </IconButton>
-                                          <Typography variant="body2" sx={{ minWidth: 20, textAlign: 'center' }}>{count}</Typography>
-                                          <IconButton size="small" onClick={() => setSelectedExtras([...selectedExtras, extra.id])} sx={{ color: '#ff9800' }}>
-                                            <AddIcon />
+                                          <Typography variant="body2" sx={{ minWidth: 20, textAlign: 'center', fontWeight: 600, fontSize: '0.8rem' }}>{count}</Typography>
+                                          <IconButton size="small" onClick={() => setSelectedExtras([...selectedExtras, extra.id])} sx={{ color: '#ff9800', p: 0.25 }}>
+                                            <AddIcon sx={{ fontSize: 16 }} />
                                           </IconButton>
                                         </Box>
                                       </Box>
@@ -2185,27 +2280,52 @@ const Menu = () => {
                             }
                             // Multiple selection without duplicates
                             return (
-                              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 1 }}>
+                              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' }, gap: 0.75 }}>
                                 {tag.extras.map(extra => {
                                   const isSelected = selectedExtras.includes(extra.id)
                                   const imgSrc = extra.image ? `${config.API_URL}${extra.image}` : null
                                   return (
-                                    <Box key={extra.id} onClick={() => {
-                                      const tagExtraIds = tag.extras.map(e => e.id)
-                                      if (isSelected) {
-                                        setSelectedExtras(selectedExtras.filter(id => id !== extra.id))
-                                      } else {
-                                        setSelectedExtras([...selectedExtras, extra.id])
-                                      }
-                                    }} sx={{ p: 1, border: `1px solid ${isSelected ? '#ff9800' : 'rgba(255,255,255,0.1)'}`, borderRadius: 1, cursor: 'pointer', backgroundColor: isSelected ? 'rgba(255,152,0,0.1)' : 'transparent' }}>
-                                      {imgSrc && (
-                                        <Box sx={{ width: '100%', height: 80, mb: 0.75, borderRadius: 0.75, overflow: 'hidden', flexShrink: 0 }}>
+                                    <Box
+                                      key={extra.id}
+                                      onClick={() => {
+                                        const tagExtraIds = tag.extras.map(e => e.id)
+                                        if (isSelected) {
+                                          setSelectedExtras(selectedExtras.filter(id => id !== extra.id))
+                                        } else {
+                                          setSelectedExtras([...selectedExtras, extra.id])
+                                        }
+                                      }}
+                                      sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        p: 0.75,
+                                        border: `2px solid ${isSelected ? '#ff9800' : 'rgba(255, 255, 255, 0.2)'}`,
+                                        borderRadius: 1,
+                                        backgroundColor: isSelected ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': { borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' }
+                                      }}
+                                    >
+                                      {/* Image */}
+                                      {imgSrc ? (
+                                        <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, overflow: 'hidden', mb: 0.5, flexShrink: 0 }}>
                                           <img src={imgSrc} alt={extra.nom} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         </Box>
+                                      ) : (
+                                        <Box sx={{ width: '100%', aspectRatio: '1', borderRadius: 0.75, backgroundColor: 'rgba(255, 152, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, flexShrink: 0 }}>
+                                          <RestaurantIcon sx={{ color: 'rgba(255, 152, 0, 0.5)', fontSize: 32 }} />
+                                        </Box>
                                       )}
-                                      <Typography variant="body1" sx={{ fontWeight: 600 }}>{extra.nom}</Typography>
-                                      {extra.description && (<Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>{extra.description}</Typography>)}
-                                      <Typography variant="body1" color="primary" sx={{ fontWeight: 600, mt: 0.5 }}>+{extra.price.toFixed(2)}€</Typography>
+                                      
+                                      {/* Name and price */}
+                                      <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
+                                        {extra.nom}
+                                      </Typography>
+                                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
+                                        +{extra.price.toFixed(2)}€
+                                      </Typography>
                                     </Box>
                                   )
                                 })}
@@ -2241,7 +2361,6 @@ const Menu = () => {
                                         </Box>
                                       )}
                                       <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{plat.name}</Typography>
-                                      {plat.description && (<Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem', mt: 0.25 }}>{plat.description}</Typography>)}
                                       <Typography variant="body1" color="primary" sx={{ fontWeight: 600, mt: 0.5, fontSize: '0.9rem' }}>
                                         {price > 0 ? `${price.toFixed(2)}€` : 'Prix à confirmer'}
                                       </Typography>

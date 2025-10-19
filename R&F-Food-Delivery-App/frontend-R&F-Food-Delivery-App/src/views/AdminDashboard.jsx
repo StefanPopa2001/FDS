@@ -472,7 +472,7 @@ const AdminDashboard = () => {
           component="main"
           sx={{
             flexGrow: 1,
-            p: { xs: 2, md: 4 },
+            p: activeView === "orders" ? { xs: 1, md: 2 } : { xs: 2, md: 4 },
             width: "100%",
           }}
         >

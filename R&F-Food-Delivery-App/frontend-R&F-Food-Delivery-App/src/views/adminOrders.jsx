@@ -30,6 +30,8 @@ import {
   Drawer,
   useTheme,
   useMediaQuery,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material"
 import { alpha } from "@mui/material/styles"
 import {
@@ -38,6 +40,7 @@ import {
   AccessTime as TimeIcon,
   Check as CheckIcon,
   LocalShipping as LocalShippingIcon,
+  TakeoutDining as TakeoutDiningIcon,
   Done as DoneIcon,
   Cancel as CancelIcon,
   Schedule as ScheduleIcon,
@@ -94,6 +97,8 @@ export default function AdminOrders() {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatOrderId, setChatOrderId] = useState(null)
   const [modalTab, setModalTab] = useState(0)
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState("")
 
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
@@ -684,7 +689,7 @@ export default function AdminOrders() {
       <Card
         sx={{
           mb: 2,
-          borderRadius: 3,
+          borderRadius: 0,
           position: "relative",
           border: `2px solid ${statusBorderColor}`,
           boxShadow: isNew ? "0 0 15px rgba(245, 124, 0, 0.4)" : "0 2px 8px rgba(0, 0, 0, 0.2)",
@@ -702,43 +707,33 @@ export default function AdminOrders() {
             boxShadow: isNew ? "0 0 20px rgba(245, 124, 0, 0.5)" : "0 4px 12px rgba(0, 0, 0, 0.3)",
           },
         }}
-        onClick={() => handleOrderSelect(order)}
       >
-        {isNew && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: -6,
-              right: -6,
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              backgroundColor: "#f57c00",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontWeight: "bold",
-              fontSize: "10px",
-              zIndex: 2,
-              animation: "pulse 2s infinite",
-              "@keyframes pulse": {
-                "0%": { transform: "scale(1)" },
-                "50%": { transform: "scale(1.1)" },
-                "100%": { transform: "scale(1)" },
-              },
-            }}
-          >
-            !
-          </Box>
-        )}
+  <CardContent sx={{ p: 2, pt: 0, flex: 1, display: "flex", flexDirection: "column" }}>
+          {/* Compact Header */}
+          <Box sx={{ mb: 0.5, pb: 0, borderBottom: `1px solid ${theme.palette.divider}` }}>
+            <Box
+              sx={{
+                backgroundColor: "black",
+                color: "white",
+                py: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                fontWeight: 900,
+                mb: 0,
+                mx: -2,
+                borderRadius: 0,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 900, color: "white", fontSize: "1.1rem", px: 2, lineHeight: 1.2 }}>
+                #{order.id}
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "white", fontSize: "1rem", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.2 }}>
+                • {order.user?.name || "Client"}
+              </Typography>
+            </Box>
 
-        <CardContent sx={{ p: 2, flex: 1, display: "flex", flexDirection: "column" }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 900, color: statusColor, fontSize: "1.25rem" }}>
-              #{order.id}
-            </Typography>
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}
+            <Box sx={{ display: "flex", justifyContent: "center", mx: -2 }}
                  onClick={(e) => e.stopPropagation()}>
               <Select
                 value={order.status}
@@ -750,11 +745,12 @@ export default function AdminOrders() {
                   backgroundColor: statusColor,
                   color: theme.palette.getContrastText(statusColor),
                   fontWeight: 700,
-                  height: 34,
-                  width: "160px",
-                  borderRadius: 2,
-                  "& .MuiSelect-select": { 
-                    padding: "6px 26px 6px 10px",
+                  height: 36,
+                  width: "100%",
+                  borderRadius: 0,
+                  fontSize: "0.9rem",
+                  "& .MuiSelect-select": {
+                    padding: "6px 20px 6px 12px",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis"
@@ -762,64 +758,69 @@ export default function AdminOrders() {
                 }}
               >
                 {statusOptions.map((opt) => (
-                  <MenuItem 
-                    key={opt.value} 
+                  <MenuItem
+                    key={opt.value}
                     value={opt.value}
                     sx={{
                       whiteSpace: "nowrap",
                       minWidth: "160px",
-                      fontSize: "0.875rem"
+                      fontSize: "0.9rem"
                     }}
                   >
                     {opt.label}
                   </MenuItem>
                 ))}
               </Select>
-              {(order.status === 5 || order.status === 6 || order.status === 7) && (
-                <IconButton
-                  size="small"
-                  sx={{ ml: 1 }}
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    // Toggle archived state for this order
-                    await toggleOrderArchived(order.id, !order.archived)
-                  }}
-                  title={order.archived ? 'Désarchiver' : 'Archiver'}
-                >
-                  <ArchiveIcon color={order.archived ? 'disabled' : 'action'} />
-                </IconButton>
-              )}
             </Box>
           </Box>
 
-          <Box sx={{ mb: 1 }}>
-            <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500, fontSize: "0.8rem" }}>
-              {order.takeoutTime ? format(new Date(order.takeoutTime), "HH:mm") : "ASAP"} • {order.OrderType === "takeout" ? "À emporter" : "Livraison"}
-            </Typography>
-          </Box>
-
+          {/* Order Details */}
           <Box sx={{ mb: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 900, mb: 0.5, fontSize: "1.3rem" }}>
-              {order.user?.name || "Client"}
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              {formatPrice(order.totalPrice)} • {order.items.reduce((total, item) => total + item.quantity, 0)} articles
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500, fontSize: "0.85rem" }}>
+                {order.takeoutTime ? format(new Date(order.takeoutTime), "HH:mm") : "ASAP"}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {order.OrderType === "takeout" ? <TakeoutDiningIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} /> : <LocalShippingIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />}
+                <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500, fontSize: "0.85rem" }}>
+                  {order.OrderType === "takeout" ? "À emporter" : "Livraison"}
+                </Typography>
+              </Box>
+            </Box>
           </Box>
-
-          {/* Items list - show all and make scrollable with larger area */}
           <Box 
             sx={{ 
-              mb: 2, 
-              height: "140px", 
+              flex: 1,
               overflow: "hidden",
               display: "flex",
               flexDirection: "column"
             }}
+            onClick={() => handleOrderSelect(order)}
           >
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: "text.secondary", fontSize: "0.95rem" }}>
-              Articles:
+              {readyItems}/{totalItems} articles ({formatPrice(order.totalPrice)}) :
             </Typography>
+
+            <Box
+              sx={{
+                width: "100%",
+                height: 4,
+                backgroundColor: theme.palette.action.disabledBackground,
+                borderRadius: 2,
+                overflow: "hidden",
+                mb: 1,
+              }}
+            >
+              <Box
+                sx={{
+                  width: `${(readyItems / totalItems) * 100}%`,
+                  height: "100%",
+                  backgroundColor: allItemsReady ? theme.palette.success.main : theme.palette.warning.main,
+                  transition: "width 0.3s ease",
+                }}
+              />
+            </Box>
+
             <Box sx={{ overflowY: "auto", flex: 1, pr: 1 }}>
               {order.items.map((item) => {
                 const hasAdded = item.addedExtras && item.addedExtras.length > 0
@@ -853,66 +854,86 @@ export default function AdminOrders() {
                 )
               })}
             </Box>
+
           </Box>
 
-          <Box sx={{ mt: "auto" }}>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Articles prêts:
-              </Typography>
-              <Chip
-                label={`${readyItems}/${totalItems}`}
-                size="small"
-                sx={{
-                  backgroundColor: allItemsReady ? theme.palette.success.main : theme.palette.warning.main,
-                  color: theme.palette.getContrastText(allItemsReady ? theme.palette.success.main : theme.palette.warning.main),
-                  fontWeight: 600,
-                }}
-              />
-            </Box>
-
-            <Box
-              sx={{
-                width: "100%",
-                height: 6,
-                  backgroundColor: theme.palette.action.disabledBackground,
-                borderRadius: 3,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  width: `${(readyItems / totalItems) * 100}%`,
-                  height: "100%",
-                    backgroundColor: allItemsReady ? theme.palette.success.main : theme.palette.warning.main,
-                  transition: "width 0.3s ease",
-                }}
-              />
-            </Box>
-          </Box>
-
-          {hasModifications && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: 8,
-                left: 8,
-                backgroundColor: theme.palette.error.main,
-                color: theme.palette.getContrastText(theme.palette.error.main),
-                borderRadius: "50%",
-                width: 24,
-                height: 24,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "12px",
-                fontWeight: "bold",
-              }}
-            >
-              ⚠
-            </Box>
-          )}
         </CardContent>
+
+        {/* Footer with action buttons */}
+        <Box
+          sx={{
+            borderTop: `1px solid ${theme.palette.divider}`,
+            p: 2,
+            backgroundColor: theme.palette.background.default,
+            display: "flex",
+            gap: 1,
+          }}
+        >
+          <Button
+            variant="outlined"
+            startIcon={<PhoneIcon />}
+            size="small"
+            sx={{ borderRadius: 2, flex: 1, fontSize: "0.75rem", py: 0.5 }}
+            disabled={!order.user?.phone}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (isMobile) {
+                // On mobile, use tel: href
+                window.location.href = `tel:${order.user?.phone}`
+              } else {
+                // On desktop, show modal
+                setPhoneNumber(order.user?.phone || "")
+                setPhoneModalOpen(true)
+              }
+            }}
+          >
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<ChatIcon />}
+            onClick={(e) => {
+              e.stopPropagation()
+              setChatOrderId(order.id)
+              setChatOpen(true)
+            }}
+            size="small"
+            sx={{ borderRadius: 2, flex: 1, fontSize: "0.75rem", py: 0.5 }}
+          >
+          </Button>
+        </Box>
+
+        {/* Floating Archive Button */}
+        {(order.status === 5 || order.status === 6 || order.status === 7) && (
+          <IconButton
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              backgroundColor: theme.palette.background.paper,
+              border: `3px solid ${theme.palette.divider}`,
+              borderRadius: "50%",
+              width: 72,
+              height: 72,
+              boxShadow: "0 6px 20px rgba(0, 0, 0, 0.25)",
+              "&:hover": {
+                backgroundColor: theme.palette.action.hover,
+                transform: "translate(-50%, -50%) scale(1.15)",
+                boxShadow: "0 8px 30px rgba(0, 0, 0, 0.35)",
+              },
+              transition: "all 0.2s ease",
+              zIndex: 10,
+            }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              // Toggle archived state for this order
+              await toggleOrderArchived(order.id, !order.archived)
+            }}
+            title={order.archived ? 'Désarchiver' : 'Archiver'}
+          >
+            <ArchiveIcon color={order.archived ? 'disabled' : 'action'} fontSize="large" />
+          </IconButton>
+        )}
       </Card>
     )
   }
@@ -1025,7 +1046,7 @@ export default function AdminOrders() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ pt: 2, pb: 4 }}>
+    <Container maxWidth={false} sx={{ pt: 2, pb: 4 }}>
       <Paper
         sx={{
           mb: 3,
@@ -1069,63 +1090,244 @@ export default function AdminOrders() {
         </Box>
 
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center", mb: 2 }}>
-          <TextField
-            label="Date"
-            type="text"
-            value={format(selectedDate, 'dd/MM/yyyy')}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Parse DD/MM/YYYY format
-              const parts = value.split('/');
-              if (parts.length === 3) {
-                const day = parseInt(parts[0], 10);
-                const month = parseInt(parts[1], 10) - 1; // JS months are 0-based
-                const year = parseInt(parts[2], 10);
-                if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-                  const newDate = new Date(year, month, day);
-                  if (!isNaN(newDate.getTime())) {
-                    setSelectedDate(newDate);
-                  }
-                }
-              }
-            }}
-            variant="outlined"
-            size="small"
-            sx={{
-              minWidth: "140px",
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 2,
-                fontSize: "0.9rem",
-              },
-            }}
-          />
-
-          <FormControlLabel
-            control={<Switch checked={showArchived} onChange={handleShowArchivedChange} />}
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ArchiveIcon fontSize="small" />
-                Afficher archivés
-              </Box>
-            }
-          />
-
-          <FormControl size="small" sx={{ minWidth: "160px" }}>
-            <InputLabel sx={{ fontSize: "0.9rem" }}>Filtrer par statut</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Filtrer par statut"
-              onChange={handleStatusFilterChange}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton
+              size="small"
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() - 1);
+                setSelectedDate(newDate);
+              }}
               sx={{
                 borderRadius: 2,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                color: theme.palette.primary.main,
+                "&:hover": {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                },
+              }}
+            >
+              ◀
+            </IconButton>
+
+            <TextField
+              label="📅 Date"
+              type="text"
+              value={format(selectedDate, 'dd/MM/yyyy')}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Parse DD/MM/YYYY format
+                const parts = value.split('/');
+                if (parts.length === 3) {
+                  const day = parseInt(parts[0], 10);
+                  const month = parseInt(parts[1], 10) - 1; // JS months are 0-based
+                  const year = parseInt(parts[2], 10);
+                  if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                    const newDate = new Date(year, month, day);
+                    if (!isNaN(newDate.getTime())) {
+                      setSelectedDate(newDate);
+                    }
+                  }
+                }
+              }}
+              placeholder="JJ/MM/AAAA"
+              InputLabelProps={{
+                shrink: true,
+              }}
+              variant="outlined"
+              size="small"
+              sx={{
+                minWidth: "180px",
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 3,
+                  fontSize: "0.9rem",
+                  backgroundColor: theme.palette.background.paper,
+                  "&:hover": {
+                    backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                  },
+                  "&.Mui-focused": {
+                    backgroundColor: theme.palette.background.paper,
+                    boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                  },
+                },
+                "& .MuiInputLabel-root": {
+                  fontWeight: 600,
+                  color: theme.palette.text.secondary,
+                  "&.Mui-focused": {
+                    color: theme.palette.primary.main,
+                  },
+                },
+              }}
+            />
+
+            <IconButton
+              size="small"
+              onClick={() => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() + 1);
+                setSelectedDate(newDate);
+              }}
+              sx={{
+                borderRadius: 2,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                color: theme.palette.primary.main,
+                "&:hover": {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                },
+              }}
+            >
+              ▶
+            </IconButton>
+
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setSelectedDate(new Date())}
+              sx={{
+                borderRadius: 2,
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                minWidth: "auto",
+                px: 1.5,
+                py: 0.5,
+                borderColor: theme.palette.success.main,
+                color: theme.palette.success.main,
+                "&:hover": {
+                  borderColor: theme.palette.success.dark,
+                  backgroundColor: alpha(theme.palette.success.main, 0.08),
+                },
+              }}
+            >
+              Aujourd'hui
+            </Button>
+          </Box>
+
+          <Paper
+            elevation={0}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              px: 2,
+              py: 1,
+              borderRadius: 3,
+              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: showArchived ? alpha(theme.palette.warning.main, 0.1) : theme.palette.background.paper,
+              transition: "all 0.2s ease",
+              cursor: "pointer",
+              "&:hover": {
+                backgroundColor: showArchived ? alpha(theme.palette.warning.main, 0.15) : alpha(theme.palette.action.hover, 0.5),
+                borderColor: showArchived ? theme.palette.warning.main : theme.palette.primary.main,
+              },
+            }}
+            onClick={() => setShowArchived(!showArchived)}
+          >
+            <ArchiveIcon
+              sx={{
+                color: showArchived ? theme.palette.warning.main : theme.palette.text.secondary,
+                fontSize: "1.2rem",
+              }}
+            />
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                color: showArchived ? theme.palette.warning.main : theme.palette.text.primary,
                 fontSize: "0.9rem",
               }}
             >
-              <MenuItem value="all" sx={{ fontSize: "0.9rem" }}>
+              {showArchived ? "📂 Archivés visibles" : "📁 Cacher archivés"}
+            </Typography>
+            <Switch
+              checked={showArchived}
+              onChange={(e) => {
+                e.stopPropagation();
+                setShowArchived(e.target.checked);
+              }}
+              size="small"
+              sx={{
+                "& .MuiSwitch-switchBase.Mui-checked": {
+                  color: theme.palette.warning.main,
+                  "& + .MuiSwitch-track": {
+                    backgroundColor: theme.palette.warning.main,
+                  },
+                },
+              }}
+            />
+          </Paper>
+
+          <FormControl size="small" sx={{ minWidth: "200px" }}>
+            <InputLabel
+              sx={{
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                color: theme.palette.text.secondary,
+                "&.Mui-focused": {
+                  color: theme.palette.primary.main,
+                },
+              }}
+            >
+              🔍 Filtrer par statut
+            </InputLabel>
+            <Select
+              value={statusFilter}
+              label="🔍 Filtrer par statut"
+              onChange={handleStatusFilterChange}
+              sx={{
+                borderRadius: 3,
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                backgroundColor: theme.palette.background.paper,
+                "& .MuiOutlinedInput-notchedOutline": {
+                  borderColor: theme.palette.divider,
+                },
+                "&:hover .MuiOutlinedInput-notchedOutline": {
+                  borderColor: theme.palette.primary.main,
+                },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                  borderColor: theme.palette.primary.main,
+                  borderWidth: 2,
+                },
+                "& .MuiSelect-select": {
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                },
+              }}
+            >
+              <MenuItem
+                value="all"
+                sx={{
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  py: 1.5,
+                }}
+              >
+                <Typography variant="body2" sx={{ fontSize: "1rem" }}>📊</Typography>
                 Tous les statuts
               </MenuItem>
               {statusOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value.toString()} sx={{ fontSize: "0.9rem" }}>
+                <MenuItem
+                  key={option.value}
+                  value={option.value.toString()}
+                  sx={{
+                    fontSize: "0.9rem",
+                    fontWeight: 500,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    py: 1.5,
+                    "&:hover": {
+                      backgroundColor: alpha(getStatusColor(option.value), 0.1),
+                    },
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontSize: "1rem" }}>
+                    {getStatusEmoji(option.value)}
+                  </Typography>
                   {option.label}
                 </MenuItem>
               ))}
@@ -1138,96 +1340,97 @@ export default function AdminOrders() {
             onClick={() => setHoursDrawerOpen(true)}
             size="small"
             sx={{
-              borderRadius: 2,
+              borderRadius: 3,
               fontSize: "0.9rem",
               fontWeight: 600,
               whiteSpace: "nowrap",
+              px: 2,
+              py: 1,
+              borderColor: theme.palette.primary.main,
+              color: theme.palette.primary.main,
+              "&:hover": {
+                borderColor: theme.palette.primary.dark,
+                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              },
             }}
           >
-            Horaires
+            ⚙️ Horaires
           </Button>
         </Box>
 
         {Object.keys(hourStats).length > 0 && (
           <Paper
             sx={{
-              mb: 3,
-              p: 2,
+              mb: 2,
+              p: 1.5,
               borderRadius: 2,
               background: theme.palette.background.default,
               border: `1px solid ${theme.palette.divider}`,
             }}
           >
-            <Typography
-              variant="h5"
-              sx={{
-                mb: 3,
-                fontWeight: 800,
-                textAlign: "center",
-                fontSize: "1.5rem",
-              }}
-            >
-              ⏰ Navigation rapide - Commandes en attente
-            </Typography>
             <Box
               sx={{
                 display: "flex",
-                flexWrap: "wrap",
-                gap: 2,
-                justifyContent: "center",
                 alignItems: "center",
+                gap: 2,
+                flexWrap: "wrap",
               }}
             >
-              {Object.entries(hourStats).map(([timeKey, count]) => (
-                <Button
-                  key={timeKey}
-                  variant="contained"
-                  onClick={() => scrollToTimeSection(timeKey)}
-                  sx={{
-                    minWidth: "120px",
-                    height: "80px",
-                    borderRadius: 4,
-                    background: theme.palette.background.paper,
-                    color: theme.palette.text.primary,
-                    border: `2px solid ${timeKey === "asap" ? theme.palette.error.main : theme.palette.info.main}`,
-                    fontWeight: 600,
-                    fontSize: "1rem",
-                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.3s ease",
-                    position: "relative",
-                    "&:hover": {
-                      transform: "translateY(-2px) scale(1.02)",
-                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                      background: timeKey === "asap" ? theme.palette.error.main : theme.palette.info.main,
-                      color: theme.palette.getContrastText(timeKey === "asap" ? theme.palette.error.main : theme.palette.info.main),
-                    },
-                  }}
-                >
-                  <Box sx={{ textAlign: "center" }}>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontSize: "1.2rem",
-                        fontWeight: 800,
-                        lineHeight: 1,
-                      }}
-                    >
-                      {timeKey === "asap" ? "🚨 ASAP" : `🕐 ${timeKey}`}
-                    </Typography>
-                    <Typography
-                      variant="h4"
-                      sx={{
-                        fontWeight: 900,
-                        fontSize: "2rem",
-                        lineHeight: 1,
-                        mt: 0.5,
-                      }}
-                    >
-                      {count}
-                    </Typography>
-                  </Box>
-                </Button>
-              ))}
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: "1rem",
+                  color: theme.palette.text.primary,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ⏰ Commandes en attente:
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 1,
+                  alignItems: "center",
+                }}
+              >
+                {Object.entries(hourStats).map(([timeKey, count]) => (
+                  <Button
+                    key={timeKey}
+                    variant="contained"
+                    onClick={() => scrollToTimeSection(timeKey)}
+                    sx={{
+                      minWidth: "80px",
+                      height: "36px",
+                      borderRadius: 2,
+                      background: theme.palette.background.paper,
+                      color: theme.palette.text.primary,
+                      border: `1px solid ${timeKey === "asap" ? theme.palette.error.main : theme.palette.info.main}`,
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      px: 1.5,
+                      "&:hover": {
+                        transform: "translateY(-1px)",
+                        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)",
+                        background: timeKey === "asap" ? theme.palette.error.main : theme.palette.info.main,
+                        color: theme.palette.getContrastText(timeKey === "asap" ? theme.palette.error.main : theme.palette.info.main),
+                      },
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Typography variant="body2" sx={{ fontSize: "0.8rem", fontWeight: 700 }}>
+                        {timeKey === "asap" ? "🚨 ASAP" : `🕐 ${timeKey}`}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: "0.9rem", fontWeight: 800 }}>
+                        {count}
+                      </Typography>
+                    </Box>
+                  </Button>
+                ))}
+              </Box>
             </Box>
           </Paper>
         )}
@@ -1382,116 +1585,48 @@ export default function AdminOrders() {
             <>
               <DialogTitle sx={{ pb: 1, pt: 2 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
-                  <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: getStatusColor(selectedOrder.status), lineHeight: 1 }}>
-                      Commande #{selectedOrder.id}
-                    </Typography>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "text.secondary", mt: 0.5 }}>
-                      {selectedOrder.user?.name || "Client"} • {selectedOrder.takeoutTime ? format(new Date(selectedOrder.takeoutTime), "HH:mm") : "ASAP"}
-                    </Typography>
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 900, color: getStatusColor(selectedOrder.status), lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '1.8rem' }}>
+                        #{selectedOrder.id} • {selectedOrder.user?.name || "Client"} • {selectedOrder.takeoutTime ? format(new Date(selectedOrder.takeoutTime), "HH:mm") : "ASAP"} • {selectedOrder.OrderType === "takeout" ? "🥡 À emporter" : "🚚 Livraison"}
+                      </Typography>
+                    </Box>
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                      <Select
+                        value={selectedOrder.status}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          // Update local state immediately for UI feedback
+                          setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+                          // Then update on server
+                          await handleQuickStatusUpdate(selectedOrder.id, newStatus);
+                        }}
+                        sx={{
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          borderRadius: 2,
+                          height: "32px",
+                          backgroundColor: getStatusColor(selectedOrder.status),
+                          color: "white",
+                          "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+                          "& .MuiSelect-icon": { color: "white", fontSize: "1rem" },
+                        }}
+                      >
+                        <MenuItem value={0} sx={{ fontSize: "0.8rem" }}>⏳ En attente</MenuItem>
+                        <MenuItem value={1} sx={{ fontSize: "0.8rem" }}>✅​ Confirmée</MenuItem>
+                        <MenuItem value={2} sx={{ fontSize: "0.8rem" }}>👨‍🍳​ En préparation</MenuItem>
+                        <MenuItem value={3} sx={{ fontSize: "0.8rem" }}>📦​ Prête</MenuItem>
+                        <MenuItem value={4} sx={{ fontSize: "0.8rem" }}>🚗​ En livraison</MenuItem>
+                        <MenuItem value={5} sx={{ fontSize: "0.8rem" }}>🏠 Livrée</MenuItem>
+                        <MenuItem value={6} sx={{ fontSize: "0.8rem" }}>🎉 Terminée</MenuItem>
+                        <MenuItem value={7} sx={{ fontSize: "0.8rem" }}>❌ Annulée</MenuItem>
+                      </Select>
+                    </FormControl>
                   </Box>
 
                   <IconButton onClick={() => setOrderDetailsOpen(false)} size="large" sx={{ alignSelf: "flex-start" }}>
                     <CloseIcon />
                   </IconButton>
-                </Box>
-
-                <Box
-                  sx={{
-                    mt: 2,
-                    p: 2,
-                    borderRadius: 3,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    background: `linear-gradient(135deg, ${getStatusColor(selectedOrder.status)}15 0%, ${getStatusColor(selectedOrder.status)}08 100%)`,
-                    border: `1px solid ${getStatusColor(selectedOrder.status)}30`,
-                  }}
-                >
-                  <Grid container spacing={3} alignItems="center">
-                    <Grid item xs={12} md={3}>
-                      <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-                        {selectedOrder.takeoutTime ? format(new Date(selectedOrder.takeoutTime), "HH:mm") : "ASAP"}
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                        {selectedOrder.OrderType === "takeout" ? "À emporter" : "Livraison"}
-                      </Typography>
-                    </Grid>
-
-                    <Grid item xs={12} md={3}>
-                      <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-                        {formatPrice(selectedOrder.totalPrice)}
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                        {selectedOrder.items.reduce((total, item) => total + item.quantity, 0)} articles
-                      </Typography>
-                    </Grid>
-
-                    <Grid item xs={12} md={3}>
-                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                        {selectedOrder.user?.name || "Client"}
-                      </Typography>
-                      {selectedOrder.user?.phone && (
-                        <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<PhoneIcon />}
-                            href={`tel:${selectedOrder.user.phone}`}
-                            size="small"
-                            sx={{ borderRadius: 2 }}
-                          >
-                            {selectedOrder.user.phone}
-                          </Button>
-                        </Box>
-                      )}
-                      <Button
-                        variant="contained"
-                        onClick={() => {
-                          setChatOrderId(selectedOrder.id)
-                          setChatOpen(true)
-                        }}
-                        startIcon={<ChatIcon />}
-                        size="small"
-                        sx={{ borderRadius: 2 }}
-                      >
-                        Chat client
-                      </Button>
-                    </Grid>
-
-                    <Grid item xs={12} md={3}>
-                      <FormControl fullWidth>
-                        <Select
-                          value={selectedOrder.status}
-                          onChange={async (e) => {
-                            const newStatus = e.target.value;
-                            // Update local state immediately for UI feedback
-                            setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-                            // Then update on server
-                            await handleQuickStatusUpdate(selectedOrder.id, newStatus);
-                          }}
-                          sx={{
-                            fontSize: "1rem",
-                            fontWeight: 700,
-                            borderRadius: 2,
-                            height: "48px",
-                            backgroundColor: getStatusColor(selectedOrder.status),
-                            color: "white",
-                            "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-                            "& .MuiSelect-icon": { color: "white" },
-                          }}
-                        >
-                          <MenuItem value={0}>⏳ En attente</MenuItem>
-                          <MenuItem value={1}>✅​ Confirmée</MenuItem>
-                          <MenuItem value={2}>👨‍🍳​ En préparation</MenuItem>
-                          <MenuItem value={3}>📦​ Prête</MenuItem>
-                          <MenuItem value={4}>🚗​ En livraison</MenuItem>
-                          <MenuItem value={5}>🏠 Livrée</MenuItem>
-                          <MenuItem value={6}>🎉 Terminée</MenuItem>
-                          <MenuItem value={7}>❌ Annulée</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
                 </Box>
 
                 {/* Simple Message Line */}
@@ -1503,10 +1638,7 @@ export default function AdminOrders() {
               </DialogTitle>
 
               <DialogContent dividers sx={{ p: 4, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                <Typography variant="h5" sx={{ fontWeight: 800, mb: 3 }}>
-                  Articles à préparer
-                </Typography>
-
+   
                 <Box sx={{ flex: 1, overflowY: "auto", pr: 1, minHeight: 0 }}>
                   {selectedOrder.items.map((item) => {
                     const itemDetails = formatItemDetails(item)
@@ -1699,6 +1831,39 @@ export default function AdminOrders() {
             </Button>
             <Button onClick={updateOrderStatus} variant="contained" size="large" sx={{ borderRadius: 3, px: 4 }}>
               ✅ Mettre à jour
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Phone modal for desktop */}
+        <Dialog open={phoneModalOpen} onClose={() => setPhoneModalOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              📞 Appeler le client
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 3 }}>
+            <Box sx={{ textAlign: "center", py: 2 }}>
+              <PhoneIcon sx={{ fontSize: "4rem", color: theme.palette.primary.main, mb: 2 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                Numéro de téléphone
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 900, color: theme.palette.primary.main, fontFamily: "monospace" }}>
+                {phoneNumber}
+              </Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary", mt: 2 }}>
+                Utilisez ce numéro pour appeler le client depuis votre téléphone.
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 3, gap: 2 }}>
+            <Button
+              onClick={() => setPhoneModalOpen(false)}
+              variant="outlined"
+              size="large"
+              sx={{ borderRadius: 3, px: 4 }}
+            >
+              Fermer
             </Button>
           </DialogActions>
         </Dialog>

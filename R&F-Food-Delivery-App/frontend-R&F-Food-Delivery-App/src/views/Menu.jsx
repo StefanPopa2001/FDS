@@ -1909,7 +1909,7 @@ const Menu = () => {
                   </IconButton>
                 </DialogTitle>
 
-                <DialogContent sx={{ pt: 2, px: { xs: 1.5, md: 3 }, pb: 2, display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, flex: 1 }}>
+                <DialogContent sx={{ pt: 2, px: { xs: 1.5, md: 3 }, pb: 2, display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, flex: 1, overflow: 'hidden' }}>
                   {/* FIRST STEP: Show image, description, and price ABOVE the version selection */}
                   {stepDescriptors.length > 0 && stepDescriptors[activeStep]?.key !== 'version' && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pb: 1, borderBottom: '1px solid rgba(255, 152, 0, 0.2)' }}>
@@ -2056,7 +2056,15 @@ const Menu = () => {
                       </Box>
 
                       {/* Step content area - no extra padding, fills space */}
-                      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: 1 }}>
+                      <Box sx={{ 
+                        flex: 1, 
+                        minHeight: 0, 
+                        overflow: 'auto', 
+                        px: 1,
+                        WebkitOverflowScrolling: 'touch',
+                        scrollbarWidth: 'thin',
+                        overscrollBehavior: 'contain'
+                      }}>
                         {(() => {
                           const step = stepDescriptors[activeStep]?.key
                           if (!step) return null

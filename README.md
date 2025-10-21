@@ -2,16 +2,6 @@
 
 R&F Food Delivery is a full-stack food ordering and delivery application. This repository contains frontend, backend, and Docker tooling to run the app locally or in containers.
 
-## Contents
-- Frontend: [FDS/R&F-Food-Delivery-App/frontend-R&F-Food-Delivery-App](FDS/R&F-Food-Delivery-App/frontend-R%26F-Food-Delivery-App)
-- Backend: [FDS/R&F-Food-Delivery-App/backend-R&F-Food-Delivery-App](FDS/R&F-Food-Delivery-App/backend-R%26F-Food-Delivery-App)
-- Docker helpers: [FDS/Docker](FDS/Docker)
-- Dev scripts: [start-dev.sh](FDS/R&F-Food-Delivery-App/start-dev.sh), [restart-containers.sh](FDS/R&F-Food-Delivery-App/restart-containers.sh), [rebuild-containers.sh](FDS/R&F-Food-Delivery-App/rebuild-containers.sh)
-- Config & logs: [FDS/R&F-Food-Delivery-App/.env](FDS/R&F-Food-Delivery-App/.env), [backend.log](FDS/R&F-Food-Delivery-App/backend.log)
-- Project-level ignores: [FDS/.gitignore](FDS/.gitignore)
-- Admin setup helper: [backend-R&F-Food-Delivery-App/create-admin.js](FDS/R&F-Food-Delivery-App/backend-R%26F-Food-Delivery-App/create-admin.js)
-- Repo guidance: [FDS/R&F-Food-Delivery-App/.github/copilot-instructions.md](FDS/R&F-Food-Delivery-App/.github/copilot-instructions.md)
-
 ## Features
 - Customer ordering flow (browse menu, add to cart, checkout)
 - Restaurant / kitchen order management

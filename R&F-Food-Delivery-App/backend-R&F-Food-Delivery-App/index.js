@@ -2802,6 +2802,7 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
       speciality,
       IncludesSauce,
       saucePrice,
+      hiddenInTheMenu,
       versions, // Array of version objects: [{ size: "M", extraPrice: 0.0 }, ...]
       tags, // Array of tag IDs: [1, 2, 3]
       versionTags // Optional: mapping { [size]: [tagId, ...] }
@@ -2874,6 +2875,7 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
         speciality: speciality === 'true' || speciality === true,
         IncludesSauce: IncludesSauce === 'true' || IncludesSauce === true,
         saucePrice: saucePrice ? parseFloat(saucePrice) : 0.0,
+        hiddenInTheMenu: hiddenInTheMenu === 'true' || hiddenInTheMenu === true ? true : false,
         versions: {
           create: parsedVersions.map(version => ({
             size: version.size,
@@ -2943,6 +2945,7 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
     speciality,
     IncludesSauce,
     saucePrice,
+    hiddenInTheMenu,
     versions,
     tags, // Add tags to destructuring
     versionTags // Optional mapping { [size]: [tagIds] }
@@ -3071,6 +3074,9 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
       }
       if (Object.prototype.hasOwnProperty.call(req.body, 'saucePrice')) {
         updateData.saucePrice = saucePrice ? parseFloat(saucePrice) : 0.0;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'hiddenInTheMenu')) {
+        updateData.hiddenInTheMenu = (hiddenInTheMenu === 'true' || hiddenInTheMenu === true) ? true : false;
       }
       if (Object.prototype.hasOwnProperty.call(req.body, 'ordre')) {
         updateData.ordre = ordre || null; // Allow null for ordre

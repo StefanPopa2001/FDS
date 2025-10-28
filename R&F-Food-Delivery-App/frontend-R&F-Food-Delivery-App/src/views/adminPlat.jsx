@@ -64,6 +64,7 @@ export default function AdminPlat() {
     speciality: false,
     IncludesSauce: true,
     saucePrice: "",
+    hiddenInTheMenu: false,
     versions: [{ size: "Standard", extraPrice: 0 }],
     selectedTags: [],    selectedIngredients: []  })
 
@@ -254,6 +255,23 @@ export default function AdminPlat() {
       ),
     },
     {
+      field: "hiddenInTheMenu",
+      headerName: "Invisible Menu",
+      width: 130,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Checkbox 
+            checked={!!params.value} 
+            onChange={(e) => handleCheckboxChange(params.row.id, "hiddenInTheMenu", e.target.checked)}
+            sx={{ padding: 0 }} 
+            color={params.value ? "warning" : "default"}
+          />
+        </Box>
+      ),
+    },
+    {
       field: "actions",
       headerName: "Actions",
       width: 150,
@@ -359,6 +377,7 @@ export default function AdminPlat() {
       speciality: false,
       IncludesSauce: true,
       saucePrice: "",
+      hiddenInTheMenu: false,
   versions: [{ size: "Standard", extraPrice: 0, tagId: null }],
       selectedTags: [],
       selectedIngredients: []
@@ -468,6 +487,7 @@ export default function AdminPlat() {
       formData.append("availableForDelivery", field === "availableForDelivery" ? value : plat.availableForDelivery)
       formData.append("speciality", field === "speciality" ? value : plat.speciality)
       formData.append("IncludesSauce", field === "IncludesSauce" ? value : plat.IncludesSauce)
+      formData.append("hiddenInTheMenu", field === "hiddenInTheMenu" ? value : (plat.hiddenInTheMenu ?? false))
       formData.append("saucePrice", plat.saucePrice || "0")
       formData.append("versions", JSON.stringify(plat.versions || []))
       // Include versionTags mapping from current plat versions (keyed by id when available)
@@ -487,7 +507,7 @@ export default function AdminPlat() {
 
       if (response.ok) {
         fetchPlats()
-        showAlert(`${field === "available" ? "Disponibilité" : field === "availableForDelivery" ? "Livraison" : field === "speciality" ? "Spécialité" : "Sauce incluse"} mise à jour`)
+        showAlert(`${field === "available" ? "Disponibilité" : field === "availableForDelivery" ? "Livraison" : field === "speciality" ? "Spécialité" : field === "hiddenInTheMenu" ? "Visibilité menu" : "Sauce incluse"} mise à jour`)
       } else {
         const errorData = await response.json()
         showAlert(errorData.error || "Erreur lors de la mise à jour", "error")
@@ -519,6 +539,7 @@ export default function AdminPlat() {
       formData.append("availableForDelivery", newPlat.availableForDelivery)
       formData.append("speciality", newPlat.speciality)
       formData.append("IncludesSauce", newPlat.IncludesSauce)
+  formData.append("hiddenInTheMenu", newPlat.hiddenInTheMenu)
       formData.append("saucePrice", newPlat.saucePrice || "0")
       formData.append("versions", JSON.stringify(newPlat.versions))
       // Build versionTags mapping keyed by version id when available, otherwise size -> [tagIds]
@@ -694,6 +715,7 @@ export default function AdminPlat() {
         speciality: plat.speciality,
         IncludesSauce: plat.IncludesSauce,
         saucePrice: plat.saucePrice,
+        hiddenInTheMenu: !!plat.hiddenInTheMenu,
         image: plat.image ? `${config.API_URL}${plat.image}` : null,
         selectedTags: plat.tags ? plat.tags.map(tag => tag.id) : []
       }
@@ -731,6 +753,7 @@ export default function AdminPlat() {
       formData.append("availableForDelivery", data.availableForDelivery)
       formData.append("speciality", data.speciality)
       formData.append("IncludesSauce", data.IncludesSauce)
+  formData.append("hiddenInTheMenu", data.hiddenInTheMenu)
       formData.append("saucePrice", data.saucePrice)
 
       // Handle image
@@ -800,6 +823,7 @@ export default function AdminPlat() {
         speciality: plat.speciality,
         IncludesSauce: plat.IncludesSauce,
         saucePrice: plat.saucePrice,
+        hiddenInTheMenu: !!plat.hiddenInTheMenu,
         selectedTags: plat.tags ? plat.tags.map(tag => tag.id) : [],
         selectedIngredients: plat.ingredients ? plat.ingredients.map(pi => ({
           ingredientId: pi.ingredientId,
@@ -1092,6 +1116,15 @@ export default function AdminPlat() {
                     />
                   }
                   label="Sauce autorisée (si prix = 0€, sauce incluse)"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={newPlat.hiddenInTheMenu}
+                      onChange={(e) => setNewPlat({ ...newPlat, hiddenInTheMenu: e.target.checked })}
+                    />
+                  }
+                  label="Invisible dans le menu"
                 />
               </Box>
 

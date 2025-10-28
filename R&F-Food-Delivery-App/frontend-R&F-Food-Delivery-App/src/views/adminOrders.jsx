@@ -34,6 +34,8 @@ import {
   ToggleButtonGroup,
 } from "@mui/material"
 import { alpha } from "@mui/material/styles"
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+import CssBaseline from '@mui/material/CssBaseline'
 import {
   LocalDining as LocalDiningIcon,
   Phone as PhoneIcon,
@@ -99,6 +101,56 @@ export default function AdminOrders() {
   const [modalTab, setModalTab] = useState(0)
   const [phoneModalOpen, setPhoneModalOpen] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState("")
+
+  // Theme mode state
+  const [mode, setMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('themeMode') || 'light'
+    }
+    return 'light'
+  })
+  const muiTheme = useMemo(() => createTheme({
+    palette: {
+      mode,
+      ...(mode === 'light' ? {
+        background: {
+          default: '#f5f5f5',
+          paper: '#ffffff',
+        },
+        text: {
+          primary: '#212121',
+          secondary: '#616161',
+        },
+        primary: {
+          main: '#ff9800',
+        },
+        divider: '#e0e0e0',
+      } : {
+        background: {
+          default: '#121212',
+          paper: '#1e1e1e',
+        },
+        text: {
+          primary: '#ffffff',
+          secondary: '#b0b0b0',
+        },
+        primary: {
+          main: '#ff9800',
+        },
+        divider: 'rgba(255, 255, 255, 0.12)',
+      }),
+    },
+    typography: {
+      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    },
+  }), [mode])
+
+  // Save theme mode to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('themeMode', mode)
+    }
+  }, [mode])
 
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
@@ -1100,7 +1152,9 @@ export default function AdminOrders() {
   }
 
   return (
-    <Container maxWidth={false} sx={{ pt: 2, pb: 4 }}>
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      <Container maxWidth={false} sx={{ pt: 2, pb: 4 }}>
       <Paper
         sx={{
           mb: 3,
@@ -1122,6 +1176,24 @@ export default function AdminOrders() {
                 backgroundColor: theme.palette.success.main,
                 color: theme.palette.getContrastText(theme.palette.success.main),
                 fontWeight: 600,
+              }}
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={mode === 'dark'}
+                  onChange={() => setMode(prev => prev === 'light' ? 'dark' : 'light')}
+                  size="small"
+                />
+              }
+              label="🌙 Dark Mode"
+              sx={{
+                color: theme.palette.text.primary,
+                '& .MuiFormControlLabel-label': {
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                },
               }}
             />
 
@@ -2088,5 +2160,6 @@ export default function AdminOrders() {
         />
       </Paper>
     </Container>
+    </ThemeProvider>
   )
 }

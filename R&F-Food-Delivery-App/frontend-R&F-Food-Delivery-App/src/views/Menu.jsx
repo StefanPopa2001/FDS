@@ -486,7 +486,7 @@ const Menu = () => {
     }
 
   // Filter out unavailable plats (including disabled specialities)
-  filteredPlatData = filteredPlatData.filter((plat) => plat.available)
+  filteredPlatData = filteredPlatData.filter((plat) => plat.available && !plat.hiddenInTheMenu)
 
     if (debouncedSearchTerm) {
       filteredPlatData = filteredPlatData.filter((plat) => {
@@ -1077,7 +1077,7 @@ const Menu = () => {
             }}
           >
             {plat.versions.length > 1 
-              ? `Dès ${(plat.price + plat.versions[0].extraPrice).toFixed(2)}€`
+              ? `Dès ${(plat.price + Math.min(...plat.versions.map(v => v.extraPrice))).toFixed(2)}€`
               : `${plat.price.toFixed(2)}€`
             }
           </Typography>
@@ -1124,7 +1124,8 @@ const Menu = () => {
     const base = (plat.basePrice ?? plat.price ?? 0)
     const versionExtra = (version?.extraPrice ?? 0)
     let price = base + versionExtra
-    if (sauce) price += (sauce.price ?? 0)
+    // If the plat defines a saucePrice override, prefer it; otherwise use the sauce item's own price
+    if (sauce) price += (plat.saucePrice ?? sauce.price ?? 0)
     if (Array.isArray(extras) && extras.length > 0) {
       extras.forEach(e => {
         const count = e?.count ?? 1
@@ -1167,7 +1168,9 @@ const Menu = () => {
           const selectedSauceId = selectedSuggestedSauces[tagId]
           const chosenSauce = selectedSauceId ? sauces.find(s => String(s.id) === String(selectedSauceId)) || null : null
           const q = suggestedPlatsQuantities[tagId] || 1
-          total += computeUnitPrice(suggestedPlat, chosenVersion, chosenSauce, []) * q
+          // Use suggested plat's own base price + version extra + sauce pricing
+          const unitPrice = computeUnitPrice(suggestedPlat, chosenVersion, chosenSauce, [])
+          total += unitPrice * q
         }
       })
 
@@ -2041,11 +2044,9 @@ const Menu = () => {
                                   <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.85rem', display: 'block' }}>
                                     {version.size}
                                   </Typography>
-                                  {version.extraPrice > 0 && (
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                                      +{version.extraPrice.toFixed(2)}€
-                                    </Typography>
-                                  )}
+                                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                                    {(selectedPlat.price + version.extraPrice).toFixed(2)}€
+                                  </Typography>
                                 </Box>
                               ))}
                             </Box>
@@ -2218,9 +2219,9 @@ const Menu = () => {
                                       <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem', textAlign: 'center', mb: 0.25 }}>
                                         {sauce.name}
                                       </Typography>
-                                      {sauce.price > 0 && (
+                                      {(selectedPlat.saucePrice ?? sauce.price) > 0 && (
                                         <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
-                                          +{sauce.price.toFixed(2)}€
+                                          +{(selectedPlat.saucePrice ?? sauce.price).toFixed(2)}€
                                         </Typography>
                                       )}
                                     </Box>
@@ -2457,7 +2458,7 @@ const Menu = () => {
                                             <MenuItem value="">Aucune</MenuItem>
                                             {sauces.filter(s => s.available).map(sauce => (
                                               <MenuItem key={sauce.id} value={sauce.id}>
-                                                {sauce.name}{sauce.price > 0 ? ` (+${sauce.price.toFixed(2)}€)` : ''}
+                                                {sauce.name}{(selectedPlatForTag.saucePrice ?? sauce.price) > 0 ? ` (+${(selectedPlatForTag.saucePrice ?? sauce.price).toFixed(2)}€)` : ''}
                                               </MenuItem>
                                             ))}
                                           </Select>
@@ -2557,7 +2558,7 @@ const Menu = () => {
                                             {plat.name}
                                           </Typography>
                                           <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#ff9800', textAlign: 'center' }}>
-                                            +{price > 0 ? price.toFixed(2) : '0.00'}€
+                                            +{price.toFixed(2)}€
                                           </Typography>
                                         </Box>
                                       </Box>
@@ -2643,7 +2644,7 @@ const Menu = () => {
                                             {item.plat.name}
                                           </Typography>
                                           <Typography variant="caption" sx={{ color: '#ff9800', fontWeight: 600, fontSize: '0.75rem' }}>
-                                            Base: {item.plat.price.toFixed(2)}€
+                                            Base: {(item.plat.basePrice ?? item.plat.price ?? 0).toFixed(2)}€
                                           </Typography>
                                         </Box>
                                       </Box>
@@ -2660,7 +2661,7 @@ const Menu = () => {
                                         {/* Sauce */}
                                         {item.sauce && (
                                           <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                                            + Sauce: {item.sauce.name}{item.sauce.price > 0 ? ` (+${item.sauce.price.toFixed(2)}€)` : ''}
+                                            + Sauce: {item.sauce.name}{((item.plat.saucePrice ?? item.sauce.price) > 0) ? ` (+${(item.plat.saucePrice ?? item.sauce.price).toFixed(2)}€)` : ''}
                                           </Typography>
                                         )}
                                         

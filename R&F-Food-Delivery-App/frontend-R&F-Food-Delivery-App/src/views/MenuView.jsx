@@ -335,7 +335,7 @@ const MenuView = () => {
       return a.name.localeCompare(b.name)
     })
 
-    return filtered.filter(plat => plat.available)
+    return filtered.filter(plat => plat.available && !plat.hiddenInTheMenu)
   }, [plats, selectedTagFilter, settings, debouncedSearchTerm])
 
   // Progressive reveal: increase visible counts when scrolling near the end

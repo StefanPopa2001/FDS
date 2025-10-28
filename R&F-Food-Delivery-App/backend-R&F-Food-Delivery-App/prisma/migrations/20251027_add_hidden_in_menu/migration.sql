@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Plat" ADD COLUMN "hiddenInTheMenu" BOOLEAN NOT NULL DEFAULT FALSE;

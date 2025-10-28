@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Badge,
   IconButton,
@@ -17,6 +17,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -34,6 +35,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useOrderNotifications } from '../hooks/useOrderNotifications';
 import { safeNotification } from '../utils/safeNotification';
+import config from '../config';
+import { useAuth } from '../contexts/AuthContext';
 
 const NotificationCenter = ({ userId, orderId = null }) => {
   const theme = useTheme();
@@ -41,6 +44,9 @@ const NotificationCenter = ({ userId, orderId = null }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [browserNotificationPermission, setBrowserNotificationPermission] = useState(safeNotification.permission());
+  const { isAdmin } = useAuth();
+  const lastSeenIdsRef = useRef(new Set());
+  const [autoModal, setAutoModal] = useState({ open: false, notification: null, latestOrder: null });
   const { 
     notifications, 
     unreadCount, 
@@ -82,6 +88,77 @@ const NotificationCenter = ({ userId, orderId = null }) => {
     const interval = setInterval(checkPermission, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch the latest order for the logged-in client
+  const fetchLatestOrder = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return null;
+      const res = await fetch(`${config.API_URL}/users/orders`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!res.ok) return null;
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.toLowerCase().includes('application/json')) return null;
+      const data = await res.json();
+      const orders = data?.orders || [];
+      if (orders.length === 0) return null;
+      // Sort by createdAt desc
+      const latest = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      return latest || null;
+    } catch (e) {
+      console.error('Failed to fetch latest order', e);
+      return null;
+    }
+  }, []);
+
+  // Track new incoming notifications and auto-open modal for client
+  React.useEffect(() => {
+    // seed last seen ids on first run to avoid popping for historical notifications
+    if (lastSeenIdsRef.current.size === 0 && notifications.length > 0) {
+      notifications.forEach(n => lastSeenIdsRef.current.add(n.id));
+      return; // don't process existing ones as new
+    }
+
+    if (isAdmin && isAdmin()) return; // only for normal clients
+
+    const currentIds = new Set(notifications.map(n => n.id));
+    const newOnes = notifications
+      .filter(n => !lastSeenIdsRef.current.has(n.id))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // oldest first
+
+    const process = async () => {
+      for (const n of newOnes) {
+        const type = n.type;
+        const orderIdFromNotif = n?.data?.orderId || n.orderId;
+        if (!orderIdFromNotif) continue;
+        if (type !== 'chat' && type !== 'order_status') continue;
+        const latest = await fetchLatestOrder();
+        if (latest && latest.id === orderIdFromNotif) {
+          setAutoModal({ open: true, notification: n, latestOrder: latest });
+          // mark as read proactively
+          if (!n.isRead) {
+            markAsRead(n.id);
+          }
+          break; // show one at a time
+        }
+      }
+      // update last seen ids after processing
+      lastSeenIdsRef.current = currentIds;
+    };
+
+    if (newOnes.length > 0) {
+      process();
+    } else {
+      // keep in sync even if no new ones (handles deletions)
+      lastSeenIdsRef.current = currentIds;
+    }
+  }, [notifications, fetchLatestOrder, markAsRead, isAdmin]);
+
+  const closeAutoModal = () => setAutoModal({ open: false, notification: null, latestOrder: null });
 
   const requestNotificationPermission = async () => {
     if (safeNotification.permission() === 'default') {
@@ -169,8 +246,123 @@ const NotificationCenter = ({ userId, orderId = null }) => {
     };
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 0: return 'warning';
+      case 1: return 'info';
+      case 2: return 'warning';
+      case 3: return 'success';
+      case 4: return 'primary';
+      case 5:
+      case 6: return 'success';
+      case 7: return 'error';
+      default: return 'default';
+    }
+  };
+
   return (
     <>
+      {/* Auto popup modal for client notifications about latest order */}
+      <Dialog
+        open={autoModal.open}
+        onClose={closeAutoModal}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          elevation: 24,
+          sx: {
+            borderRadius: isMobile ? 0 : 3,
+            background: 'linear-gradient(145deg, rgba(26, 26, 26, 0.95), rgba(20, 20, 20, 0.95))',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 152, 0, 0.2)'
+          }
+        }}
+     >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#ff9800' }}>
+              {autoModal.notification?.type === 'chat' ? 'Nouveau message du restaurant' : 'Statut de votre commande mis à jour'}
+            </Typography>
+            <IconButton size="small" onClick={closeAutoModal} sx={{ color: '#ff9800' }}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {autoModal.notification && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {getIcon(autoModal.notification)}
+                <Typography variant="body2" color="text.secondary">
+                  {formatDate(autoModal.notification.createdAt)} à {formatTime(autoModal.notification.createdAt)}
+                </Typography>
+              </Box>
+
+              {/* Message content for chat */}
+              {autoModal.notification.type === 'chat' && (
+                <Paper sx={{ p: 2, borderRadius: 2, backgroundColor: 'rgba(255, 152, 0, 0.06)', border: '1px solid rgba(255,152,0,0.2)' }}>
+                  <Typography variant="subtitle2" sx={{ color: 'primary.main', mb: 0.5, fontWeight: 700 }}>
+                    Message du restaurant
+                  </Typography>
+                  <Typography variant="body1">
+                    {getNotificationDetails(autoModal.notification).shopMessage || autoModal.notification.message}
+                  </Typography>
+                </Paper>
+              )}
+
+              {/* Status display (for status update or alongside chat) */}
+              {(autoModal.notification.type === 'order_status' || autoModal.latestOrder) && (
+                <Paper sx={{ p: 2, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                        Commande #{getNotificationDetails(autoModal.notification).orderId || autoModal.latestOrder?.id}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Statut actuel
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={autoModal.notification?.data?.statusText || autoModal.latestOrder?.statusText || 'Mis à jour'}
+                      color={getStatusColor(autoModal.notification?.data?.status ?? autoModal.latestOrder?.status)}
+                      sx={{ fontWeight: 600 }}
+                    />
+                  </Box>
+                  {autoModal.notification?.data?.notes && (
+                    <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic', color: 'text.secondary' }}>
+                      Note: {autoModal.notification.data.notes}
+                    </Typography>
+                  )}
+                </Paper>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          {autoModal.notification && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                const details = getNotificationDetails(autoModal.notification);
+                if (details.orderId) {
+                  navigate(`/orders?orderId=${details.orderId}`);
+                } else if (autoModal.latestOrder?.id) {
+                  navigate(`/orders?orderId=${autoModal.latestOrder.id}`);
+                } else {
+                  navigate('/orders');
+                }
+                closeAutoModal();
+              }}
+              fullWidth={isMobile}
+            >
+              Voir mes commandes
+            </Button>
+          )}
+          <Button onClick={closeAutoModal} sx={{ ml: 'auto' }}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
       <IconButton 
         onClick={handleClick}
         sx={{ 

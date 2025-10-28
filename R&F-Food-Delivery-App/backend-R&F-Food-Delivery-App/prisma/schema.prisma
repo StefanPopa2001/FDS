@@ -120,6 +120,7 @@ model Plat {
   speciality           Boolean          @default(false)
   IncludesSauce        Boolean          @default(true)
   saucePrice           Float
+  hiddenInTheMenu      Boolean          @default(false)
   orderItems           OrderItem[]
   ingredients          PlatIngredient[]
   versions             PlatVersion[]

@@ -64,11 +64,82 @@ const notificationSound = new Audio("/notification.mp3")
 
 export default function AdminOrders() {
   const { token } = useAuth()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
   // Refs for scrolling to specific time sections
   const timeRefs = useRef({})
+
+  // Theme mode state - define FIRST before creating theme
+  const [mode, setMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('themeMode') || 'light'
+    }
+    return 'light'
+  })
+
+  // Create custom theme - BEFORE using it
+  const muiTheme = useMemo(() => createTheme({
+    palette: {
+      mode,
+      ...(mode === 'light' ? {
+        background: {
+          default: '#f5f5f5',
+          paper: '#ffffff',
+        },
+        text: {
+          primary: '#212121',
+          secondary: '#616161',
+        },
+        primary: {
+          main: '#ff9800',
+        },
+        divider: '#e0e0e0',
+        error: {
+          main: '#d32f2f',
+        },
+        warning: {
+          main: '#ff9800',
+        },
+        info: {
+          main: '#1976d2',
+        },
+        success: {
+          main: '#388e3c',
+        },
+      } : {
+        background: {
+          default: '#121212',
+          paper: '#1e1e1e',
+        },
+        text: {
+          primary: '#ffffff',
+          secondary: '#b0b0b0',
+        },
+        primary: {
+          main: '#ff9800',
+        },
+        divider: 'rgba(255, 255, 255, 0.12)',
+        error: {
+          main: '#f44336',
+        },
+        warning: {
+          main: '#ff9800',
+        },
+        info: {
+          main: '#64b5f6',
+        },
+        success: {
+          main: '#66bb6a',
+        },
+      }),
+    },
+    typography: {
+      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    },
+  }), [mode])
+
+  // Now we can use the theme with useTheme hook - this will be called AFTER ThemeProvider wrapper
+  const theme = muiTheme
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
   // State for orders and UI
   const [orders, setOrders] = useState([])
@@ -101,49 +172,6 @@ export default function AdminOrders() {
   const [modalTab, setModalTab] = useState(0)
   const [phoneModalOpen, setPhoneModalOpen] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState("")
-
-  // Theme mode state
-  const [mode, setMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('themeMode') || 'light'
-    }
-    return 'light'
-  })
-  const muiTheme = useMemo(() => createTheme({
-    palette: {
-      mode,
-      ...(mode === 'light' ? {
-        background: {
-          default: '#f5f5f5',
-          paper: '#ffffff',
-        },
-        text: {
-          primary: '#212121',
-          secondary: '#616161',
-        },
-        primary: {
-          main: '#ff9800',
-        },
-        divider: '#e0e0e0',
-      } : {
-        background: {
-          default: '#121212',
-          paper: '#1e1e1e',
-        },
-        text: {
-          primary: '#ffffff',
-          secondary: '#b0b0b0',
-        },
-        primary: {
-          main: '#ff9800',
-        },
-        divider: 'rgba(255, 255, 255, 0.12)',
-      }),
-    },
-    typography: {
-      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    },
-  }), [mode])
 
   // Save theme mode to localStorage
   useEffect(() => {
@@ -2023,7 +2051,7 @@ export default function AdminOrders() {
                 </Box>
               </DialogContent>
 
-              <DialogActions sx={{ p: 3, gap: 2 }}>
+              <DialogActions sx={{ p: 3, gap: 2, backgroundColor: theme.palette.background.paper }}>
                 <Button
                   onClick={() => setOrderDetailsOpen(false)}
                   variant="outlined"
@@ -2038,15 +2066,20 @@ export default function AdminOrders() {
         </Dialog>
 
         {/* Status edit dialog */}
-        <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+        <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{
+          sx: {
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
+          },
+        }}>
+          <DialogTitle sx={{ color: theme.palette.text.primary }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.text.primary }}>
               ✏️ Modifier le statut
             </Typography>
           </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
+          <DialogContent sx={{ pt: 3, backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary }}>
             <FormControl fullWidth>
-              <InputLabel sx={{ fontSize: "1.1rem" }}>Statut</InputLabel>
+              <InputLabel sx={{ fontSize: "1.1rem", color: theme.palette.text.secondary }}>Statut</InputLabel>
               <Select
                 value={newStatus}
                 label="Statut"
@@ -2055,6 +2088,8 @@ export default function AdminOrders() {
                   fontSize: "1.1rem",
                   borderRadius: 3,
                   height: "56px",
+                  backgroundColor: theme.palette.background.paper,
+                  color: theme.palette.text.primary,
                 }}
               >
                 {statusOptions.map((option) => (
@@ -2078,11 +2113,19 @@ export default function AdminOrders() {
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 3,
                   fontSize: "1.1rem",
+                  backgroundColor: theme.palette.background.paper,
+                  color: theme.palette.text.primary,
+                },
+                "& .MuiOutlinedInput-input": {
+                  color: theme.palette.text.primary,
+                },
+                "& .MuiInputLabel-root": {
+                  color: theme.palette.text.secondary,
                 },
               }}
             />
           </DialogContent>
-          <DialogActions sx={{ p: 3, gap: 2 }}>
+          <DialogActions sx={{ p: 3, gap: 2, backgroundColor: theme.palette.background.paper }}>
             <Button
               onClick={() => setStatusDialogOpen(false)}
               variant="outlined"
@@ -2098,27 +2141,32 @@ export default function AdminOrders() {
         </Dialog>
 
         {/* Phone modal for desktop */}
-        <Dialog open={phoneModalOpen} onClose={() => setPhoneModalOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+        <Dialog open={phoneModalOpen} onClose={() => setPhoneModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{
+          sx: {
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
+          },
+        }}>
+          <DialogTitle sx={{ color: theme.palette.text.primary }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.text.primary }}>
               📞 Appeler le client
             </Typography>
           </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
+          <DialogContent sx={{ pt: 3, backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary }}>
             <Box sx={{ textAlign: "center", py: 2 }}>
               <PhoneIcon sx={{ fontSize: "4rem", color: theme.palette.primary.main, mb: 2 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: theme.palette.text.primary }}>
                 Numéro de téléphone
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 900, color: theme.palette.primary.main, fontFamily: "monospace" }}>
                 {phoneNumber}
               </Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary", mt: 2 }}>
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mt: 2 }}>
                 Utilisez ce numéro pour appeler le client depuis votre téléphone.
               </Typography>
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 3, gap: 2 }}>
+          <DialogActions sx={{ p: 3, gap: 2, backgroundColor: theme.palette.background.paper }}>
             <Button
               onClick={() => setPhoneModalOpen(false)}
               variant="outlined"

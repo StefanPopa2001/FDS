@@ -24,15 +24,15 @@ SECRET_KEY="ubuntumybeloved"
 NODE_ENV=development
 EOF
 
-cp .env backend-lmi3/.env
-cp .env lmi3/.env
+cp .env "backend-R&F-Food-Delivery-App/.env"
+cp .env "frontend-R&F-Food-Delivery-App/.env"
 
 # Create log files
 touch backend.log frontend.log
 
 # Start backend with integrated migration and hot reloading
 echo -e "${GREEN}[DEV]${NC} Starting backend (with auto-migration)..."
-cd backend-lmi3
+cd "backend-R&F-Food-Delivery-App"
 npm run dev > ../backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
@@ -42,7 +42,7 @@ sleep 3
 
 # Start frontend with hot reloading
 echo -e "${GREEN}[DEV]${NC} Starting frontend..."
-cd lmi3
+cd "frontend-R&F-Food-Delivery-App"
 BROWSER=none npm start > ../frontend.log 2>&1 &
 FRONTEND_PID=$!
 cd ..

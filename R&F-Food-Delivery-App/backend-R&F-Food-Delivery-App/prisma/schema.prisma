@@ -121,6 +121,7 @@ model Plat {
   IncludesSauce        Boolean          @default(true)
   saucePrice           Float
   hiddenInTheMenu      Boolean          @default(false)
+  platCache            Boolean          @default(false)
   orderItems           OrderItem[]
   ingredients          PlatIngredient[]
   versions             PlatVersion[]

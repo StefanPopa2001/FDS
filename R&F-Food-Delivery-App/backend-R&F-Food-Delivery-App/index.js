@@ -1,6 +1,7 @@
 // Get all sauces
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const CryptoJS = require('crypto-js');
 const multer = require("multer");
 const path = require("path");
@@ -293,6 +294,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors({
   origin: ['https://rudyetfanny.be', 'https://82.25.118.116', 'http://localhost:3000'],
   methods: ['GET', 'OPTIONS', 'PUT', 'POST', 'DELETE', 'PATCH'],
@@ -599,10 +601,23 @@ app.post("/users/login", authLimiter, async (req, res) => {
 
 // Middleware to authenticate requests
 const authenticate = async (req, res, next) => {
+  let token = null;
+  
+  // Try to get token from Authorization header first
   const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: "Missing token" });
+  if (authHeader) {
+    token = authHeader.split(" ")[1];
+  }
+  
+  // If no header token, try to get from cookies
+  if (!token && req.cookies && req.cookies.authToken) {
+    token = req.cookies.authToken;
+  }
+  
+  if (!token) {
+    return res.status(401).json({ error: "Missing token" });
+  }
 
-  const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
     req.user = decoded;
@@ -629,6 +644,14 @@ const authenticate = async (req, res, next) => {
   } catch {
     return res.status(401).json({ error: "Invalid token" });
   }
+};
+
+// Middleware to check if user is admin
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.type !== 1) {
+    return res.status(403).json({ error: "Unauthorized: Admin access required" });
+  }
+  next();
 };
 
 // Get all users (admin only)
@@ -1534,7 +1557,11 @@ app.get("/admin/orders", authenticate, async (req, res) => {
             },
             addedExtras: {
               include: {
-                extra: true
+                extra: {
+                  include: {
+                    tags: true
+                  }
+                }
               }
             }
           }
@@ -2224,7 +2251,7 @@ app.get('/tags/searchable', async (req, res) => {
 });
 
 // Create tag
-app.post('/tags', async (req, res) => {
+app.post('/tags', authenticate, requireAdmin, async (req, res) => {
   try {
     const { nom, description, emoji, recherchable, ordre, choixUnique, doublonsAutorises } = req.body;
     if (!nom) {
@@ -2252,7 +2279,7 @@ app.post('/tags', async (req, res) => {
 });
 
 // Update tag
-app.put('/tags/:id', async (req, res) => {
+app.put('/tags/:id', authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { nom, description, emoji, recherchable, ordre, choixUnique, doublonsAutorises } = req.body;
   try {
@@ -2282,26 +2309,84 @@ app.put('/tags/:id', async (req, res) => {
 });
 
 // Delete tag
-app.delete('/tags/:id', async (req, res) => {
+app.delete('/tags/:id', authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
-    // Check if tag is used by any extras
-    const tagWithExtras = await prisma.tags.findUnique({
-      where: { id: parseInt(id) },
-      include: { extras: true }
+    const tagId = parseInt(id);
+    
+    // Check if tag exists
+    const tag = await prisma.tags.findUnique({
+      where: { id: tagId },
+      include: {
+        extras: true,
+        plats: true,
+        sauces: true,
+        platVersions: true,
+        platAssociations: true
+      }
     });
 
-    if (!tagWithExtras) {
+    if (!tag) {
       return res.status(404).json({ error: 'Tag not found' });
     }
 
-    if (tagWithExtras.extras.length > 0) {
-      return res.status(400).json({ 
-        error: `Cannot delete tag. It is used by ${tagWithExtras.extras.length} extra(s)` 
+    // Delete all associations with extras (disconnect)
+    if (tag.extras.length > 0) {
+      await prisma.tags.update({
+        where: { id: tagId },
+        data: {
+          extras: {
+            disconnect: tag.extras.map(e => ({ id: e.id }))
+          }
+        }
       });
     }
 
-    await prisma.tags.delete({ where: { id: parseInt(id) } });
+    // Delete all associations with plats (disconnect)
+    if (tag.plats.length > 0) {
+      await prisma.tags.update({
+        where: { id: tagId },
+        data: {
+          plats: {
+            disconnect: tag.plats.map(p => ({ id: p.id }))
+          }
+        }
+      });
+    }
+
+    // Delete all associations with sauces (disconnect)
+    if (tag.sauces.length > 0) {
+      await prisma.tags.update({
+        where: { id: tagId },
+        data: {
+          sauces: {
+            disconnect: tag.sauces.map(s => ({ id: s.id }))
+          }
+        }
+      });
+    }
+
+    // Delete all associations with platVersions (disconnect)
+    if (tag.platVersions.length > 0) {
+      await prisma.tags.update({
+        where: { id: tagId },
+        data: {
+          platVersions: {
+            disconnect: tag.platVersions.map(pv => ({ id: pv.id }))
+          }
+        }
+      });
+    }
+
+    // Delete all PlatTagAssociations
+    if (tag.platAssociations.length > 0) {
+      await prisma.platTagAssociation.deleteMany({
+        where: { tagId: tagId }
+      });
+    }
+
+    // Finally delete the tag itself
+    await prisma.tags.delete({ where: { id: tagId } });
     res.status(204).send();
   } catch (error) {
     console.error('Delete tag error:', error);
@@ -2330,12 +2415,12 @@ app.get('/sauces', async (req, res) => {
 });
 
 // Create sauce
-app.post("/sauces", upload.single('image'), processImage, async (req, res) => {
+app.post("/sauces", authenticate, requireAdmin, upload.single('image'), processImage, async (req, res) => {
   try {
     const { name, price, description, available, ordre, tags } = req.body;
     
     // Validate required fields
-    if (!name || price === undefined || !description) {
+    if (!name || price === undefined || price === '' || !description) {
       // Delete the uploaded file if it exists
       if (req.file) {
         fs.unlinkSync(req.file.path);
@@ -2400,12 +2485,12 @@ app.post("/sauces", upload.single('image'), processImage, async (req, res) => {
 });
 
 // Update sauce
-app.put("/sauces/:id", upload.single('image'), processImage, async (req, res) => {
+app.put("/sauces/:id", authenticate, requireAdmin, upload.single('image'), processImage, async (req, res) => {
   const { id } = req.params;
   const { name, price, description, keepExistingImage, available, ordre, tags } = req.body;
   try {
     // Validate required fields
-    if (!name || price === undefined || !description) {
+    if (!name || price === undefined || price === '' || !description) {
       // Delete the uploaded file if it exists
       if (req.file) {
         fs.unlinkSync(req.file.path);
@@ -2503,7 +2588,7 @@ app.put("/sauces/:id", upload.single('image'), processImage, async (req, res) =>
 });
 
 // Delete sauce
-app.delete("/sauces/:id", async (req, res) => {
+app.delete("/sauces/:id", authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     // Get the sauce to check if it has an image to delete
@@ -2536,7 +2621,7 @@ app.delete("/sauces/:id", async (req, res) => {
 });
 
 // Extra endpoints
-app.get("/api/extras", async (req, res) => {
+app.get("/extras", authenticate, async (req, res) => {
   try {
     const extras = await prisma.extra.findMany({
       include: {
@@ -2554,7 +2639,7 @@ app.get("/api/extras", async (req, res) => {
 });
 
 // Get a specific extra by ID
-app.get("/api/extras/:id", async (req, res) => {
+app.get("/extras/:id", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const extra = await prisma.extra.findUnique({
@@ -2575,12 +2660,12 @@ app.get("/api/extras/:id", async (req, res) => {
   }
 });
 
-app.post("/api/extras", async (req, res) => {
+app.post("/extras", authenticate, requireAdmin, async (req, res) => {
   try {
     const { nom, description, price, available, availableForDelivery, speciality, tags } = req.body;
     
     // Validate required fields
-    if (!nom || !description || price === undefined) {
+    if (!nom || !description || price === undefined || price === '') {
       return res.status(400).json({ error: "Nom, description, and price are required" });
     }
 
@@ -2620,13 +2705,13 @@ app.post("/api/extras", async (req, res) => {
   }
 });
 
-app.put("/api/extras/:id", async (req, res) => {
+app.put("/extras/:id", authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { nom, description, price, available, availableForDelivery, speciality, tags } = req.body;
 
     // Validate required fields
-    if (!nom || !description || price === undefined) {
+    if (!nom || !description || price === undefined || price === '') {
       return res.status(400).json({ error: "Nom, description, and price are required" });
     }
 
@@ -2668,7 +2753,7 @@ app.put("/api/extras/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/extras/:id", async (req, res) => {
+app.delete("/extras/:id", authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     // Check if the extra exists first
@@ -2697,7 +2782,7 @@ app.delete("/api/extras/:id", async (req, res) => {
 });
 
 // Upload image for an extra
-app.post('/extras/:id/image', upload.single('image'), processImage, async (req, res) => {
+app.post('/extras/:id/image', authenticate, requireAdmin, upload.single('image'), processImage, async (req, res) => {
   const { id } = req.params;
   try {
     const extra = await prisma.extra.findUnique({ where: { id: parseInt(id) } });
@@ -2731,7 +2816,7 @@ app.post('/extras/:id/image', upload.single('image'), processImage, async (req, 
 });
 
 // Delete image from an extra
-app.delete('/extras/:id/image', async (req, res) => {
+app.delete('/extras/:id/image', authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const extra = await prisma.extra.findUnique({ where: { id: parseInt(id) } });
@@ -2790,26 +2875,25 @@ app.get('/plats', async (req, res) => {
 });
 
 // Create plat
-app.post("/plats", upload.single('image'), processImage, async (req, res) => {
+app.post("/plats", authenticate, requireAdmin, upload.single('image'), processImage, async (req, res) => {
   try {
-    const { 
-      name, 
-      price, 
-      description, 
-      ordre,
-      availableForDelivery, 
-      available, 
-      speciality,
-      IncludesSauce,
-      saucePrice,
-      hiddenInTheMenu,
-      versions, // Array of version objects: [{ size: "M", extraPrice: 0.0 }, ...]
-      tags, // Array of tag IDs: [1, 2, 3]
-      versionTags // Optional: mapping { [size]: [tagId, ...] }
-    } = req.body;
-    
-    // Validate required fields
-    if (!name || price === undefined || !description) {
+  const { 
+    name, 
+    price, 
+    description, 
+    ordre,
+    availableForDelivery, 
+    available, 
+    speciality,
+    IncludesSauce,
+    saucePrice,
+    hiddenInTheMenu,
+    platCache,
+    versions, // Array of version objects: [{ size: "M", extraPrice: 0.0 }, ...]
+    tags, // Array of tag IDs: [1, 2, 3]
+    versionTags // Optional: mapping { [size]: [tagId, ...] }
+  } = req.body;    // Validate required fields
+    if (!name || price === undefined || price === '' || !description) {
       // Delete the uploaded file if it exists
       if (req.file) {
         fs.unlinkSync(req.file.path);
@@ -2876,6 +2960,7 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
         IncludesSauce: IncludesSauce === 'true' || IncludesSauce === true,
         saucePrice: saucePrice ? parseFloat(saucePrice) : 0.0,
         hiddenInTheMenu: hiddenInTheMenu === 'true' || hiddenInTheMenu === true ? true : false,
+        platCache: platCache === 'true' || platCache === true ? true : false,
         versions: {
           create: parsedVersions.map(version => ({
             size: version.size,
@@ -2932,7 +3017,7 @@ app.post("/plats", upload.single('image'), processImage, async (req, res) => {
 });
 
 // Update plat
-app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => {
+app.put("/plats/:id", authenticate, requireAdmin, upload.single('image'), processImage, async (req, res) => {
   const { id } = req.params;
   const { 
     name, 
@@ -2946,6 +3031,7 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
     IncludesSauce,
     saucePrice,
     hiddenInTheMenu,
+    platCache,
     versions,
     tags, // Add tags to destructuring
     versionTags // Optional mapping { [size]: [tagIds] }
@@ -2972,7 +3058,7 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
       // avoid crashing route due to logging errors
     }
     // Validate required fields
-    if (!name || price === undefined || !description) {
+    if (!name || price === undefined || price === '' || !description) {
       // Delete the uploaded file if it exists
       if (req.file) {
         fs.unlinkSync(req.file.path);
@@ -3077,6 +3163,9 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
       }
       if (Object.prototype.hasOwnProperty.call(req.body, 'hiddenInTheMenu')) {
         updateData.hiddenInTheMenu = (hiddenInTheMenu === 'true' || hiddenInTheMenu === true) ? true : false;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'platCache')) {
+        updateData.platCache = (platCache === 'true' || platCache === true) ? true : false;
       }
       if (Object.prototype.hasOwnProperty.call(req.body, 'ordre')) {
         updateData.ordre = ordre || null; // Allow null for ordre
@@ -3231,7 +3320,7 @@ app.put("/plats/:id", upload.single('image'), processImage, async (req, res) => 
 });
 
 // Delete plat
-app.delete("/plats/:id", async (req, res) => {
+app.delete("/plats/:id", authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     // Get the plat to check if it has an image to delete
@@ -3280,7 +3369,7 @@ app.delete("/plats/:id", async (req, res) => {
 // ===============================
 
 // Upload/replace image for a plat version
-app.post('/plat-versions/:id/image', upload.single('image'), processImage, async (req, res) => {
+app.post('/plat-versions/:id/image', authenticate, requireAdmin, upload.single('image'), processImage, async (req, res) => {
   const { id } = req.params;
   try {
     const version = await prisma.platVersion.findUnique({ where: { id: parseInt(id) } });
@@ -3314,7 +3403,7 @@ app.post('/plat-versions/:id/image', upload.single('image'), processImage, async
 });
 
 // Remove image from a plat version
-app.delete('/plat-versions/:id/image', async (req, res) => {
+app.delete('/plat-versions/:id/image', authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const version = await prisma.platVersion.findUnique({ where: { id: parseInt(id) } });
@@ -3516,7 +3605,7 @@ app.get('/ingredients', async (req, res) => {
 });
 
 // Create ingredient
-app.post('/ingredients', async (req, res) => {
+app.post('/ingredients', authenticate, requireAdmin, async (req, res) => {
   try {
     const { name, description, allergen } = req.body;
     
@@ -3543,7 +3632,7 @@ app.post('/ingredients', async (req, res) => {
 });
 
 // Update ingredient
-app.put('/ingredients/:id', async (req, res) => {
+app.put('/ingredients/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, allergen } = req.body;
@@ -3575,7 +3664,7 @@ app.put('/ingredients/:id', async (req, res) => {
 });
 
 // Delete ingredient
-app.delete('/ingredients/:id', async (req, res) => {
+app.delete('/ingredients/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -3594,7 +3683,7 @@ app.delete('/ingredients/:id', async (req, res) => {
 });
 
 // Upload image for an ingredient
-app.post('/ingredients/:id/image', upload.single('image'), processImage, async (req, res) => {
+app.post('/ingredients/:id/image', authenticate, requireAdmin, upload.single('image'), processImage, async (req, res) => {
   const { id } = req.params;
   try {
     const ingredient = await prisma.ingredient.findUnique({ where: { id: parseInt(id) } });
@@ -3628,7 +3717,7 @@ app.post('/ingredients/:id/image', upload.single('image'), processImage, async (
 });
 
 // Delete image from an ingredient
-app.delete('/ingredients/:id/image', async (req, res) => {
+app.delete('/ingredients/:id/image', authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const ingredient = await prisma.ingredient.findUnique({ where: { id: parseInt(id) } });
@@ -3670,7 +3759,7 @@ app.get('/plats/:id/ingredients', async (req, res) => {
 });
 
 // Add ingredient to plat
-app.post('/plats/:id/ingredients', async (req, res) => {
+app.post('/plats/:id/ingredients', authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { ingredientId, removable } = req.body;
@@ -3701,7 +3790,7 @@ app.post('/plats/:id/ingredients', async (req, res) => {
 });
 
 // Update plat ingredient
-app.put('/plats/:platId/ingredients/:ingredientId', async (req, res) => {
+app.put('/plats/:platId/ingredients/:ingredientId', authenticate, requireAdmin, async (req, res) => {
   try {
     const { platId, ingredientId } = req.params;
     const { removable } = req.body;
@@ -3732,7 +3821,7 @@ app.put('/plats/:platId/ingredients/:ingredientId', async (req, res) => {
 });
 
 // Remove ingredient from plat
-app.delete('/plats/:platId/ingredients/:ingredientId', async (req, res) => {
+app.delete('/plats/:platId/ingredients/:ingredientId', authenticate, requireAdmin, async (req, res) => {
   try {
     const { platId, ingredientId } = req.params;
     

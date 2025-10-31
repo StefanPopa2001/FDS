@@ -28,6 +28,7 @@ import {
   Close as CloseIcon,
 } from "@mui/icons-material"
 import config from '../config.js';
+import { fetchWithAuth } from '../utils/apiService';
 
 export default function AdminExtra() {
   const [extras, setExtras] = useState([])
@@ -49,7 +50,7 @@ export default function AdminExtra() {
   // Fetch extras
   const fetchExtras = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/api/extras`)
+      const response = await fetchWithAuth(`${config.API_URL}/api/extras`)
       if (response.ok) {
         const data = await response.json()
         // Convert id to number to ensure proper sorting
@@ -58,16 +59,19 @@ export default function AdminExtra() {
           id: Number(extra.id),
         }))
         setExtras(processedData)
+      } else {
+        showAlert("Échec du chargement des extras", "error")
       }
     } catch (error) {
       showAlert("Échec du chargement des extras", "error")
+      console.error("Error fetching extras:", error)
     }
   }
 
   // Fetch all tags for the multi-select
   const fetchTags = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/tags`)
+      const response = await fetchWithAuth(`${config.API_URL}/tags`)
       if (!response.ok) throw new Error('Failed to fetch tags')
       const data = await response.json()
       setTags(data)
@@ -93,9 +97,8 @@ export default function AdminExtra() {
       const extra = extras.find(e => e.id === id)
       if (!extra) return
 
-      const response = await fetch(`${config.API_URL}/api/extras/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/api/extras/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...extra,
           ...updates,
@@ -117,36 +120,58 @@ export default function AdminExtra() {
 
   // Handle edit mode
   const handleEditClick = (extra) => {
-    setEditMode({ ...editMode, [extra.id]: true })
-    setEditData({ ...editData, [extra.id]: { ...extra } })
+    const id = Number(extra.id);
+    setEditMode({ ...editMode, [id]: true })
+    setEditData({ ...editData, [id]: { ...extra } })
   }
 
   // Handle edit cancel
   const handleEditCancel = (id) => {
-    setEditMode({ ...editMode, [id]: false })
-    delete editData[id]
+    const numId = Number(id);
+    setEditMode({ ...editMode, [numId]: false })
+    delete editData[numId]
     setEditData({ ...editData })
   }
 
   // Handle edit save
   const handleEditSave = async (id) => {
+    const numId = Number(id);
     try {
-      const response = await fetch(`${config.API_URL}/api/extras/${id}`, {
+      const extra = editData[numId];
+      if (!extra) {
+        showAlert("Erreur: données d'extra manquantes", "error");
+        return;
+      }
+
+      console.log("Updating extra with ID:", numId, "Data:", { nom: extra.nom, description: extra.description, price: extra.price });
+
+      const response = await fetchWithAuth(`${config.API_URL}/api/extras/${numId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...editData[id],
-          price: parseFloat(editData[id].price),
+          nom: extra.nom,
+          description: extra.description,
+          price: parseFloat(extra.price),
+          available: extra.available,
+          availableForDelivery: extra.availableForDelivery,
+          speciality: extra.speciality,
+          tags: extra.tags || [],
         }),
       })
 
       if (response.ok) {
         fetchExtras()
         showAlert("Extra mis à jour avec succès")
-        handleEditCancel(id)
+        handleEditCancel(numId)
       } else {
-        const error = await response.json()
-        showAlert(error.error || "Échec de la mise à jour de l'extra", "error")
+        let errorPayload;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          errorPayload = await response.json();
+        } else {
+          errorPayload = { error: await response.text() };
+        }
+        console.error("Update error:", errorPayload);
+        showAlert(errorPayload.error || "Échec de la mise à jour de l'extra", "error")
       }
     } catch (error) {
       console.error("Edit save error:", error)
@@ -158,8 +183,9 @@ export default function AdminExtra() {
   const handleDelete = async (id) => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet extra ?")) return
 
+    const numId = Number(id);
     try {
-      const response = await fetch(`${config.API_URL}/api/extras/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/api/extras/${numId}`, {
         method: "DELETE",
       })
 
@@ -167,8 +193,14 @@ export default function AdminExtra() {
         fetchExtras()
         showAlert("Extra supprimé avec succès")
       } else {
-        const error = await response.json()
-        showAlert(error.error || "Échec de la suppression de l'extra", "error")
+        let errorPayload;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          errorPayload = await response.json();
+        } else {
+          errorPayload = { error: await response.text() };
+        }
+        showAlert(errorPayload.error || "Échec de la suppression de l'extra", "error")
       }
     } catch (error) {
       console.error("Delete error:", error)
@@ -179,9 +211,8 @@ export default function AdminExtra() {
   // Handle new extra submission
   const handleNewExtraSubmit = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/api/extras`, {
+      const response = await fetchWithAuth(`${config.API_URL}/api/extras`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...newExtra,
           price: parseFloat(newExtra.price),
@@ -219,7 +250,7 @@ export default function AdminExtra() {
     formData.append('image', file)
 
     try {
-      const response = await fetch(`${config.API_URL}/extras/${id}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/extras/${id}/image`, {
         method: "POST",
         body: formData,
       })
@@ -242,7 +273,7 @@ export default function AdminExtra() {
   const handleDeleteImage = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cette image ?")) {
       try {
-        const response = await fetch(`${config.API_URL}/extras/${id}/image`, {
+        const response = await fetchWithAuth(`${config.API_URL}/extras/${id}/image`, {
           method: "DELETE",
         })
 

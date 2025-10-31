@@ -43,6 +43,7 @@ import {
   Fastfood as FastfoodIcon,
 } from "@mui/icons-material"
 import config from '../config.js';
+import { fetchWithAuth } from '../utils/apiService';
 
 export default function AdminPlat() {
   const [plats, setPlats] = useState([])
@@ -65,6 +66,7 @@ export default function AdminPlat() {
     IncludesSauce: true,
     saucePrice: "",
     hiddenInTheMenu: false,
+    platCache: false,
     versions: [{ size: "Standard", extraPrice: 0 }],
     selectedTags: [],    selectedIngredients: []  })
 
@@ -272,6 +274,23 @@ export default function AdminPlat() {
       ),
     },
     {
+      field: "platCache",
+      headerName: "Caché (Recomm.)",
+      width: 150,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Checkbox 
+            checked={!!params.value} 
+            onChange={(e) => handleCheckboxChange(params.row.id, "platCache", e.target.checked)}
+            sx={{ padding: 0 }} 
+            color={params.value ? "secondary" : "default"}
+          />
+        </Box>
+      ),
+    },
+    {
       field: "actions",
       headerName: "Actions",
       width: 150,
@@ -378,6 +397,7 @@ export default function AdminPlat() {
       IncludesSauce: true,
       saucePrice: "",
       hiddenInTheMenu: false,
+      platCache: false,
   versions: [{ size: "Standard", extraPrice: 0, tagId: null }],
       selectedTags: [],
       selectedIngredients: []
@@ -456,7 +476,7 @@ export default function AdminPlat() {
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(`${config.API_URL}/plats/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${id}`, {
         method: "DELETE",
       })
       if (response.ok) {
@@ -488,6 +508,7 @@ export default function AdminPlat() {
       formData.append("speciality", field === "speciality" ? value : plat.speciality)
       formData.append("IncludesSauce", field === "IncludesSauce" ? value : plat.IncludesSauce)
       formData.append("hiddenInTheMenu", field === "hiddenInTheMenu" ? value : (plat.hiddenInTheMenu ?? false))
+      formData.append("platCache", field === "platCache" ? value : (plat.platCache ?? false))
       formData.append("saucePrice", plat.saucePrice || "0")
       formData.append("versions", JSON.stringify(plat.versions || []))
       // Include versionTags mapping from current plat versions (keyed by id when available)
@@ -500,14 +521,14 @@ export default function AdminPlat() {
       formData.append("versionTags", JSON.stringify(versionTags))
       formData.append("keepExistingImage", "true")
 
-      const response = await fetch(`${config.API_URL}/plats/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${id}`, {
         method: "PUT",
         body: formData,
       })
 
       if (response.ok) {
         fetchPlats()
-        showAlert(`${field === "available" ? "Disponibilité" : field === "availableForDelivery" ? "Livraison" : field === "speciality" ? "Spécialité" : field === "hiddenInTheMenu" ? "Visibilité menu" : "Sauce incluse"} mise à jour`)
+        showAlert(`${field === "available" ? "Disponibilité" : field === "availableForDelivery" ? "Livraison" : field === "speciality" ? "Spécialité" : field === "hiddenInTheMenu" ? "Visibilité menu" : field === "platCache" ? "Cache (Recommandation)" : "Sauce incluse"} mise à jour`)
       } else {
         const errorData = await response.json()
         showAlert(errorData.error || "Erreur lors de la mise à jour", "error")
@@ -540,6 +561,7 @@ export default function AdminPlat() {
       formData.append("speciality", newPlat.speciality)
       formData.append("IncludesSauce", newPlat.IncludesSauce)
   formData.append("hiddenInTheMenu", newPlat.hiddenInTheMenu)
+      formData.append("platCache", newPlat.platCache)
       formData.append("saucePrice", newPlat.saucePrice || "0")
       formData.append("versions", JSON.stringify(newPlat.versions))
       // Build versionTags mapping keyed by version id when available, otherwise size -> [tagIds]
@@ -562,7 +584,7 @@ export default function AdminPlat() {
       const url = editingPlat ? `${config.API_URL}/plats/${editingPlat.id}` : `${config.API_URL}/plats`
       const method = editingPlat ? "PUT" : "POST"
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: method,
         body: formData,
       })
@@ -601,7 +623,7 @@ export default function AdminPlat() {
       // Remove ingredients that are no longer selected
       for (const currentIngredient of currentIngredients) {
         if (!selectedIngredients.some(si => si.ingredientId === currentIngredient.ingredientId)) {
-          await fetch(`${config.API_URL}/plats/${platId}/ingredients/${currentIngredient.ingredientId}`, {
+          await fetchWithAuth(`${config.API_URL}/plats/${platId}/ingredients/${currentIngredient.ingredientId}`, {
             method: 'DELETE'
           })
         }
@@ -611,11 +633,8 @@ export default function AdminPlat() {
       for (const selectedIngredient of selectedIngredients) {
         const exists = currentIngredients.some(ci => ci.ingredientId === selectedIngredient.ingredientId)
         if (!exists) {
-          await fetch(`${config.API_URL}/plats/${platId}/ingredients`, {
+          await fetchWithAuth(`${config.API_URL}/plats/${platId}/ingredients`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
               ingredientId: selectedIngredient.ingredientId,
               removable: selectedIngredient.removable !== false,
@@ -623,11 +642,8 @@ export default function AdminPlat() {
           })
         } else {
           // Update existing ingredient properties
-          await fetch(`${config.API_URL}/plats/${platId}/ingredients/${selectedIngredient.ingredientId}`, {
+          await fetchWithAuth(`${config.API_URL}/plats/${platId}/ingredients/${selectedIngredient.ingredientId}`, {
             method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
               removable: selectedIngredient.removable !== false,
             })
@@ -716,6 +732,7 @@ export default function AdminPlat() {
         IncludesSauce: plat.IncludesSauce,
         saucePrice: plat.saucePrice,
         hiddenInTheMenu: !!plat.hiddenInTheMenu,
+        platCache: !!plat.platCache,
         image: plat.image ? `${config.API_URL}${plat.image}` : null,
         selectedTags: plat.tags ? plat.tags.map(tag => tag.id) : []
       }
@@ -754,6 +771,7 @@ export default function AdminPlat() {
       formData.append("speciality", data.speciality)
       formData.append("IncludesSauce", data.IncludesSauce)
   formData.append("hiddenInTheMenu", data.hiddenInTheMenu)
+      formData.append("platCache", data.platCache)
       formData.append("saucePrice", data.saucePrice)
 
       // Handle image
@@ -824,6 +842,7 @@ export default function AdminPlat() {
         IncludesSauce: plat.IncludesSauce,
         saucePrice: plat.saucePrice,
         hiddenInTheMenu: !!plat.hiddenInTheMenu,
+        platCache: !!plat.platCache,
         selectedTags: plat.tags ? plat.tags.map(tag => tag.id) : [],
         selectedIngredients: plat.ingredients ? plat.ingredients.map(pi => ({
           ingredientId: pi.ingredientId,
@@ -1125,6 +1144,15 @@ export default function AdminPlat() {
                     />
                   }
                   label="Invisible dans le menu"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={newPlat.platCache}
+                      onChange={(e) => setNewPlat({ ...newPlat, platCache: e.target.checked })}
+                    />
+                  }
+                  label="Caché (recommandations uniquement)"
                 />
               </Box>
 

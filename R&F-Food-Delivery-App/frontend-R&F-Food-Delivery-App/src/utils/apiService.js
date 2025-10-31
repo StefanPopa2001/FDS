@@ -1,5 +1,31 @@
 import config from '../config';
 
+// Wrapper for fetch that automatically adds the authentication token
+export async function fetchWithAuth(url, options = {}) {
+	const token = localStorage.getItem('authToken');
+	
+	const headers = {
+		...options.headers,
+	};
+
+	// Only set Content-Type to application/json if body is not FormData
+	if (!(options.body instanceof FormData)) {
+		headers['Content-Type'] = 'application/json';
+	}
+
+	// Add Authorization header if token exists
+	if (token) {
+		headers['Authorization'] = `Bearer ${token}`;
+	}
+
+	const response = await fetch(url, {
+		...options,
+		headers,
+	});
+
+	return response;
+}
+
 export async function changePassword({ token, hashedPassword, salt }) {
 	const res = await fetch(`${config.API_URL}/users/password`, {
 		method: 'PUT',

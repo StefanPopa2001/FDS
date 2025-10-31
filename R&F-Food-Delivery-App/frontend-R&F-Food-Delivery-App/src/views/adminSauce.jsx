@@ -37,6 +37,7 @@ import {
   Restaurant as RestaurantIcon,
 } from "@mui/icons-material"
 import config from "../config"
+import { fetchWithAuth } from '../utils/apiService';
 
 export default function AdminSauce() {
   const [sauces, setSauces] = useState([])
@@ -495,7 +496,7 @@ export default function AdminSauce() {
   // Handle delete
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/sauces/${id}`, {
         method: "DELETE",
       })
 
@@ -531,7 +532,7 @@ export default function AdminSauce() {
         formData.append("image", newSauce.image)
       }
 
-      const response = await fetch(`${config.API_URL}/sauces`, {
+      const response = await fetchWithAuth(`${config.API_URL}/sauces`, {
         method: "POST",
         body: formData,
         // Don't set Content-Type header, it will be set automatically with the boundary parameter
@@ -589,7 +590,7 @@ export default function AdminSauce() {
       // Tell backend to keep existing image
       formData.append("keepExistingImage", "true")
 
-      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/sauces/${id}`, {
         method: "PUT",
         body: formData,
       })
@@ -714,7 +715,7 @@ export default function AdminSauce() {
         formData.append("keepExistingImage", String(editData[id].image !== null))
       }
 
-      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/sauces/${id}`, {
         method: "PUT",
         body: formData,
       })

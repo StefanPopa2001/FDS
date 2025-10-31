@@ -56,6 +56,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { fr } from 'date-fns/locale';
 import config from "../config";
+import { fetchWithAuth } from '../utils/apiService';
 
 // Tab panel component
 function TabPanel(props) {
@@ -221,7 +222,8 @@ const AdminInspection = () => {
         speciality: plat.speciality === true,
         includesSauce: plat.IncludesSauce !== false,
         saucePrice: plat.saucePrice || 0,
-        ordre: plat.ordre || ""
+        ordre: plat.ordre || "",
+        platCache: plat.platCache === true
       });
       // Also fetch associations for this plat
       fetchPlatAssociations(platId);
@@ -302,11 +304,8 @@ const AdminInspection = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${currentPlat.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           name: inlineEditData.nom,
           nom: inlineEditData.nom,
@@ -363,10 +362,10 @@ const AdminInspection = () => {
       if (patch.hasOwnProperty('includesSauce')) body.IncludesSauce = patch.includesSauce;
       if (patch.hasOwnProperty('ordre')) body.ordre = patch.ordre;
       if (patch.hasOwnProperty('saucePrice')) body.saucePrice = parseFloat(patch.saucePrice || 0);
+      if (patch.hasOwnProperty('platCache')) body.platCache = patch.platCache;
 
-      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${currentPlat.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
@@ -396,7 +395,7 @@ const AdminInspection = () => {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${currentPlat.id}/image`, {
         method: 'POST',
         body: formData,
       });
@@ -428,7 +427,7 @@ const AdminInspection = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${currentPlat.id}/image`, {
         method: 'DELETE',
       });
 
@@ -451,9 +450,8 @@ const AdminInspection = () => {
   const handleIngredientNameEdit = async (ingredientId, newName) => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/ingredients/${ingredientId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients/${ingredientId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nom: newName }),
       });
 
@@ -477,7 +475,7 @@ const AdminInspection = () => {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch(`${config.API_URL}/ingredients/${ingredientId}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients/${ingredientId}/image`, {
         method: 'POST',
         body: formData,
       });
@@ -500,7 +498,7 @@ const AdminInspection = () => {
   const handleIngredientImageRemove = async (ingredientId) => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/ingredients/${ingredientId}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients/${ingredientId}/image`, {
         method: 'DELETE',
       });
 
@@ -521,7 +519,7 @@ const AdminInspection = () => {
   const handleRemoveIngredientFromPlat = async (platId, ingredientId) => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plats/${platId}/ingredients/${ingredientId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${platId}/ingredients/${ingredientId}`, {
         method: 'DELETE',
       });
 
@@ -542,9 +540,8 @@ const AdminInspection = () => {
   const handleToggleIngredientRemovable = async (platId, ingredientId, removable) => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plats/${platId}/ingredients/${ingredientId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${platId}/ingredients/${ingredientId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ removable }),
       });
 
@@ -579,9 +576,8 @@ const AdminInspection = () => {
   const handleAddIngredientToPlat = async (platId, ingredientId) => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plats/${platId}/ingredients`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${platId}/ingredients`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredientId, removable: true }),
       });
 
@@ -657,9 +653,8 @@ const AdminInspection = () => {
       const versionKey = editingVersion ? editingVersion.id : versionFormData.size;
       versionTags[versionKey] = versionFormData.tagIds;
 
-      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${currentPlat.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
@@ -707,9 +702,8 @@ const AdminInspection = () => {
         }
       });
 
-      const response = await fetch(`${config.API_URL}/plats/${currentPlat.id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${currentPlat.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
@@ -746,7 +740,7 @@ const AdminInspection = () => {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch(`${config.API_URL}/plat-versions/${versionId}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plat-versions/${versionId}/image`, {
         method: 'POST',
         body: formData,
       });
@@ -769,7 +763,7 @@ const AdminInspection = () => {
   const handleVersionImageRemove = async (versionId) => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plat-versions/${versionId}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plat-versions/${versionId}/image`, {
         method: 'DELETE',
       });
 
@@ -811,9 +805,8 @@ const AdminInspection = () => {
         extraPrice: v.extraPrice
       }));
 
-      const response = await fetch(`${config.API_URL}/plats/${platId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${platId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: currentPlat.nom || currentPlat.name,
           price: currentPlat.price || currentPlat.basePrice,
@@ -853,9 +846,8 @@ const AdminInspection = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plats/${editingPlat.id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${editingPlat.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nom: editingPlat.nom || editingPlat.name,
           description: editingPlat.description,
@@ -891,7 +883,7 @@ const AdminInspection = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/plats/${platToDelete.id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/plats/${platToDelete.id}`, {
         method: "DELETE",
       });
 
@@ -925,12 +917,8 @@ const AdminInspection = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           proposition: (tagClipboard.proposition || []).map(id => parseInt(id))
         })
@@ -963,12 +951,8 @@ const AdminInspection = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/admin/associations/${selectedPlatId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           proposition: newSelected.map(id => parseInt(id))
         })
@@ -1651,6 +1635,33 @@ const AdminInspection = () => {
                         />
                       </Box>
                     )}
+
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={inlineEditData.platCache === true}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setInlineEditData({ ...inlineEditData, platCache: val });
+                            updatePlatField({ platCache: val });
+                          }}
+                          sx={{
+                            color: 'rgba(255, 152, 0, 0.5)',
+                            '&.Mui-checked': {
+                              color: '#f44336',
+                            },
+                          }}
+                        />
+                      }
+                      label={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: 'white', fontSize: '0.875rem' }}>
+                            🔒 Caché (recommandations)
+                          </Typography>
+                        </Box>
+                      }
+                    />
 
                     <TextField
                       label="Ordre"

@@ -22,6 +22,7 @@ import {
 } from "@mui/icons-material"
 import CryptoJS from "crypto-js"
 import config from '../config';
+import { fetchWithAuth } from '../utils/apiService';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -269,11 +270,8 @@ export default function AdminUsers() {
   const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
       try {
-        const response = await fetch(`${config.API_URL}/users/${id}`, {
+        const response = await fetchWithAuth(`${config.API_URL}/users/${id}`, {
           method: "DELETE",
-          headers: {
-            ...getAuthHeaders(),
-          },
         })
         if (response.ok) {
           showAlert("Utilisateur supprimé avec succès")
@@ -310,9 +308,8 @@ export default function AdminUsers() {
   // Handle edit save
   const handleEditSave = async (id) => {
     try {
-      const response = await fetch(`${config.API_URL}/users/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/users/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(editData[id]),
       })
       if (response.ok) {
@@ -336,9 +333,8 @@ export default function AdminUsers() {
       
     if (window.confirm(confirmMessage)) {
       try {
-        const response = await fetch(`${config.API_URL}/users/${id}`, {
+        const response = await fetchWithAuth(`${config.API_URL}/users/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           body: JSON.stringify({ enabled }),
         })
         if (response.ok) {

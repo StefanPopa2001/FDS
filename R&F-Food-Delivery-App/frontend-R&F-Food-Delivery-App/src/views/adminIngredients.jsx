@@ -26,6 +26,7 @@ import {
   Close as CloseIcon,
 } from "@mui/icons-material"
 import config from '../config.js';
+import { fetchWithAuth } from '../utils/apiService';
 
 export default function AdminIngredients() {
   const [ingredients, setIngredients] = useState([])
@@ -72,9 +73,8 @@ export default function AdminIngredients() {
       const ingredient = ingredients.find(i => i.id === id)
       if (!ingredient) return
 
-      const response = await fetch(`${config.API_URL}/ingredients/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...ingredient,
           ...updates,
@@ -97,7 +97,7 @@ export default function AdminIngredients() {
   const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet ingrédient ?")) {
       try {
-        const response = await fetch(`${config.API_URL}/ingredients/${id}`, { method: "DELETE" })
+        const response = await fetchWithAuth(`${config.API_URL}/ingredients/${id}`, { method: "DELETE" })
         if (response.ok) {
           showAlert("Ingrédient supprimé avec succès")
           fetchIngredients()
@@ -114,9 +114,8 @@ export default function AdminIngredients() {
   // Handle new ingredient submit
   const handleNewIngredientSubmit = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/ingredients`, {
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newIngredient),
       })
       if (response.ok) {
@@ -141,7 +140,7 @@ export default function AdminIngredients() {
     formData.append('image', file)
 
     try {
-      const response = await fetch(`${config.API_URL}/ingredients/${id}/image`, {
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients/${id}/image`, {
         method: "POST",
         body: formData,
       })
@@ -164,7 +163,7 @@ export default function AdminIngredients() {
   const handleDeleteImage = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cette image ?")) {
       try {
-        const response = await fetch(`${config.API_URL}/ingredients/${id}/image`, {
+        const response = await fetchWithAuth(`${config.API_URL}/ingredients/${id}/image`, {
           method: "DELETE",
         })
 
@@ -197,9 +196,8 @@ export default function AdminIngredients() {
   // Handle edit save
   const handleEditSave = async (id) => {
     try {
-      const response = await fetch(`${config.API_URL}/ingredients/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editData[id]),
       })
       if (response.ok) {

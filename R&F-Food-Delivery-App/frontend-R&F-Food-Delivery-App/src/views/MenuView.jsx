@@ -150,14 +150,40 @@ const MenuView = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down("md"))
 
-  // Debounce search term
+  // Debounce search term to improve performance - 1 second delay
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm)
-    }, 300)
+    }, 1000) // 1 second delay for smooth typing experience
 
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  // Memoized search input handler to prevent recreating on every render
+  const handleSearchChange = useCallback((e) => {
+    setSearchTerm(e.target.value)
+  }, [])
+
+  // Normalized text search helper
+  const normalizeText = useCallback((str) => {
+    if (!str) return "";
+    let s = String(str)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    s = s.replace(/œ/g, 'oe').replace(/æ/g, 'ae');
+    s = s.replace(/[''`´^~¨]/g, ' ')
+         .replace(/[-–—_]/g, ' ');
+    s = s.replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return s;
+  }, []);
+
+  const searchMatch = useCallback((text, query) => {
+    if (!query) return true; // Early return for empty query
+    const normalized = normalizeText(text);
+    const queryNorm = normalizeText(query);
+    return normalized.includes(queryNorm);
+  }, [normalizeText]);
 
   // Fetch sauces and plats in parallel
   useEffect(() => {
@@ -277,10 +303,10 @@ const MenuView = () => {
     }
 
     if (debouncedSearchTerm) {
-      filtered = filtered.filter((sauce) =>
-        sauce.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        sauce.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-      )
+      filtered = filtered.filter((sauce) => {
+        // Only search by name
+        return searchMatch(sauce.name, debouncedSearchTerm);
+      })
     }
 
     // Sort by ordre (ascending), then by name alphabetically
@@ -296,7 +322,7 @@ const MenuView = () => {
     })
 
     return filtered.filter(sauce => sauce.available)
-  }, [sauces, selectedTagFilter, debouncedSearchTerm])
+  }, [sauces, selectedTagFilter, debouncedSearchTerm, searchMatch])
 
   // Filtered plats
   const filteredPlats = useMemo(() => {
@@ -317,10 +343,10 @@ const MenuView = () => {
     }
 
     if (debouncedSearchTerm) {
-      filtered = filtered.filter((plat) =>
-        plat.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        plat.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-      )
+      filtered = filtered.filter((plat) => {
+        // Only search by name
+        return searchMatch(plat.name, debouncedSearchTerm);
+      })
     }
 
     // Sort by ordre (ascending), then by name alphabetically
@@ -336,7 +362,7 @@ const MenuView = () => {
     })
 
     return filtered.filter(plat => plat.available && !plat.hiddenInTheMenu)
-  }, [plats, selectedTagFilter, settings, debouncedSearchTerm])
+  }, [plats, selectedTagFilter, settings, debouncedSearchTerm, searchMatch])
 
   // Progressive reveal: increase visible counts when scrolling near the end
   useEffect(() => {
@@ -428,7 +454,7 @@ const MenuView = () => {
                   variant="outlined"
                   placeholder="Rechercher un plat ou une sauce..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={handleSearchChange}
                   InputProps={{
                     startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
                   }}

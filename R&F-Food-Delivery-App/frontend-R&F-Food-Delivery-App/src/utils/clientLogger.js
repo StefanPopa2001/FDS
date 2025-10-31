@@ -1,6 +1,7 @@
 // Lightweight frontend logger that mirrors backend style and ships important events.
 // Retains an in-memory ring buffer (last 200 entries) for potential future UI display.
 // Uses shared config.API_URL so production builds point to correct domain instead of localhost fallback.
+// Ships all logs to backend which writes to: frontend_logs.log, frontend_error.log, backend_logs.log, backend_error.log
 
 import config from '../config';
 
@@ -12,8 +13,17 @@ function pushRing(entry) {
   if (ring.length > RING_MAX) ring = ring.slice(-RING_MAX);
 }
 
-function ts() {
-  return new Date().toISOString();
+function formatTimestamp(date = new Date()) {
+  // ISO with local time and milliseconds to match backend format
+  const pad = (n, z = 2) => ('' + n).padStart(z, '0');
+  const tz = -date.getTimezoneOffset();
+  const sign = tz >= 0 ? '+' : '-';
+  const tzH = pad(Math.floor(Math.abs(tz) / 60));
+  const tzM = pad(Math.abs(tz) % 60);
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    ` ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)} ${sign}${tzH}:${tzM}`
+  );
 }
 
 // Normalize API base (remove trailing slash). If undefined, fallback to window origin + /api if available.
@@ -30,6 +40,8 @@ const deriveApiBase = () => {
 };
 const API_BASE = deriveApiBase();
 
+// Default levels to ship: log, info, warn, error, debug (all of them)
+// Can be controlled via REACT_APP_CLIENT_LOG_LEVELS env var
 const DEFAULT_LEVELS = ['log','info','warn','error','debug'];
 const rawLevels = (process.env.REACT_APP_CLIENT_LOG_LEVELS || '').split(',').map(s => s.trim()).filter(Boolean);
 const ACTIVE_LEVELS = (rawLevels.length ? rawLevels : DEFAULT_LEVELS).map(l => l.toLowerCase());
@@ -55,8 +67,12 @@ export function setClientLoggerUser(user) {
 async function ship(level, message, context = {}) {
   const finalLevel = level === 'log' ? 'info' : level; // map console.log to info
   const payloadContext = { ...context, sessionId, ...userContext };
-  pushRing({ t: ts(), level: finalLevel, message, context: payloadContext });
+  const timestamp = formatTimestamp();
+  
+  pushRing({ t: timestamp, level: finalLevel, message, context: payloadContext });
+  
   if (!ACTIVE_LEVELS.includes(level)) return;
+  
   try {
     await fetch(`${API_BASE}/client-log`, {
       method: 'POST',
@@ -65,7 +81,7 @@ async function ship(level, message, context = {}) {
     });
   } catch (e) {
     // Swallow network errors to avoid recursive logging
-    // Optionally keep a flag if needed
+    // Silently fail - don't log the error to avoid infinite loops
   }
 }
 

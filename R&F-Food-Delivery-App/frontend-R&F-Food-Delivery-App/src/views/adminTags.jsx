@@ -23,6 +23,7 @@ import {
   Tag as TagIcon,
 } from "@mui/icons-material"
 import config from '../config';
+import { fetchWithAuth } from '../utils/apiService';
 
 export default function AdminTags() {
   const [tags, setTags] = useState([])
@@ -357,12 +358,13 @@ export default function AdminTags() {
   const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce tag ?")) {
       try {
-        const response = await fetch(`${config.API_URL}/tags/${id}`, { method: "DELETE" })
+        const response = await fetchWithAuth(`${config.API_URL}/tags/${id}`, { method: "DELETE" })
         if (response.ok) {
           showAlert("Tag supprimé avec succès")
           fetchTags()
         } else {
-          showAlert("Échec de la suppression du tag", "error")
+          const data = await response.json()
+          showAlert(data.error || "Échec de la suppression du tag", "error")
         }
       } catch (error) {
         showAlert("Erreur lors de la suppression du tag", "error")
@@ -373,9 +375,8 @@ export default function AdminTags() {
   // Handle new tag submit
   const handleNewTagSubmit = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/tags`, {
+      const response = await fetchWithAuth(`${config.API_URL}/tags`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTag),
       })
       if (response.ok) {
@@ -407,9 +408,8 @@ export default function AdminTags() {
   // Handle edit save
   const handleEditSave = async (id) => {
     try {
-      const response = await fetch(`${config.API_URL}/tags/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/tags/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editData[id]),
       })
       if (response.ok) {

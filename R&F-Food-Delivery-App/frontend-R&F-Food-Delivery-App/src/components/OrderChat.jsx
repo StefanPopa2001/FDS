@@ -47,6 +47,11 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
       // Load initial messages
       fetchMessages();
 
+      // Mark messages as read when admin opens the chat
+      if (userType === 'shop') {
+        markMessagesAsRead();
+      }
+
       // Set up polling for new messages every 5 seconds when chat is open
       const startPolling = () => {
         if (pollingIntervalRef.current) {
@@ -92,6 +97,22 @@ const OrderChat = ({ open, onClose, orderId, userId, userType = 'client' }) => {
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
+    }
+  };
+
+  const markMessagesAsRead = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      await fetch(`${config.API_URL}/orders/${orderId}/chat/read`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ senderType: userType })
+      });
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
     }
   };
 

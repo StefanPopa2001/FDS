@@ -2,11 +2,27 @@ const fs = require('fs');
 const path = require('path');
 
 // Determine log file paths
-// Always write to /tmp for Docker containers
-const LOG_FILE = '/tmp/backend.log';
-const LOG_ERROR_FILE = '/tmp/backend-error.log';
-const LOG_FRONTEND_ERROR_FILE = '/tmp/frontend-error.log';
-const LOG_FRONTEND_FILE = '/tmp/frontend.log';
+// Use relative path that works in both development and Docker
+// In Docker, /app is mounted with access to logs folder through the volume
+const getLogDir = () => {
+  // Try to resolve the logs directory relative to project root
+  // When running in Docker, __dirname is /app/backend-R&F-Food-Delivery-App
+  // We need to go up to /app and then into logs
+  let baseDir = process.env.LOG_DIR || path.join(__dirname, '../../logs');
+  
+  // If LOG_DIR is set as environment variable, use it directly
+  if (process.env.LOG_DIR) {
+    baseDir = process.env.LOG_DIR;
+  }
+  
+  return baseDir;
+};
+
+const LOG_DIR = getLogDir();
+const LOG_FILE = path.join(LOG_DIR, 'backend_logs.log');
+const LOG_ERROR_FILE = path.join(LOG_DIR, 'backend_error.log');
+const LOG_FRONTEND_ERROR_FILE = path.join(LOG_DIR, 'frontend_error.log');
+const LOG_FRONTEND_FILE = path.join(LOG_DIR, 'frontend_logs.log');
 
 const MAX_LINES = parseInt(process.env.LOG_MAX_LINES || '800', 10); // main log retention
 const ERROR_MAX_LINES = parseInt(process.env.LOG_ERROR_MAX_LINES || '1000', 10);
@@ -14,8 +30,12 @@ const FRONTEND_ERROR_MAX_LINES = parseInt(process.env.LOG_FRONTEND_ERROR_MAX_LIN
 
 // Ensure directory exists
 try {
-  fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
-} catch {}
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+  // Log initialization with proper directory
+  console.log(`[LOGGER] Log directory initialized at: ${LOG_DIR}`);
+} catch (err) {
+  console.error(`[LOGGER] Failed to create log directory: ${err.message}`);
+}
 
 // Load existing lines and normalize to last MAX_LINES
 let buffer = [];

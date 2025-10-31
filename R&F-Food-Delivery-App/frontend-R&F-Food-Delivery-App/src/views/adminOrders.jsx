@@ -32,6 +32,7 @@ import {
   useMediaQuery,
   ToggleButton,
   ToggleButtonGroup,
+  Badge,
 } from "@mui/material"
 import { alpha } from "@mui/material/styles"
 import { ThemeProvider, createTheme } from '@mui/material/styles'
@@ -172,6 +173,7 @@ export default function AdminOrders() {
   const [modalTab, setModalTab] = useState(0)
   const [phoneModalOpen, setPhoneModalOpen] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState("")
+  const [unreadChatCounts, setUnreadChatCounts] = useState({}) // Track unread messages per order
 
   // Save theme mode to localStorage
   useEffect(() => {
@@ -179,6 +181,63 @@ export default function AdminOrders() {
       localStorage.setItem('themeMode', mode)
     }
   }, [mode])
+
+  // Fetch unread chat counts for all orders
+  const fetchUnreadChatCounts = async (ordersList) => {
+    try {
+      const counts = {}
+      
+      // Fetch chat messages for each order and count unread client messages
+      await Promise.all(
+        ordersList.map(async (order) => {
+          try {
+            const response = await fetch(`${config.API_URL}/orders/${order.id}/chat`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            })
+            
+            if (response.ok) {
+              const messages = await response.json()
+              // Count unread messages from client (senderType === 'client' and isRead === false)
+              const unreadCount = messages.filter(
+                msg => msg.senderType === 'client' && !msg.isRead
+              ).length
+              counts[order.id] = unreadCount
+            }
+          } catch (err) {
+            console.error(`Error fetching chat for order ${order.id}:`, err)
+          }
+        })
+      )
+      
+      setUnreadChatCounts(counts)
+    } catch (err) {
+      console.error("Error fetching unread chat counts:", err)
+    }
+  }
+
+  // Mark chat messages as read when admin opens the chat
+  const markChatAsRead = async (orderId) => {
+    try {
+      await fetch(`${config.API_URL}/orders/${orderId}/chat/read`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ senderType: 'shop' })
+      })
+      
+      // Update local state to remove the badge
+      setUnreadChatCounts(prev => ({
+        ...prev,
+        [orderId]: 0
+      }))
+    } catch (err) {
+      console.error('Error marking chat as read:', err)
+    }
+  }
 
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
@@ -205,6 +264,10 @@ export default function AdminOrders() {
 
       const data = await response.json()
       setOrders(data.orders)
+      
+      // Fetch unread chat counts for all orders
+      fetchUnreadChatCounts(data.orders)
+      
       setError(null)
     } catch (err) {
       console.error("Error fetching orders:", err)
@@ -451,6 +514,55 @@ export default function AdminOrders() {
       )
     }
 
+    // Separate composition extras (unique choice tags) from regular extras
+    const compositionExtras = (item.addedExtras || []).filter(e => {
+      const hasUniqueChoiceTag = e?.extra?.tags?.some(t => t?.choixUnique === true)
+      return hasUniqueChoiceTag
+    })
+    const regularExtras = (item.addedExtras || []).filter(e => {
+      const hasUniqueChoiceTag = e?.extra?.tags?.some(t => t?.choixUnique === true)
+      return !hasUniqueChoiceTag
+    })
+
+    // Group composition extras by tag
+    const compositionByTag = {}
+    compositionExtras.forEach(extra => {
+      const uniqueTags = (extra?.extra?.tags || []).filter(t => t?.choixUnique)
+      uniqueTags.forEach(tag => {
+        if (!compositionByTag[tag.id]) {
+          compositionByTag[tag.id] = { tagName: tag.nom, emoji: tag.emoji, extras: [] }
+        }
+        compositionByTag[tag.id].extras.push(extra)
+      })
+    })
+
+    // Show composition section if there are any unique choice extras
+    if (Object.keys(compositionByTag).length > 0) {
+      details.push(
+        <Box key="composition" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 600, color: theme.palette.text.primary }}>
+            🎨 Composition:
+          </Typography>
+          <Box sx={{ pl: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {Object.entries(compositionByTag).map(([tagId, tagData]) => (
+              <Box key={`composition-tag-${tagId}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+                <Typography variant="body2" sx={{ fontSize: "1.1rem", fontWeight: 600, color: theme.palette.text.secondary }}>
+                  {tagData.emoji} {tagData.tagName}:
+                </Typography>
+                <Box sx={{ pl: 2, display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+                  {tagData.extras.map((extra, idx) => (
+                    <Typography key={`comp-extra-${tagId}-${idx}`} variant="body2" sx={{ fontSize: "1.1rem", fontWeight: 500, color: theme.palette.text.primary }}>
+                      • {extra?.extra?.nom || extra?.extra?.name}
+                    </Typography>
+                  ))}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )
+    }
+
     if (item.sauce) {
       details.push(
         <Box key="sauce" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
@@ -524,10 +636,10 @@ export default function AdminOrders() {
               </Typography>
             ))}
 
-            {/* Show added extras inline in green */}
-            {(item.addedExtras || []).map((added, idx) => (
+            {/* Show only regular extras (not composition ones) */}
+            {regularExtras.map((added, idx) => (
               <Typography key={`added-extra-${idx}`} variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.success.main }}>
-                ➕ {added?.extra?.nom || added?.extra?.name || added?.name} {added?.price != null ? `( +€${added.price.toFixed(2)})` : ''}
+                ➕ {added?.extra?.nom || added?.extra?.name || added?.name}
               </Typography>
             ))}
           </Box>
@@ -545,13 +657,20 @@ export default function AdminOrders() {
           </Box>
         )
       }
-      if (item.addedExtras && item.addedExtras.length > 0) {
-        const extras = item.addedExtras.map((e) => `${e.extra?.nom || e.extra?.name || e.name} (+€${e.price.toFixed(2)})`).join(", ")
+      // Show only regular extras (not composition ones) in the Extras ajoutés section
+      if (regularExtras && regularExtras.length > 0) {
         details.push(
-          <Box key="added" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Box key="added" sx={{ display: 'flex', flexDirection: 'column', gap: 0.3, mb: 0.5 }}>
             <Typography variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 600, color: theme.palette.success.main }}>
-              ➕ Extras ajoutés: {extras}
+              ➕ Extras ajoutés:
             </Typography>
+            <Box sx={{ pl: 2, display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+              {regularExtras.map((e, idx) => (
+                <Typography key={`extra-${idx}`} variant="body2" sx={{ fontSize: "1.2rem", fontWeight: 500, color: theme.palette.success.main }}>
+                  • {e.extra?.nom || e.extra?.name || e.name}
+                </Typography>
+              ))}
+            </Box>
           </Box>
         )
       }
@@ -1024,11 +1143,29 @@ export default function AdminOrders() {
           </Button>
           <Button
             variant="contained"
-            startIcon={<ChatIcon />}
+            startIcon={
+              <Badge 
+                badgeContent={unreadChatCounts[order.id] || 0} 
+                color="error"
+                overlap="circular"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    fontSize: '0.65rem',
+                    height: '16px',
+                    minWidth: '16px',
+                    padding: '0 4px',
+                  }
+                }}
+              >
+                <ChatIcon />
+              </Badge>
+            }
             onClick={(e) => {
               e.stopPropagation()
               setChatOrderId(order.id)
               setChatOpen(true)
+              // Mark messages as read when opening chat
+              markChatAsRead(order.id)
             }}
             size="small"
             sx={{ borderRadius: 2, flex: 1, fontSize: "0.75rem", py: 0.5 }}
@@ -2201,7 +2338,13 @@ export default function AdminOrders() {
         {/* Order Chat Dialog */}
         <OrderChat
           open={chatOpen}
-          onClose={() => setChatOpen(false)}
+          onClose={() => {
+            setChatOpen(false)
+            // Refresh unread counts when chat closes
+            if (orders.length > 0) {
+              fetchUnreadChatCounts(orders)
+            }
+          }}
           orderId={chatOrderId}
           userId={token ? JSON.parse(atob(token.split(".")[1])).userId : null}
           userType="shop"

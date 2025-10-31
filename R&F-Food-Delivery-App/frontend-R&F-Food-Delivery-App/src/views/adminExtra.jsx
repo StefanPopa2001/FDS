@@ -50,7 +50,7 @@ export default function AdminExtra() {
   // Fetch extras
   const fetchExtras = async () => {
     try {
-      const response = await fetchWithAuth(`${config.API_URL}/api/extras`)
+      const response = await fetchWithAuth(`${config.API_URL}/extras`)
       if (response.ok) {
         const data = await response.json()
         // Convert id to number to ensure proper sorting
@@ -145,7 +145,7 @@ export default function AdminExtra() {
 
       console.log("Updating extra with ID:", numId, "Data:", { nom: extra.nom, description: extra.description, price: extra.price });
 
-      const response = await fetchWithAuth(`${config.API_URL}/api/extras/${numId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/extras/${numId}`, {
         method: "PUT",
         body: JSON.stringify({
           nom: extra.nom,
@@ -185,7 +185,7 @@ export default function AdminExtra() {
 
     const numId = Number(id);
     try {
-      const response = await fetchWithAuth(`${config.API_URL}/api/extras/${numId}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/extras/${numId}`, {
         method: "DELETE",
       })
 
@@ -211,7 +211,7 @@ export default function AdminExtra() {
   // Handle new extra submission
   const handleNewExtraSubmit = async () => {
     try {
-      const response = await fetchWithAuth(`${config.API_URL}/api/extras`, {
+      const response = await fetchWithAuth(`${config.API_URL}/extras`, {
         method: "POST",
         body: JSON.stringify({
           ...newExtra,

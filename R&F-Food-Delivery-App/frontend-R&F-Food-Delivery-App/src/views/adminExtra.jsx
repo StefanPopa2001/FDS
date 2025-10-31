@@ -97,7 +97,7 @@ export default function AdminExtra() {
       const extra = extras.find(e => e.id === id)
       if (!extra) return
 
-      const response = await fetchWithAuth(`${config.API_URL}/api/extras/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/extras/${id}`, {
         method: "PUT",
         body: JSON.stringify({
           ...extra,

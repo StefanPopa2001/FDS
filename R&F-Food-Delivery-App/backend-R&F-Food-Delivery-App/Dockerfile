@@ -34,6 +34,11 @@ RUN addgroup -g 1001 -S nodejs && \
 RUN mkdir -p /app/public/uploads && \
     chown -R nodejs:nodejs /app/public/uploads
 
+# Create logs directory for Docker environment with correct ownership
+RUN mkdir -p /app/logs && \
+    chown -R nodejs:nodejs /app/logs && \
+    chmod 755 /app/logs
+
 # Change ownership of the entire app directory
 RUN chown -R nodejs:nodejs /app
 USER nodejs

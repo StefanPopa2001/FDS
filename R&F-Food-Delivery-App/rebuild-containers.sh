@@ -43,6 +43,14 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
+# Ensure host logs directory exists and is writable for bind mount
+if [ ! -d "../logs" ]; then
+    log "Creating host logs directory at ../logs"
+    mkdir -p ../logs || true
+fi
+# Set permissive permissions so container user can write regardless of UID mapping
+chmod 777 ../logs || true
+
 # Ensure network exists
 if ! docker network inspect starcozka-app-network >/dev/null 2>&1; then
     warn "Creating network starcozka-app-network"

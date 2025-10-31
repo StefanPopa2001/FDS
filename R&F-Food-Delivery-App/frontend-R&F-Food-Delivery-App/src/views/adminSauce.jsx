@@ -428,7 +428,7 @@ export default function AdminSauce() {
   // Fetch sauces
   const fetchSauces = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/sauces`)
+      const response = await fetchWithAuth(`${config.API_URL}/sauces`)
       if (response.ok) {
         const data = await response.json()
         // Convert id to number to ensure proper sorting
@@ -446,7 +446,7 @@ export default function AdminSauce() {
   // Fetch tags
   const fetchTags = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/tags`)
+      const response = await fetchWithAuth(`${config.API_URL}/tags`)
       if (response.ok) {
         const data = await response.json()
         setTags(data)
@@ -640,7 +640,7 @@ export default function AdminSauce() {
       }
 
       // Update the sauce
-      const response = await fetch(`${config.API_URL}/sauces/${id}`, {
+      const response = await fetchWithAuth(`${config.API_URL}/sauces/${id}`, {
         method: "PUT",
         body: formData,
       });

@@ -2,23 +2,17 @@ const fs = require('fs');
 const path = require('path');
 
 // Determine log file paths
-// Use relative path that works in both development and Docker
-// In Docker, /app is mounted with access to logs folder through the volume
-const getLogDir = () => {
-  // Try to resolve the logs directory relative to project root
-  // When running in Docker, __dirname is /app/backend-R&F-Food-Delivery-App
-  // We need to go up to /app and then into logs
-  let baseDir = process.env.LOG_DIR || path.join(__dirname, '../../logs');
-  
-  // If LOG_DIR is set as environment variable, use it directly
-  if (process.env.LOG_DIR) {
-    baseDir = process.env.LOG_DIR;
-  }
-  
-  return baseDir;
-};
+// In Docker: __dirname is /app (from Dockerfile WORKDIR), so logs are at /app/logs
+// Locally: __dirname is like /path/to/backend-R&F-Food-Delivery-App, logs at ../../logs
+// Use explicit check for Docker environment or path detection
+const isDocker = __dirname === '/app' || process.env.DOCKER_ENV === 'true';
+const LOG_DIR = isDocker
+  ? path.join(__dirname, 'logs')  // Docker: /app/logs
+  : path.join(__dirname, '../../logs');  // Local: ../../logs from backend folder
 
-const LOG_DIR = getLogDir();
+console.log(`[LOGGER] Environment: ${isDocker ? 'Docker' : 'Localhost'}`);
+console.log(`[LOGGER] __dirname: ${__dirname}`);
+console.log(`[LOGGER] LOG_DIR: ${LOG_DIR}`);
 const LOG_FILE = path.join(LOG_DIR, 'backend_logs.log');
 const LOG_ERROR_FILE = path.join(LOG_DIR, 'backend_error.log');
 const LOG_FRONTEND_ERROR_FILE = path.join(LOG_DIR, 'frontend_error.log');
@@ -31,7 +25,6 @@ const FRONTEND_ERROR_MAX_LINES = parseInt(process.env.LOG_FRONTEND_ERROR_MAX_LIN
 // Ensure directory exists
 try {
   fs.mkdirSync(LOG_DIR, { recursive: true });
-  // Log initialization with proper directory
   console.log(`[LOGGER] Log directory initialized at: ${LOG_DIR}`);
 } catch (err) {
   console.error(`[LOGGER] Failed to create log directory: ${err.message}`);
@@ -82,16 +75,14 @@ try {
 }
 
 function formatTimestamp(date = new Date()) {
-  // ISO with local time and milliseconds
+  // EU format: dd/mm/yy hh:mm
   const pad = (n, z = 2) => ('' + n).padStart(z, '0');
-  const tz = -date.getTimezoneOffset();
-  const sign = tz >= 0 ? '+' : '-';
-  const tzH = pad(Math.floor(Math.abs(tz) / 60));
-  const tzM = pad(Math.abs(tz) % 60);
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    ` ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)} ${sign}${tzH}:${tzM}`
-  );
+  const day = pad(date.getDate());
+  const month = pad(date.getMonth() + 1);
+  const year = String(date.getFullYear()).slice(-2); // Last 2 digits of year
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 function writeOut() {

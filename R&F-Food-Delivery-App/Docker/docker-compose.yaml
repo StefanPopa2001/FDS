@@ -15,7 +15,7 @@ services:
 
   backend:
     build:
-      context: ../backend-lmi3
+      context: ../backend-R&F-Food-Delivery-App
       dockerfile: Dockerfile
     container_name: backend_container
     restart: always
@@ -25,6 +25,8 @@ services:
       - db
     volumes:
       - backend_uploads:/app/public/uploads
+      # Bind-mount host logs folder so files appear in repository
+      - ../logs:/app/logs
     networks:
       - starcozka-app-network
     labels:
@@ -77,7 +79,7 @@ services:
 
   frontend:
     build:
-      context: ../lmi3
+      context: ../frontend-R&F-Food-Delivery-App
       dockerfile: Dockerfile
     container_name: frontend_container
     restart: always
@@ -112,44 +114,6 @@ services:
       # Service configuration
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    ports:
-      - "5050:80"
-    networks:
-      - starcozka-app-network
-    depends_on:
-      - db
-    labels:
-      - "traefik.enable=true"
-      # PgAdmin for domain (HTTPS)
-      - "traefik.http.routers.pgadmin-secure.rule=Host(`rudyetfanny.be`) && PathPrefix(`/pgadmin`)"
-      - "traefik.http.routers.pgadmin-secure.entrypoints=websecure"
-      - "traefik.http.routers.pgadmin-secure.tls.certresolver=myresolver"
-      - "traefik.http.routers.pgadmin-secure.service=pgadmin"
-      - "traefik.http.routers.pgadmin-secure.middlewares=pgadmin-stripprefix"
-      - "traefik.http.routers.pgadmin-secure.priority=2"
-      # PgAdmin for IP (HTTP)
-      - "traefik.http.routers.pgadmin-ip.rule=Host(`82.25.118.116`) && PathPrefix(`/pgadmin`)"
-      - "traefik.http.routers.pgadmin-ip.entrypoints=web"
-      - "traefik.http.routers.pgadmin-ip.service=pgadmin"
-      - "traefik.http.routers.pgadmin-ip.middlewares=pgadmin-stripprefix"
-      - "traefik.http.routers.pgadmin-ip.priority=2"
-      # PgAdmin for localhost (HTTP)
-      - "traefik.http.routers.pgadmin-local.rule=Host(`localhost`) && PathPrefix(`/pgadmin`)"
-      - "traefik.http.routers.pgadmin-local.entrypoints=web"
-      - "traefik.http.routers.pgadmin-local.service=pgadmin"
-      - "traefik.http.routers.pgadmin-local.middlewares=pgadmin-stripprefix"
-      - "traefik.http.routers.pgadmin-local.priority=2"
-      # Service and middleware configuration
-      - "traefik.http.middlewares.pgadmin-stripprefix.stripprefix.prefixes=/pgadmin"
-      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
 
 networks:
   starcozka-app-network:
@@ -159,4 +123,5 @@ volumes:
   docker_db_data:
   docker_pgadmin_data:
   backend_uploads:
+  # Note: logs are bind-mounted from host (../logs), no named volume needed
 

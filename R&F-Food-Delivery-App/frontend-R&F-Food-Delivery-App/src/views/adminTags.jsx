@@ -337,7 +337,7 @@ export default function AdminTags() {
   // Fetch tags
   const fetchTags = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/tags`)
+      const response = await fetchWithAuth(`${config.API_URL}/tags`)
       const data = await response.json()
       setTags(data)
     } catch (error) {

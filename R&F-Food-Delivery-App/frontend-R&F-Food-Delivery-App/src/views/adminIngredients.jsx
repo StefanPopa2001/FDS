@@ -43,7 +43,7 @@ export default function AdminIngredients() {
   // Fetch ingredients
   const fetchIngredients = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/ingredients`)
+      const response = await fetchWithAuth(`${config.API_URL}/ingredients`)
       if (response.ok) {
         const data = await response.json()
         // Convert id to number to ensure proper sorting

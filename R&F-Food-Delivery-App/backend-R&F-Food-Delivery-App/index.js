@@ -106,7 +106,7 @@ io.on('connection', (socket) => {
       if (user && user.type === 1) {
         adminSockets.set(socket.id, { socket, userId: user.id });
         socket.join('admin-room');
-  logger.info('Admin joined', { socketId: socket.id });
+        logger.info('Admin joined', { socketId: socket.id, userName: user.name, userEmail: user.email });
         // Send confirmation
         socket.emit('admin-connected', { success: true });
       } else {
@@ -127,12 +127,12 @@ io.on('connection', (socket) => {
   // Handle client joining
   socket.on('join-client', async (data) => {
     const { token } = data;
-  logger.info('Client join request', { socketId: socket.id, tokenReceived: !!token });
+    logger.info('Client join request', { socketId: socket.id, tokenReceived: !!token });
     
     try {
       // Verify the JWT token
       const decoded = jwt.verify(token, SECRET_KEY);
-  logger.debug('Token decoded successfully', { userId: decoded.userId });
+      logger.debug('Token decoded successfully', { userId: decoded.userId });
       
       // Check if user exists
       const user = await prisma.user.findUnique({
@@ -142,12 +142,12 @@ io.on('connection', (socket) => {
       if (user) {
         clientSockets.set(socket.id, { socket, userId: user.id });
         socket.join(`user-${user.id}`);
-  logger.info('Client joined successfully', { userId: user.id, email: user.email, room: `user-${user.id}`, totalClientSockets: clientSockets.size });
+        logger.info('Client joined successfully', { userId: user.id, userName: user.name, userEmail: user.email, room: `user-${user.id}`, totalClientSockets: clientSockets.size });
         
         // Send confirmation
         socket.emit('client-connected', { success: true });
       } else {
-  logger.warn('Client join: user not found');
+        logger.warn('Client join: user not found');
         socket.emit('client-connected', { 
           success: false, 
           error: 'User not found' 
@@ -287,7 +287,12 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     // Only log PATCH, DELETE, POST requests, or any request with error status (>=400)
     if (['PATCH', 'DELETE', 'POST'].includes(method) || res.statusCode >= 400) {
-      logger.info('HTTP', { method, url: originalUrl, status: res.statusCode, durationMs: duration, ip });
+      const logData = { method, url: originalUrl, status: res.statusCode, durationMs: duration, ip };
+      // Add user info if authenticated
+      if (req.user && req.user.name) {
+        logData.user = req.user.name;
+      }
+      logger.info('HTTP', logData);
     }
   });
   next();
@@ -344,7 +349,7 @@ app.post('/client-log', async (req, res) => {
 
 // Health endpoint for readiness/liveness checks
 app.get('/health', (req, res) => {
-  logger.debug('Health check');
+  // Don't log health checks - they're too frequent and not actionable
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 

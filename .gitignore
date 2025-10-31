@@ -15,7 +15,7 @@ acme.json
 ## Secrets and environment files
 # Ignore any .env file anywhere
 .env
-
+*.log
 ## Frontend config that contains secrets
 LMI3/lmi3/src/config.js
 

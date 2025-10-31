@@ -19,6 +19,9 @@ acme.json
 ## Frontend config that contains secrets
 LMI3/lmi3/src/config.js
 
+*.gz
+*.sql
+
 node_modules/
 
 ## Logs
